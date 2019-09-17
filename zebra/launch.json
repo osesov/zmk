@@ -1,0 +1,37 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            // "preLaunchTask": "make",
+            "program": "${config:zmk.buildDir}/zebra_mini",
+            "args": [ "--standalone", "http://lets.developonbox.ru/products/ibc2019/zodiac-ref-ui-3/latest/" ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                { "name": "LD_LIBRARY_PATH", "value": "${config:zmk.buildDir}/linux/sysroot/usr/lib" },
+                { "name": "V8_FLAGS", "value": "--noconcurrent_recompilation --noconcurrent_osr --noconcurrent_sweeping --trace-gc-object-stats" },
+                { "name": "DFBARGS", "value": "system=x11,module-dir=${config:zmk.buildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler"},
+                { "name": "SKIA_FONTS", "value": "${workspaceFolder}/../fonts/default"},
+                { "name": "ZEBRA_POLYFILLS_PATH", "value": "${workspaceFolder}/Resources/polyfills"},
+                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" }
+            ],
+
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                // {
+                //     "description": "Enable pretty-printing for gdb",
+                //     "text": "-enable-pretty-printing",
+                //     "ignoreFailures": true
+                // }
+            ],
+        }
+    ]
+}

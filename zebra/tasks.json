@@ -1,0 +1,47 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make",
+            "type": "shell",
+            "command": "bash -c 'reset; ../gnb --no-gen ${config:zmk.config} -- ${config:zmk.target}'",
+            "options": {
+                "cwd": "${config:zmk.buildDir}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [ "$gcc" ]
+        },
+        {
+            "label": "build all",
+            "type": "shell",
+            "command": "./gnb ${config:zmk.config}",
+            "options": {
+                "cwd": "${config:zmk.rootDir}"
+            },
+            "problemMatcher": [ "$gcc" ]
+        },
+        {
+            "label": "rebuild all",
+            "type": "shell",
+            "command": "bash -c './gnb --clean ${config:zmk.config} -- -t list; tools/dev/ccmake.sh ${config:zmk.config}'",
+            "options": {
+                "cwd": "${config:zmk.rootDir}"
+            },
+            "problemMatcher": [ "$gcc" ]
+        },
+        {
+            "label": "Make compile_commands.json",
+            "type": "shell",
+            "options": {
+                "cwd": "${config:zmk.rootDir}"
+            },
+            "command": "bash -c './gnb ${config:zmk.config} -- -t list; tools/dev/ccmake.sh ${config:zmk.config}'",
+            "problemMatcher": [ "$gcc" ]
+        }
+    ]
+}
