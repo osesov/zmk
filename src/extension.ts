@@ -82,10 +82,20 @@ async function loadConfig() {
 	const config = configuration.get("zmk.config");
 
 	const rootDir = await findProjectRoot(workspaceRoot);
-	const buildDir = path.resolve(rootDir, `out.${config}`);
-
 	await configuration.update("zmk.rootDir", rootDir, vscode.ConfigurationTarget.Workspace)
+	
+	const buildDir = path.resolve(rootDir, `out.${config}`);
 	await configuration.update("zmk.buildDir", buildDir, vscode.ConfigurationTarget.Workspace)
+
+	const nfsDir = path.resolve(buildDir, "linux/build_nfs_image/home/zodiac")
+	await configuration.update("zmk.nfsDir", nfsDir, vscode.ConfigurationTarget.Workspace)
+
+	configuration = vscode.workspace.getConfiguration()
+	console.log("zmk.config -> %s", configuration.get("zmk.config"))
+	console.log("zmk.target -> %s", configuration.get("zmk.target"))
+	console.log("zmk.rootDir -> %s", configuration.get("zmk.rootDir"))
+	console.log("zmk.buildDir -> %s", configuration.get("zmk.buildDir"))
+	console.log("zmk.nfsDir -> %s", configuration.get("zmk.nfsDir"))
 }
 
 // this method is called when your extension is activated

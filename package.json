@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"engines": {
 		"vscode": "^1.38.0"
 	},
@@ -16,7 +16,7 @@
 	},
 	"activationEvents": [
 		"*",
-		"onCommand:extension.helloWorld"
+		"onCommand:extension.zmkConfig"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -31,17 +31,17 @@
 			"properties": {
 				"zmk.rootDir": {
 					"type": "string",
-					"default": "<no-root-dir>",
+					"default": "${workspaceFolder}",
 					"description": "zmk root folder."
 				},
 				"zmk.buildDir": {
 					"type": "string",
-					"default": "<no-build-dir>",
+					"default": "${config:zmk.rootDir}/out.${config:zmk.config}",
 					"description": "zmk root folder."
 				},
 				"zmk.config": {
 					"type": "string",
-					"default": "dev",
+					"default": "zodiac-pc_linux-zebra-dev",
 					"description": "zmk config name."
 				},
 				"zmk.target": {
@@ -51,6 +51,14 @@
 					],
 					"default": null,
 					"description": "Ninja target to build."
+				},
+				"zmk.nfsDir": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": "${config:zmk.buildDir}/linux/build_nfs_image/home/zodiac",
+					"description": "root of nfs image"
 				}
 			}
 		}
@@ -66,6 +74,7 @@
 	"devDependencies": {
 		"typescript": "^3.3.1",
 		"vscode": "^1.1.28",
+		"vsce": "^1.66.0",
 		"tslint": "^5.12.1",
 		"@types/node": "^10.12.21",
 		"@types/mocha": "^2.2.42"
