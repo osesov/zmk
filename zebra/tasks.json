@@ -6,9 +6,9 @@
         {
             "label": "make",
             "type": "shell",
-            "command": "bash -c 'reset; ../gnb --no-gen ${config:zmk.config} -- ${config:zmk.target}'",
+            "command": "bash -c 'reset; ../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}'",
             "options": {
-                "cwd": "${config:zmk.buildDir}"
+                "cwd": "${command:extension.zmkGetBuildDir}"
             },
             "group": {
                 "kind": "build",
@@ -19,28 +19,28 @@
         {
             "label": "build all",
             "type": "shell",
-            "command": "./gnb ${config:zmk.config}",
+            "command": "./gnb ${command:extension.zmkGetTargetConfig}",
             "options": {
-                "cwd": "${config:zmk.rootDir}"
+                "cwd": "${command:extension.zmkGetRootDir}"
             },
             "problemMatcher": [ "$gcc" ]
         },
         {
-            "label": "rebuild all",
+            "label": "rebuild",
             "type": "shell",
-            "command": "bash -c './gnb --clean ${config:zmk.config} -- -t list; tools/dev/ccmake.sh ${config:zmk.config}'",
+            "command": "bash -c './gnb --clean ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget} && tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig}'",
             "options": {
-                "cwd": "${config:zmk.rootDir}"
+                "cwd": "${command:extension.zmkGetRootDir}"
             },
             "problemMatcher": [ "$gcc" ]
         },
         {
-            "label": "Make compile_commands.json",
+            "label": "Bootstrap and make compile_commands.json",
             "type": "shell",
             "options": {
-                "cwd": "${config:zmk.rootDir}"
+                "cwd": "${command:extension.zmkGetRootDir}"
             },
-            "command": "bash -c './gnb ${config:zmk.config} -- -t list; tools/dev/ccmake.sh ${config:zmk.config}'",
+            "command": "bash -c './gnb ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}; tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig}'",
             "problemMatcher": [ "$gcc" ]
         }
     ]

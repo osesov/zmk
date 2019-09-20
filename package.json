@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"engines": {
 		"vscode": "^1.38.0"
 	},
@@ -31,12 +31,12 @@
 			"properties": {
 				"zmk.rootDir": {
 					"type": "string",
-					"default": "${workspaceFolder}",
+					"default": null,
 					"description": "zmk root folder."
 				},
 				"zmk.buildDir": {
 					"type": "string",
-					"default": "${config:zmk.rootDir}/out.${config:zmk.config}",
+					"default": null,
 					"description": "zmk root folder."
 				},
 				"zmk.config": {
@@ -57,7 +57,7 @@
 						"string",
 						"null"
 					],
-					"default": "${config:zmk.buildDir}/linux/build_nfs_image/home/zodiac",
+					"default": null,
 					"description": "root of nfs image"
 				}
 			}
@@ -69,7 +69,7 @@
 		"watch": "tsc -watch -p ./",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"test": "npm run compile && node ./node_modules/vscode/bin/test",
-		"package": "vsce package"
+		"package": "npm i && vsce package"
 	},
 	"devDependencies": {
 		"typescript": "^3.3.1",

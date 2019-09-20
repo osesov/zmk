@@ -2,19 +2,15 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-function exists(file: string): Promise<boolean> {
-	return new Promise<boolean>((resolve, _reject) => {
-			fs.exists(file, (value) => {
-					resolve(value);
-			});
-	});
+function exists(file: string): boolean {
+	return fs.existsSync(file);
 }
 
-async function findProjectRoot(p: string) : Promise<string> {
+function findProjectRoot(p: string) : string {
 	while(true) {
 		let file = path.resolve(p, ".gn");
 
-		if (await exists(file)) {
+		if (exists(file)) {
 				return p;
 		}
 		
@@ -28,10 +24,22 @@ async function findProjectRoot(p: string) : Promise<string> {
 	}
 }
 
+function findProjectRootInWorkspace() : string {
+	let configuration = vscode.workspace.getConfiguration();
+
+	const workspaceRoot = vscode.workspace.rootPath;
+	if (workspaceRoot === undefined) {
+		throw Error("no workspaceRoot");
+	}
+
+	return findProjectRoot(workspaceRoot);
+}
+
 async function listConfigs() : Promise<string[]> {
-	const rootDir: string | undefined = vscode.workspace.getConfiguration().get("zmk.rootDir")
-	if (rootDir == undefined)
+	const rootDir: string | undefined = getRootDir();
+	if (rootDir === undefined) {
 		return [];
+	}
 
 	let configDir = path.resolve(rootDir, "configs");
 
@@ -52,67 +60,90 @@ async function listConfigs() : Promise<string[]> {
 }
 
 async function updateConfig() {
-	let configuration = vscode.workspace.getConfiguration()
+	let configuration = vscode.workspace.getConfiguration();
 
 	const quickPick = vscode.window.createQuickPick();
-	const options = await listConfigs()
-	const current = configuration.get('zmk.config')
+	const options = await listConfigs();
+	const current = configuration.get('zmk.config');
 
-	const result = await vscode.window.showQuickPick(options, { canPickMany: false })
+	const result = await vscode.window.showQuickPick(options, { canPickMany: false });
 
-	if (result == undefined) {
-		return
+	if (result === undefined) {
+		return;
 	}
 
-	console.log(`selected: ${result}`)
+	console.log(`selected: ${result}`);
 	vscode.window.showInformationMessage(`Selected: ${result}`);
 
-	const ok = await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace)
-	console.log(`status is ${ok} = ` + configuration.get("zmk.config"))
-	loadConfig()
+	const ok = await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
+	console.log(`status is ${ok} = ` + configuration.get("zmk.config"));
 }
 
-async function loadConfig() {
-	let configuration = vscode.workspace.getConfiguration()
+function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
+	let configuration = vscode.workspace.getConfiguration();
+	const config = configuration.get(setting);
+	let value : string | undefined = undefined;
 
-	const workspaceRoot = vscode.workspace.rootPath
-	if (workspaceRoot == undefined)
-		return;
+	if (config !== undefined && config !== null && config !== "") {
+		value = <string>config;
+	} else if (typeof(defValue) === 'function') {
+		value = defValue(setting);
+	} else {
+		value = defValue;
+	}
 
-	const config = configuration.get("zmk.config");
+	console.log( `get: ${setting} -> ${value}` );
+	return value;
+}
 
-	const rootDir = await findProjectRoot(workspaceRoot);
-	await configuration.update("zmk.rootDir", rootDir, vscode.ConfigurationTarget.Workspace)
-	
-	const buildDir = path.resolve(rootDir, `out.${config}`);
-	await configuration.update("zmk.buildDir", buildDir, vscode.ConfigurationTarget.Workspace)
+function getTargetConfig(): string {
+	return getOrDefault("zmk.config", "zodiac-pc_linux-zebra-dev");
+}
 
-	const nfsDir = path.resolve(buildDir, "linux/build_nfs_image/home/zodiac")
-	await configuration.update("zmk.nfsDir", nfsDir, vscode.ConfigurationTarget.Workspace)
+function getNinjaTarget(): string {
+	return getOrDefault("zmk.target", "");
+}
 
-	configuration = vscode.workspace.getConfiguration()
-	console.log("zmk.config -> %s", configuration.get("zmk.config"))
-	console.log("zmk.target -> %s", configuration.get("zmk.target"))
-	console.log("zmk.rootDir -> %s", configuration.get("zmk.rootDir"))
-	console.log("zmk.buildDir -> %s", configuration.get("zmk.buildDir"))
-	console.log("zmk.nfsDir -> %s", configuration.get("zmk.nfsDir"))
+function getRootDir(): string {
+	return getOrDefault("zmk.rootDir", findProjectRootInWorkspace);
+}
+
+function getBuildDir(): string {
+	return getOrDefault("zmk.buildDir", () => {
+		return path.resolve(getRootDir(), `out.${getTargetConfig()}`);
+	});
+}
+
+function getNfsDir(): string {
+	return getOrDefault("zmk.nfsDir", () => {
+		return path.resolve(getBuildDir(), "linux/build_nfs_image/home/zodiac");
+	});
 }
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	loadConfig();
-
 	console.log('Extension "zmk" is active');
 
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('extension.zmkConfig', () => {
-		updateConfig()
+
+	const commands = [
+		{ label: 'zmkConfig', command: updateConfig },
+		{ label: 'zmkGetTargetConfig', command: getTargetConfig },
+		{ label: 'zmkGetNinjaTarget', command: getNinjaTarget },
+		{ label: 'zmkGetRootDir', command: getRootDir },
+		{ label: 'zmkGetBuildDir', command: getBuildDir },
+		{ label: 'zmkGetNfsDir', command: getNfsDir },
+	];
+
+	commands.forEach( (elem) => {
+		let disposable = vscode.commands.registerCommand(`extension.${elem.label}`, elem.command);
+		context.subscriptions.push(disposable);
 	});
 
-	context.subscriptions.push(disposable);
+	
 }
 
 // this method is called when your extension is deactivated

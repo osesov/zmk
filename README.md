@@ -19,6 +19,16 @@ This extension contributes the following settings:
 * `zmk.rootDir`: root dir of valhalla tree
 * `zmk.buildDir`: buildDir of valhalla target
 
+
+## using dynamic settings
+Externsion turned to use dynamically calculated settings using commands:
+
+* `${command:extension.zmkGetTargetConfig}`
+* `${command:extension.zmkGetNinjaTarget}`
+* `${command:extension.zmkGetRootDir}`
+* `${command:extension.zmkGetBuildDir}`
+* `${command:extension.zmkGetNfsDir}`
+
 ## Known Issues
 
 Calling out known issues can help limit users opening duplicate issues against your extension.

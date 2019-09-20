@@ -1,4 +1,6 @@
 {
+    "zmk.config": "zodiac-pc_linux-zebra-dev",
+    "zmk.target": "components/zebra_mini:nfs",
     "files.associations": {
         "atomic": "cpp",
         "system_error": "cpp",
@@ -72,10 +74,6 @@
         "hash_set": "cpp",
         "complex": "cpp",
         "typeindex": "cpp"
-    },
- 
-    "zmk.config": "zodiac-pc_linux-zebra-dev",
-    "zmk.target": "components/zebra_mini:nfs",
-    "zmk.rootDir": "/home/osesov/zodiac/valhalla",
-    "zmk.buildDir": "/home/osesov/zodiac/valhalla/out.zodiac-pc_linux-zebra-dev"
+    }
 }
+
