@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { QuickPickItem } from 'vscode';
 
 function exists(file: string): boolean {
 	return fs.existsSync(file);
@@ -13,7 +14,7 @@ function findProjectRoot(p: string) : string {
 		if (exists(file)) {
 				return p;
 		}
-		
+
 		let n = path.dirname(p);
 
 		if (p === n) {
@@ -54,9 +55,27 @@ async function listConfigs() : Promise<string[]> {
 							}
 					});
 
-					resolve(result);        
+					resolve(result);
 			});
 	});
+}
+
+async function showCurrentConfig() {
+	let configuration = vscode.workspace.getConfiguration();
+
+	const currentConfig = configuration.get('zmk.config');
+	const currentTarget = configuration.get('zmk.target');
+
+	vscode.window.showInformationMessage(`Config: ${currentConfig},`);
+	vscode.window.showInformationMessage(`Target: ${currentTarget}`);
+}
+
+class ConfigItem implements QuickPickItem {
+	label: string;
+
+	constructor(label: string) {
+		this.label = label;
+	}
 }
 
 async function updateConfig() {
@@ -66,17 +85,26 @@ async function updateConfig() {
 	const options = await listConfigs();
 	const current = configuration.get('zmk.config');
 
-	const result = await vscode.window.showQuickPick(options, { canPickMany: false });
 
-	if (result === undefined) {
-		return;
-	}
+	const pick = vscode.window.createQuickPick<ConfigItem>();
+	pick.placeholder = "type gnb config name here";
+	pick.items = options.map( label => new ConfigItem(label));
+	pick.activeItems = pick.items.filter( item => item.label === current );
+	pick.onDidAccept( async item => {
+		if (pick.selectedItems.length !== 1) {
+			return;
+		}
 
-	console.log(`selected: ${result}`);
-	vscode.window.showInformationMessage(`Selected: ${result}`);
+		const result = pick.selectedItems[0].label;
 
-	const ok = await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
-	console.log(`status is ${ok} = ` + configuration.get("zmk.config"));
+		console.log(`Selected ${result}`);
+		vscode.window.showInformationMessage(`Selected: ${result}`);
+
+		await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
+		console.log(`new config is ${configuration.get("zmk.config")}`);
+	});
+
+	pick.show();
 }
 
 function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
@@ -136,6 +164,7 @@ export function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmkGetRootDir', command: getRootDir },
 		{ label: 'zmkGetBuildDir', command: getBuildDir },
 		{ label: 'zmkGetNfsDir', command: getNfsDir },
+		{ label: 'showCurrentZmkConfig', command: showCurrentConfig}
 	];
 
 	commands.forEach( (elem) => {
@@ -143,7 +172,6 @@ export function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(disposable);
 	});
 
-	
 }
 
 // this method is called when your extension is deactivated
