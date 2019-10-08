@@ -102,6 +102,8 @@ async function updateConfig() {
 
 		await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
 		console.log(`new config is ${configuration.get("zmk.config")}`);
+
+		pick.dispose();
 	});
 
 	pick.show();
