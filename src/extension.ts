@@ -90,20 +90,20 @@ async function updateConfig() {
 	pick.placeholder = "type gnb config name here";
 	pick.items = options.map( label => new ConfigItem(label));
 	pick.activeItems = pick.items.filter( item => item.label === current );
-	pick.onDidAccept( async item => {
+	pick.onDidAccept( async () => {
 		if (pick.selectedItems.length !== 1) {
+			pick.dispose();
 			return;
 		}
 
 		const result = pick.selectedItems[0].label;
+		pick.dispose();
 
 		console.log(`Selected ${result}`);
 		vscode.window.showInformationMessage(`Selected: ${result}`);
 
 		await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
 		console.log(`new config is ${configuration.get("zmk.config")}`);
-
-		pick.dispose();
 	});
 
 	pick.show();
