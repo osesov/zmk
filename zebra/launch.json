@@ -20,7 +20,8 @@
                 { "name": "DFBARGS", "value": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler" },
                 { "name": "SKIA_FONTS", "value": "${command:extension.zmkGetNfsDir}/fonts" },
                 { "name": "ZEBRA_POLYFILLS_PATH", "value": "${command:extension.zmkGetNfsDir}/polyfills" },
-                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" }
+                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" },
+                { "name": "ZEBRA_KEYS_CONFIG_PATH", "value": "${workspaceFolder}/configs/charter/sow182/keys_config.json"}
             ],
             "externalConsole": false,
             "MIMode": "gdb",

@@ -6,7 +6,7 @@
         {
             "label": "make",
             "type": "shell",
-            "command": "bash -c 'reset; ../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}'",
+            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}",
             "options": {
                 "cwd": "${command:extension.zmkGetBuildDir}"
             },
@@ -14,7 +14,15 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [ "$gcc" ]
+            "problemMatcher": [ "$gcc" ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            }
         },
         {
             "label": "build all",
@@ -41,7 +49,15 @@
                 "cwd": "${command:extension.zmkGetRootDir}"
             },
             "command": "bash -c './gnb ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}; tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig}'",
-            "problemMatcher": [ "$gcc" ]
+            "problemMatcher": [ "$gcc" ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            }
         }
     ]
 }
