@@ -150,6 +150,18 @@ function getNfsDir(): string {
 	});
 }
 
+function getCurrentFile(): string {
+	let editor = vscode.window.activeTextEditor;
+	if (editor === undefined) {
+		return "";
+	}
+
+	let currentFile = editor.document.fileName;
+
+	let currentFileRelative = path.relative( getBuildDir(), currentFile);
+	return currentFileRelative;
+}
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -166,6 +178,7 @@ export function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmkGetRootDir', command: getRootDir },
 		{ label: 'zmkGetBuildDir', command: getBuildDir },
 		{ label: 'zmkGetNfsDir', command: getNfsDir },
+		{ label: 'zmkGetCurrentFile', command: getCurrentFile },
 		{ label: 'showCurrentZmkConfig', command: showCurrentConfig}
 	];
 
