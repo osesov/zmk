@@ -14,7 +14,10 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [ "$gcc" ],
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -31,11 +34,10 @@
             "options": {
                 "cwd": "${command:extension.zmkGetBuildDir}"
             },
-            "group": {
-                "kind": "build",
-                "isDefault": true
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
             },
-            "problemMatcher": [ "$gcc" ],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -52,7 +54,10 @@
             "options": {
                 "cwd": "${command:extension.zmkGetRootDir}"
             },
-            "problemMatcher": [ "$gcc" ]
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
         },
         {
             "label": "rebuild",
@@ -61,7 +66,10 @@
             "options": {
                 "cwd": "${command:extension.zmkGetRootDir}"
             },
-            "problemMatcher": [ "$gcc" ]
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
         },
         {
             "label": "Bootstrap and make compile_commands.json",
@@ -70,7 +78,30 @@
                 "cwd": "${command:extension.zmkGetRootDir}"
             },
             "command": "bash -c './gnb ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}; tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig}'",
-            "problemMatcher": [ "$gcc" ],
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": true
+            }
+        },
+        {
+            "label": "Generate compile_commands.json",
+            "type": "shell",
+            "options": {
+                "cwd": "${command:extension.zmkGetRootDir}"
+            },
+            "command": "bash -c 'tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig} && mv compile_commands.json \"${command:extension.zmkGetBuildDir}\"'",
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",

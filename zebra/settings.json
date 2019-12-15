@@ -1,6 +1,10 @@
 {
+    // "zmk.config": "zodiac-pc_linux-unit_tests-dev",
     "zmk.config": "zodiac-pc_linux-zebra-dev",
     "zmk.target": "components/zebra_mini:nfs",
+    "zmk.excludeBundles": [
+        "zebra_mini", "gst_player"
+    ],
     "files.associations": {
         "atomic": "cpp",
         "system_error": "cpp",

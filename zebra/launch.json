@@ -5,23 +5,102 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch",
+            "name": "gdb - remote",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:extension.zmkGetBuildDir}/zebra_mini",
+            "miDebuggerServerAddress": "172.17.0.2:9999",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${command:extension.zmkGetBuildDir}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "-gdb-set sysroot target:/",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "-gdb-set solib-search-path target:${command:extension.zmkGetBuildDir}/linux/symbols/dbg",
+                    "ignoreFailures": true
+                },
+            ]
+        },
+        {
+            "name": "gdb - local",
             "type": "cppdbg",
             "request": "launch",
             // "preLaunchTask": "make",
+            "miDebuggerPath": "/usr/bin/gdb",
             "program": "${command:extension.zmkGetBuildDir}/zebra_mini",
             // "args": [ "--standalone", "http://lets.developonbox.ru/products/ibc2019/zodiac-ref-ui-3/latest/" ],
-            "args": [ "--standalone", "file://${workspaceFolder}/zebra_index.html" ],
+            // "args": [ "--standalone", "file://${workspaceFolder}/zebra_index.html" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/tests/keypress/" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/customers/metrological/2019-10-07/" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/customers/metrological/2019-09-25/" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/customers/metrological/load-test/fetch-big.html" ],
+            // "args": [ "--standalone", "file://${workspaceFolder}/.vscode/run/lets.developonbox.ru/customers/metrological/load-test/fetch-big.html" ],
+            // "args": [ "--standalone", "file://${workspaceFolder}/.vscode/run/index.html" ],
+            // "args": [ "--standalone", "http://cdn.metrological.com/static/charter/es5_v11/index.html" ],
+            // "args": [ "--standalone", "http://localhost:8000/cdn.metrological.com/static/charter/es5_v07/index.html" ],
+            "args": [ "--standalone", "https://widgets.metrological.com/lightning/charter/cd0f9db10ae2b516ba005a98d99411ef" ],
+            // "args": [ "--standalone", "http://localhost:8000/mt/widgets.metrological.com/lightning/charter/cd0f9db10ae2b516ba005a98d99411ef.html" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/products/ibc2019/charter-spectrum-ui/latest/" ],
+            "stopAtEntry": false,
+            "cwd": "${command:extension.zmkGetBuildDir}",
+            "environment": [
+                { "name": "LD_LIBRARY_PATH", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib" },
+                // { "name": "V8_FLAGS", "value": "--max-old-space-size=128 --max-semi-space-size=1" },
+                // { "name": "V8_FLAGS", "value": "--max-old-space-size=128 --max-semi-space-size=1 --single-threaded --single-threaded-gc" },
+                // { "name": "V8_FLAGS", "value": "--help" },
+                // { "name": "V8_FLAGS", "value": "--noconcurrent_recompilation --noconcurrent_osr --noconcurrent_sweeping" },
+                { "name": "LOG_LEVEL", "value": "3" },
+                { "name": "DFBARGS", "value": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler" },
+                { "name": "SKIA_FONTS", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts" },
+                { "name": "ZEBRA_POLYFILLS_PATH", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills" },
+                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" },
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "gdb - unit test",
+            "type": "cppdbg",
+            "request": "launch",
+            // "preLaunchTask": "make",
+            "program": "${command:extension.zmkGetRootDir}/out.zodiac-pc_linux-unit_tests-dev/units-zebra_mini-webplatform-location",
+            // "args": [ "--standalone", "http://lets.developonbox.ru/products/ibc2019/zodiac-ref-ui-3/latest/" ],
+            // "args": [ "--standalone", "file://${workspaceFolder}/zebra_index.html" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/tests/keypress/" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/customers/metrological/2019-10-07/" ],
+            // "args": [ "--standalone", "http://lets.developonbox.ru/customers/metrological/2019-09-25/" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                { "name": "LD_LIBRARY_PATH", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib" },
-                { "name": "V8_FLAGS", "value": "--noconcurrent_recompilation --noconcurrent_osr --noconcurrent_sweeping --trace-gc-object-stats --max_old_space_size 4" },
+                { "name": "LD_LIBRARY_PATH", "value": "${command:extension.zmkGetRootDir}/out.zodiac-pc_linux-unit_tests-dev/linux/sysroot/usr/lib" },
+
+                // { "name": "V8_FLAGS", "value": "--max-old-space-size=128 --max-semi-space-size=1" },
+                // { "name": "V8_FLAGS", "value": "--max-old-space-size=128 --max-semi-space-size=1 --single-threaded --single-threaded-gc" },
+                // { "name": "V8_FLAGS", "value": "--help" },
+                // { "name": "V8_FLAGS", "value": "--noconcurrent_recompilation --noconcurrent_osr --noconcurrent_sweeping" },
                 { "name": "DFBARGS", "value": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler" },
                 { "name": "SKIA_FONTS", "value": "${command:extension.zmkGetNfsDir}/fonts" },
                 { "name": "ZEBRA_POLYFILLS_PATH", "value": "${command:extension.zmkGetNfsDir}/polyfills" },
                 { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" },
-                { "name": "ZEBRA_KEYS_CONFIG_PATH", "value": "${workspaceFolder}/configs/charter/sow182/keys_config.json"}
             ],
             "externalConsole": false,
             "MIMode": "gdb",

@@ -162,6 +162,71 @@ function getCurrentFile(): string {
 	return currentFileRelative;
 }
 
+// update c_cpp_properties.json file
+
+function zmkUpdateBundlesInclude() {
+	const workspaceRoot = vscode.workspace.rootPath;
+	if (workspaceRoot === undefined) {
+		throw Error("no workspaceRoot");
+	}
+
+	const configuration = vscode.workspace.getConfiguration();
+	const skipBundles : Array<string> = configuration.get("zmk.excludeBundles") || [];
+	var configFileName  = path.resolve(workspaceRoot, ".vscode", "c_cpp_properties.json");
+
+	if (!fs.existsSync(configFileName))
+		return;
+
+	var fileData = fs.readFileSync(configFileName, 'utf8');
+	var configData = JSON.parse(fileData);
+	const bundleSuffix = path.join("linux", "bundles");
+
+	var bundleDir = path.resolve(getBuildDir(), bundleSuffix);
+
+	var includes = fs.readdirSync(bundleDir, { withFileTypes: true })
+		.filter(item => item.isDirectory())
+		.filter(item => !!skipBundles.indexOf(item.name))
+		.filter(item => {
+			var includeDir = path.resolve(bundleDir, item.name, "include");
+			return fs.existsSync(includeDir) && fs.statSync(includeDir).isDirectory();
+		})
+		.map( item =>
+			path.join("${command:extension.zmkGetBuildDir}", bundleSuffix, item.name, "include" ))
+		;
+
+	if (configData && Array.isArray(configData.configurations)) {
+
+		configData.configurations.forEach((config : any, index : number) => {
+			var includePath : Array<string> = config["includePath"];
+			if (!includePath) {
+				return;
+			}
+
+			var otherIncludes = includePath.filter((item) =>
+				!item.startsWith("${command:extension.zmkGetBuildDir}")
+			);
+
+			if (otherIncludes.length == includePath.length) {
+				return;
+			}
+
+			var newIncludePath = otherIncludes.concat(includes);
+			console.log(newIncludePath);
+
+			configData.configurations[index]["includePath"] = newIncludePath;
+		});
+
+		var newConfigData = JSON.stringify(configData, null, 4);
+
+		var oldFileName = configFileName + ".old";
+		if (!fs.existsSync(oldFileName)) {
+			fs.renameSync(configFileName, oldFileName);
+		}
+		fs.writeFileSync(configFileName, newConfigData, 'utf8');
+	}
+
+}
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -179,7 +244,8 @@ export function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmkGetBuildDir', command: getBuildDir },
 		{ label: 'zmkGetNfsDir', command: getNfsDir },
 		{ label: 'zmkGetCurrentFile', command: getCurrentFile },
-		{ label: 'showCurrentZmkConfig', command: showCurrentConfig}
+		{ label: 'showCurrentZmkConfig', command: showCurrentConfig},
+		{ label: 'zmkUpdateBundlesInclude', command: zmkUpdateBundlesInclude }
 	];
 
 	commands.forEach( (elem) => {

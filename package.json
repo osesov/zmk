@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"engines": {
 		"vscode": "^1.38.0"
 	},
@@ -27,7 +27,11 @@
 			},
 			{
 				"command": "extension.showCurrentZmkConfig",
-				"title": "ZMK: show current gnb and ninja targets"
+				"title": "ZMK: Show current gnb and ninja targets"
+			},
+			{
+				"command": "extension.zmkUpdateBundlesInclude",
+				"title": "ZMK: Update bundles Include Paths"
 			}
 		],
 		"configuration": {
@@ -63,6 +67,15 @@
 					],
 					"default": null,
 					"description": "root of nfs image"
+				},
+				"zmk.excludeBundles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"title": "bundle name to exclude"
+					},
+					"default": [],
+					"description": "List of bundles to exclude"
 				}
 			}
 		}
