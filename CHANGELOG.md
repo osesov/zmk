@@ -4,6 +4,15 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.1.0
+
+- Export zmk variables as env:zmk.XXX  for c_cpp_properties.json.
+  In particular that allows zmk-generated paths to be used in compileCommands path, like that:
+
+        "compileCommands": "${env:zmk.buildDir}/compile_commands.json"
+
+- Allow to show generated c_cpp_properties.json as virtual doc
+
 ## 1.0.6
 - command: zmkUpdateBundlesInclude. Command allows to update c_cpp_properties.json, replacing     adding bundles include paths.
   Note that only these configurations are updated, which already refer path, starting from
