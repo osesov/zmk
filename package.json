@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.0.6",
+	"version": "1.1.0",
 	"engines": {
 		"vscode": "^1.38.0"
 	},

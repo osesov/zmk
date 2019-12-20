@@ -98,9 +98,9 @@
                 // { "name": "V8_FLAGS", "value": "--help" },
                 // { "name": "V8_FLAGS", "value": "--noconcurrent_recompilation --noconcurrent_osr --noconcurrent_sweeping" },
                 { "name": "DFBARGS", "value": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler" },
-                { "name": "SKIA_FONTS", "value": "${command:extension.zmkGetNfsDir}/fonts" },
-                { "name": "ZEBRA_POLYFILLS_PATH", "value": "${command:extension.zmkGetNfsDir}/polyfills" },
-                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" },
+                { "name": "SKIA_FONTS", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts" },
+                { "name": "ZEBRA_POLYFILLS_PATH", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills" },
+                { "name": "ZEBRA_DEBUG", "value": "!IMAGE_DRAW" }
             ],
             "externalConsole": false,
             "MIMode": "gdb",

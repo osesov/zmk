@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { QuickPickItem } from 'vscode';
+import { URL } from 'url';
+
+const zmkDocumentScheme = 'zmkdoc';
 
 function exists(file: string): boolean {
 	return fs.existsSync(file);
@@ -23,6 +26,11 @@ function findProjectRoot(p: string) : string {
 				p = n;
 		}
 	}
+}
+
+function hasWorkspace(): boolean {
+	const workspaceRoot = vscode.workspace.rootPath;
+	return workspaceRoot !== undefined;
 }
 
 function findProjectRootInWorkspace() : string {
@@ -162,6 +170,39 @@ function getCurrentFile(): string {
 	return currentFileRelative;
 }
 
+//
+// function exports zmk settings to environment, since cpptools has no support for ${command:extension.xxx}
+// instead in c_cpp_properties use %{env:xxx}
+//
+function updateCurrentEnvironment()
+{
+	const values : { [key:string]: () => string } = {
+		'zmk.config': getTargetConfig,
+		'zmk.target': getNinjaTarget,
+		'zmk.rootDir': getRootDir,
+		'zmk.buildDir': getBuildDir,
+		'zmk.nfsDir': getNfsDir
+	};
+
+	var item;
+	if (!hasWorkspace()) {
+		Object.keys(values)
+		.forEach( item => delete process.env[item]);
+		return;
+	}
+
+	for (item in values) {
+		const value = values[item]();
+		if (!value) {
+			delete process.env[item];
+		}
+		else
+		{
+			process.env[item] = value;
+		}
+	}
+}
+
 // update c_cpp_properties.json file
 
 function zmkUpdateBundlesInclude() {
@@ -174,8 +215,9 @@ function zmkUpdateBundlesInclude() {
 	const skipBundles : Array<string> = configuration.get("zmk.excludeBundles") || [];
 	var configFileName  = path.resolve(workspaceRoot, ".vscode", "c_cpp_properties.json");
 
-	if (!fs.existsSync(configFileName))
+	if (!fs.existsSync(configFileName)) {
 		return;
+	}
 
 	var fileData = fs.readFileSync(configFileName, 'utf8');
 	var configData = JSON.parse(fileData);
@@ -218,11 +260,35 @@ function zmkUpdateBundlesInclude() {
 
 		var newConfigData = JSON.stringify(configData, null, 4);
 
-		var oldFileName = configFileName + ".old";
-		if (!fs.existsSync(oldFileName)) {
-			fs.renameSync(configFileName, oldFileName);
-		}
-		fs.writeFileSync(configFileName, newConfigData, 'utf8');
+		const Ok = "Ok";
+		const ShowConfig = "Show new config";
+		const Cancel = "Cancel";
+
+		vscode.window
+		.showWarningMessage("Override 'c_cpp_properties.json' file? This would lose comments if any.", Ok, ShowConfig, Cancel)
+		.then( (outcome) => {
+			console.log(outcome);
+
+			switch(outcome) {
+				case Ok:
+					var oldFileName = configFileName + ".old";
+					if (!fs.existsSync(oldFileName)) {
+						fs.renameSync(configFileName, oldFileName);
+					}
+					fs.writeFileSync(configFileName, newConfigData, 'utf8');
+					break;
+				case ShowConfig:
+					let uri = vscode.Uri.parse(zmkDocumentScheme + ":Virtual document: c_cpp_properties.json?" + newConfigData);
+					vscode.workspace.openTextDocument(uri)
+					.then( (doc) =>
+						vscode.window.showTextDocument(doc),
+					(error) =>
+						console.log(error)
+					);
+					break;
+
+			}
+		});
 	}
 
 }
@@ -253,6 +319,23 @@ export function activate(context: vscode.ExtensionContext) {
 		context.subscriptions.push(disposable);
 	});
 
+	// register a content provider for the config document
+
+	const myProvider = new class implements vscode.TextDocumentContentProvider {
+
+		// emitter and its event
+		onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
+		onDidChange = this.onDidChangeEmitter.event;
+
+		provideTextDocumentContent(uri: vscode.Uri): string {
+			return uri.query;
+		}
+	};
+
+	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(zmkDocumentScheme, myProvider));
+
+	vscode.workspace.onDidChangeConfiguration(() => updateCurrentEnvironment() );
+	updateCurrentEnvironment();
 }
 
 // this method is called when your extension is deactivated

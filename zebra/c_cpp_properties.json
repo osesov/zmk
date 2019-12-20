@@ -80,7 +80,7 @@
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "clang-x64",
-            "compileCommands": "${command:extension.zmkGetBuildDir}/compile_commands.json"
+            "compileCommands": "${env:zmk.buildDir}/compile_commands.json"
         }
     ],
     "version": 4

@@ -77,7 +77,7 @@
             "options": {
                 "cwd": "${command:extension.zmkGetRootDir}"
             },
-            "command": "bash -c './gnb ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}; tools/dev/ccmake.sh ${command:extension.zmkGetTargetConfig}'",
+            "command": "./gnb ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}",
             "problemMatcher": {
                 "base": "$gcc",
                 "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
