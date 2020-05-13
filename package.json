@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"engines": {
 		"vscode": "^1.38.0"
 	},
@@ -46,6 +46,10 @@
 					"type": "string",
 					"default": null,
 					"description": "zmk root folder."
+				},
+				"zmk.bundleDir": {
+					"type": "string",
+					"description": "zmk bundle folder location"
 				},
 				"zmk.config": {
 					"type": "string",

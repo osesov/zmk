@@ -17,8 +17,8 @@ This extension contributes the following settings:
 * `zmk.target`: build target, to be used in vscode files
 * `zmk.config`: build config
 * `zmk.rootDir`: root dir of valhalla tree
-* `zmk.buildDir`: buildDir of valhalla target
-
+* `zmk.buildDir`: build dir of valhalla target
+* `zmk.bundleDir`: bundle dir
 
 ## using dynamic settings
 Externsion turned to use dynamically calculated settings using commands:

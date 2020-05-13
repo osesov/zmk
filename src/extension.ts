@@ -74,7 +74,7 @@ async function showCurrentConfig() {
 	const currentConfig = configuration.get('zmk.config');
 	const currentTarget = configuration.get('zmk.target');
 
-	vscode.window.showInformationMessage(`Config: ${currentConfig},`);
+	vscode.window.showInformationMessage(`Config: ${currentConfig}`);
 	vscode.window.showInformationMessage(`Target: ${currentTarget}`);
 }
 
@@ -152,6 +152,12 @@ function getBuildDir(): string {
 	});
 }
 
+function getBundleDir(): string {
+	return getOrDefault("zmk.bundleDir", () => {
+		return path.resolve(getBuildDir(), "linux", "bundles");
+	});
+}
+
 function getNfsDir(): string {
 	return getOrDefault("zmk.nfsDir", () => {
 		return path.resolve(getBuildDir(), "linux/build_nfs_image/home/zodiac");
@@ -181,7 +187,8 @@ function updateCurrentEnvironment()
 		'zmk.target': getNinjaTarget,
 		'zmk.rootDir': getRootDir,
 		'zmk.buildDir': getBuildDir,
-		'zmk.nfsDir': getNfsDir
+		'zmk.nfsDir': getNfsDir,
+		'zmk.bundleDir': getBundleDir,
 	};
 
 	var item;
@@ -221,9 +228,8 @@ function zmkUpdateBundlesInclude() {
 
 	var fileData = fs.readFileSync(configFileName, 'utf8');
 	var configData = JSON.parse(fileData);
-	const bundleSuffix = path.join("linux", "bundles");
 
-	var bundleDir = path.resolve(getBuildDir(), bundleSuffix);
+	var bundleDir = getBundleDir();
 
 	var includes = fs.readdirSync(bundleDir, { withFileTypes: true })
 		.filter(item => item.isDirectory())
@@ -233,7 +239,7 @@ function zmkUpdateBundlesInclude() {
 			return fs.existsSync(includeDir) && fs.statSync(includeDir).isDirectory();
 		})
 		.map( item =>
-			path.join("${command:extension.zmkGetBuildDir}", bundleSuffix, item.name, "include" ))
+			path.join("${env:zmk.bundleDir}", item.name, "include" ))
 		;
 
 	if (configData && Array.isArray(configData.configurations)) {
@@ -245,12 +251,8 @@ function zmkUpdateBundlesInclude() {
 			}
 
 			var otherIncludes = includePath.filter((item) =>
-				!item.startsWith("${command:extension.zmkGetBuildDir}")
+				!item.startsWith("${env:zmk.bundleDir}")
 			);
-
-			if (otherIncludes.length == includePath.length) {
-				return;
-			}
 
 			var newIncludePath = otherIncludes.concat(includes);
 			console.log(newIncludePath);
