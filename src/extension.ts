@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { QuickPickItem } from 'vscode';
+import { QuickPickItem, TextEditor, TextEditorEdit } from 'vscode';
 import { URL } from 'url';
 
 const zmkDocumentScheme = 'zmkdoc';
@@ -295,6 +295,190 @@ function zmkUpdateBundlesInclude() {
 
 }
 
+type Comment = { begin:string, end:string, prefix: string };
+
+function comment(b: string, i: string, e: string) : Comment
+{
+	var c: Comment = {
+		begin: b, prefix: i, end: e
+	};
+
+	return c;
+}
+const languages : { [key:string]: Comment } = {
+	'cpp': comment("/*", " *", "*/"),
+};
+
+function formatDate(date: Date) {
+    var month = '' + (date.getMonth() + 1);
+    var day = '' + date.getDate();
+    var year = date.getFullYear();
+
+    if (month.length < 2) {
+		month = '0' + month;
+	}
+
+    if (day.length < 2) {
+		day = '0' + day;
+	}
+
+    return [year, month, day].join('-');
+}
+
+function escapeRegexpSpecials(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+function matchCopyrightComment(doc: vscode.TextDocument) : vscode.Range | null {
+
+	/* first comment and check if word "copyright" is here */
+	const commentPattern = new RegExp("[ \t]*/[*]((?:[^*]|[*][^/])*)[*]/[ \t]*[\n]?|(?:[ \t]*//[^\\n]+[\\n])+", "g");
+	const copyrightPattern = new RegExp("copyright|mozilla public|public domain", "i");
+
+	const text = doc.getText();
+	const match = commentPattern.exec(text);
+
+	if (!match) {
+		return null;
+	}
+
+	const matchedComment = match[0];
+
+	if (!copyrightPattern.test(matchedComment)) {
+		return null;
+	}
+
+	const matchBegin = match.index;
+	const matchEnd = match.index + match[0].length;
+
+	const b = doc.positionAt(matchBegin);
+	const e = doc.positionAt(matchEnd);
+
+	if (b.line >= 50) { // comment should start in the first 50 lines
+		return null;
+	}
+
+	return new vscode.Range(b, e);
+}
+
+function findInsertionPoint(doc: vscode.TextDocument) : vscode.Position | null
+{
+	const re = new RegExp(
+		"^([ \\t]*#[ \\t]*ifndef.*[\\n][ \\t]*#[ \\t]*define.*\\n)|([ \\t]*#[ \\t]pragma[ \\t]+once[ \\t]*[\\n])", "g");
+
+	const match = re.exec(doc.getText());
+	if (!match) {
+		return null;
+	}
+
+	return doc.positionAt(match.index + match[0].length);
+}
+
+function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
+	const defaultComment = [
+		"Copyright (C) @YEAR@ Zodiac Systems Inc",
+		"",
+		"@developer @DEVELOPER@",
+		"",
+		"Proprietary and Confidential.",
+		"Unauthorized distribution or copying is prohibited.",
+		"All rights reserved.",
+		"",
+		"No part of this computer software may be reprinted, reproduced or utilized",
+		"in any form or by any electronic, mechanical, or other means, now known or",
+		"hereafter invented, including photocopying and recording, or using any",
+		"information storage and retrieval system, without permission in writing",
+		"from Zodiac Systems Inc.",
+	].join('\n');
+
+	var lang_id = editor.document.languageId;
+	if (lang_id !== "cpp") {
+		vscode.window.showWarningMessage("Language is not supported");
+		return;
+	}
+
+	const comment = languages[lang_id];
+	if (!comment) {
+		vscode.window.showWarningMessage("Unknown document language");
+		return;
+	}
+
+	const developer = getOrDefault("zmk.developer", "");
+	const template = getOrDefault("zmk.copyrightComment", defaultComment);
+	const date = new Date();
+	const currentYear = date.getFullYear().toString();
+	const currentDate = formatDate(date);
+
+	const document = editor.document;
+	const range = matchCopyrightComment(document);
+
+	var commentText = template
+		.replace("@DEVELOPER@", developer)
+		.replace("@YEAR@", currentYear)
+		.replace("@DATE@", currentDate)
+		;
+
+	var lines = "/*\n"
+		+ commentText
+			.split('\n')
+			.map( line => (line.length === 0 ? ' *' : ` * ${line}`) )
+			.join('\n')
+			+ "\n"
+		+ " */\n";
+
+	if (range !== null) {
+		edit.replace(range, lines);
+	}
+	else {
+		var position = findInsertionPoint(document);
+		if (position === null) {
+			position = new vscode.Position(0,0);
+		}
+		else {
+			const textLine = document.lineAt(position.line);
+
+			if (textLine.isEmptyOrWhitespace) {
+				lines = "\n" + lines;
+			} else {
+				lines = "\n" + lines + "\n";
+			}
+		}
+
+		edit.insert(position, lines);
+	}
+}
+
+var askCopyrightHeader = true;
+
+function checkCopyrightHeader(document: vscode.TextDocument)
+{
+	if (!askCopyrightHeader) {
+		return;
+	}
+
+	var lang_id = document.languageId;
+
+	if (lang_id !== "cpp") {
+		return;
+	}
+
+	if (matchCopyrightComment(document) !== null) {
+		return;
+	}
+
+	const ok = "Ok";
+	const no_ask = "Do not ask"
+	vscode.window.showWarningMessage("Document has no Copyright header, insert?", ok, no_ask)
+		.then( action => {
+			if (action === ok) {
+				vscode.commands.executeCommand("extension.zmkUpdateCopyright");
+			}
+			else if (action === no_ask) {
+				askCopyrightHeader = false;
+			}
+		});
+}
+
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -316,10 +500,20 @@ export function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmkUpdateBundlesInclude', command: zmkUpdateBundlesInclude }
 	];
 
+	const textCommands = [
+		{ label: 'zmkUpdateCopyright', command: zmkUpdateCopyright }
+	];
+
 	commands.forEach( (elem) => {
 		let disposable = vscode.commands.registerCommand(`extension.${elem.label}`, elem.command);
 		context.subscriptions.push(disposable);
 	});
+
+	textCommands.forEach( (elem) => {
+		let disposable = vscode.commands.registerTextEditorCommand(`extension.${elem.label}`, elem.command);
+		context.subscriptions.push(disposable);
+	});
+
 
 	// register a content provider for the config document
 
@@ -338,6 +532,8 @@ export function activate(context: vscode.ExtensionContext) {
 
 	vscode.workspace.onDidChangeConfiguration(() => updateCurrentEnvironment() );
 	updateCurrentEnvironment();
+
+	// vscode.workspace.onDidOpenTextDocument( (e) => checkCopyrightHeader(e) );
 }
 
 // this method is called when your extension is deactivated
