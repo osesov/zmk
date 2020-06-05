@@ -363,8 +363,12 @@ function matchCopyrightComment(doc: vscode.TextDocument) : vscode.Range | null {
 
 function findInsertionPoint(doc: vscode.TextDocument) : vscode.Position | null
 {
+	// it seems better to insert licence at the very beginning
+	return null;
+
+/*
 	const re = new RegExp(
-		"^([ \\t]*#[ \\t]*ifndef.*[\\n][ \\t]*#[ \\t]*define.*\\n)|([ \\t]*#[ \\t]pragma[ \\t]+once[ \\t]*[\\n])", "g");
+		"^([ \\t]*#[ \\t]*ifndef.*[\\n][ \\t]*#[ \\t]*define.*\\n)", "g");
 
 	const match = re.exec(doc.getText());
 	if (!match) {
@@ -372,6 +376,7 @@ function findInsertionPoint(doc: vscode.TextDocument) : vscode.Position | null
 	}
 
 	return doc.positionAt(match.index + match[0].length);
+*/
 }
 
 function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
@@ -434,14 +439,15 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 		if (position === null) {
 			position = new vscode.Position(0,0);
 		}
-		else {
-			const textLine = document.lineAt(position.line);
 
-			if (textLine.isEmptyOrWhitespace) {
-				lines = "\n" + lines;
-			} else {
-				lines = "\n" + lines + "\n";
-			}
+		const textLine = document.lineAt(position.line);
+
+		if (position.line > 0) {
+			lines = "\n" + lines;
+		}
+
+		if (!textLine.isEmptyOrWhitespace) {
+			lines = lines + "\n";
 		}
 
 		edit.insert(position, lines);

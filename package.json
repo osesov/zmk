@@ -87,11 +87,8 @@
 					"description": "List of bundles to exclude"
 				},
 				"zmk.developer": {
-					"type": [
-						"string",
-						null
-					],
-					"default": null,
+					"type": "string",
+					"default": "<<<add your name to 'zmk.developer'>>>",
 					"description": "Developer name"
 				},
 				"zmk.copyrightComment": {
