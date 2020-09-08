@@ -231,6 +231,10 @@ function zmkUpdateBundlesInclude() {
 
 	var bundleDir = getBundleDir();
 
+	if (!fs.existsSync(bundleDir)) {
+		throw new Error(`Bundle path not found: ${bundleDir}`);
+	}
+
 	var includes = fs.readdirSync(bundleDir, { withFileTypes: true })
 		.filter(item => item.isDirectory())
 		.filter(item => !!skipBundles.indexOf(item.name))
@@ -511,7 +515,18 @@ export function activate(context: vscode.ExtensionContext) {
 	];
 
 	commands.forEach( (elem) => {
-		let disposable = vscode.commands.registerCommand(`extension.${elem.label}`, elem.command);
+		let command = () => {
+			try {
+				elem.command();
+			}
+			catch(e) {
+				console.error(`[${elem.label}]: ${e}`);
+				let message = (e instanceof Error ? e.message : e.toString());
+				vscode.window.showErrorMessage(message);
+			}
+		};
+
+		let disposable = vscode.commands.registerCommand(`extension.${elem.label}`, command);
 		context.subscriptions.push(disposable);
 	});
 
