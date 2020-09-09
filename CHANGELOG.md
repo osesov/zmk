@@ -4,12 +4,16 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.3.1
+
+- Fix error messages
+
 ## 1.3
 
 - Implemented copyright header insert/update for C++ files.
   Developer name could be configured with 'zmk.developer' settings.
   Copyright template is configured with 'zmk.copyrightComment' setting.
-  
+
 
 ## 1.2.0
 
