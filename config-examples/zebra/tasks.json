@@ -1,0 +1,136 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "make",
+            "type": "shell",
+            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}",
+            "options": {
+                "cwd": "${command:extension.zmkGetBuildDir}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            },
+        },
+        {
+            "label": "Compile current file",
+            "type": "shell",
+            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetCurrentFile}^",
+            "options": {
+                "cwd": "${command:extension.zmkGetBuildDir}"
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "make symbols",
+            "type": "shell",
+            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- generate_symbols",
+            "options": {
+                "cwd": "${command:extension.zmkGetBuildDir}"
+            },
+            // "group": {
+            //     "kind": "build",
+            //     "isDefault": true
+            // },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            },
+            // "dependsOn": "pre-clean"
+        },
+        {
+            "label": "refresh ninja",
+            "type": "shell",
+            "command": "./gnb ${command:extension.zmkGetTargetConfig} -- empty",
+            "options": {
+                "cwd": "${command:extension.zmkGetRootDir}"
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetRootDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "build all",
+            "type": "shell",
+            "command": "./gnb ${command:extension.zmkGetTargetConfig}",
+            "options": {
+                "cwd": "${command:extension.zmkGetRootDir}"
+            },
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+        },
+        {
+            "label": "zebra: Valgrind/Callgrind",
+            "type": "shell",
+            "options": { "cwd": "${command:extension.zmkGetBuildDir}",
+                "env": {
+                    "LD_LIBRARY_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib",
+                    "V8_FLAGS": "--max-old-space-size=50",
+                    "DFBARGS": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
+                    "SKIA_FONTS": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts",
+                    "ZEBRA_POLYFILLS_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills",
+                }
+            },
+            "command": [ "valgrind", "--tool=callgrind",
+                "${command:extension.zmkGetBuildDir}/zebra_mini",
+                "--standalone", "http://lets.developonbox.ru/customers/comcast/comcast-x1/proto/"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "zebra: Direct run",
+            "type": "shell",
+            "options": { "cwd": "${command:extension.zmkGetBuildDir}",
+                "env": {
+                    "LD_LIBRARY_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib",
+                    "V8_FLAGS": "--max-old-space-size=50",
+                    "DFBARGS": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
+                    "SKIA_FONTS": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts",
+                    "ZEBRA_POLYFILLS_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills",
+                }
+            },
+            "command": [
+                "${command:extension.zmkGetBuildDir}/zebra_mini",
+                "--standalone", "http://lets.developonbox.ru/customers/comcast/comcast-x1/proto/"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+            },
+            "presentation": {
+                "clear": true
+            }
+        }
+    ]
+}
