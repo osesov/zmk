@@ -517,12 +517,15 @@ export function activate(context: vscode.ExtensionContext) {
 	commands.forEach( (elem) => {
 		let command = () => {
 			try {
-				elem.command();
+				let x = elem.command();
+				console.info(`Command [${elem.label}]: -> ${x}`);
+				return x;
 			}
 			catch(e) {
-				console.error(`[${elem.label}]: ${e}`);
+				console.error(`Command: [${elem.label}]: ${e}`);
 				let message = (e instanceof Error ? e.message : e.toString());
 				vscode.window.showErrorMessage(message);
+				throw e;
 			}
 		};
 
