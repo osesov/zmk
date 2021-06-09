@@ -25,7 +25,8 @@
                     "ignoreFailures": true
                 },
                 { "text": "-gdb-set sysroot ${command:extension.zmkGetRootDir}/out.charter-arriswb20-appcloud-dev/linux/build_nfs_image" },
-                { "text": "-gdb-set solib-search-path ${command:extension.zmkGetRootDir}/out.charter-arriswb20-appcloud-dev/linux/build_nfs_image"}
+                { "text": "-gdb-set solib-search-path ${command:extension.zmkGetRootDir}/out.charter-arriswb20-appcloud-dev/linux/build_nfs_image"},
+                { "text": "-gdb-set debug-file-directory ${command:extension.zmkGetRootDir}/out.charter-arriswb20-appcloud-dev/linux/symbols/dbg"}
                 // { "text": "-gdb-set $sysroot=target:/" },
                 // { "text": "-gdb-set $solib-search-path=target:/"}
             ],
@@ -44,11 +45,13 @@
             // "preLaunchTask": "make",
             "program": "${command:extension.zmkGetBuildDir}/obj/third-parties/appcloud/build/appcloud",
             "environment": [
-                { "name": "APPCLOUD_CONFIG_FILE_", "value": "/home/osesov/zodiac/valhalla/.local/ac.config.yaml"}
+                { "name": "APPCLOUD_CONFIG_FILE_", "value": "/home/osesov/zodiac/valhalla/.local/ac.config.yaml"},
+                { "name": "DVBS_NETWORK_CONFIG_FILE", "value": "${command:extension.zmkGetBuildDir}/linux/sysroot/etc/zodiac/configs/network.yaml"}
+
             ],
             "args": [
-                // "--standalone"
-                "-h", "a87acab95f201449583e9ee50bf63da9-381020955.eu-west-1.elb.amazonaws.com"
+                "--standalone"
+                // , "-h", "a87acab95f201449583e9ee50bf63da9-381020955.eu-west-1.elb.amazonaws.com"
             ],
             "stopAtEntry": false,
             "cwd": "${command:extension.zmkGetBuildDir}",
