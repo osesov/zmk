@@ -4,6 +4,17 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.3.3
+
+- update dependencies to the latest
+- update to use multiple work spaces
+- do not report errors when run in non-valhalla environment
+- Update config examples
+
+## 1.3.2
+
+- Add appcloud/zebra config examples
+
 ## 1.3.1
 
 - Fix error messages

@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"engines": {
 		"vscode": "^1.38.0"
 	},
@@ -111,12 +111,12 @@
 		"package": "npm i && npm run compile && vsce package"
 	},
 	"devDependencies": {
-		"@types/mocha": "^2.2.42",
-		"@types/node": "^10.12.21",
-		"tslint": "^5.12.1",
-		"typescript": "^3.3.1",
+		"@types/mocha": "^5.2.7",
+		"@types/node": "^10.14.8",
+		"tslint": "^6.1.3",
+		"typescript": "^4.3.2",
 		"vsce": "^1.81.1",
-		"vscode": "^1.1.36"
+		"vscode": "^1.1.37"
 	},
 	"license": "0BSD"
 }

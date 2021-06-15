@@ -68,3 +68,11 @@ Initial release of extension
 
 * [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+
+## Release
+
+* Update version in package.json
+* Update CHANGELOG.md
+* Build package (`npm run package`)
+* Upload package to github
+* Tag version on github
