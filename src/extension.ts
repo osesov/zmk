@@ -15,28 +15,41 @@ function findProjectRoot(p: string) : string {
 		let file = path.resolve(p, ".gn");
 
 		if (exists(file)) {
-				return p;
+			return p;
 		}
 
 		let n = path.dirname(p);
 
 		if (p === n) {
-				throw new Error("Path not found");
+			throw new Error("Valhalla root not found");
 		} else {
-				p = n;
+			p = n;
 		}
 	}
 }
 
 function hasWorkspace(): boolean {
-	const workspaceRoot = vscode.workspace.rootPath;
-	return workspaceRoot !== undefined;
+	try {
+		findProjectRootInWorkspace();
+		return true
+	} catch(e) {
+		return false;
+	}
+}
+
+function getWorkspaceRoot(): string | undefined {
+	if (vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0)
+		return undefined;
+
+	// use the first opened workspace
+	return vscode.workspace.workspaceFolders[0].uri.fsPath;
 }
 
 function findProjectRootInWorkspace() : string {
 	let configuration = vscode.workspace.getConfiguration();
 
-	const workspaceRoot = vscode.workspace.rootPath;
+	const workspaceRoot = getWorkspaceRoot();
+
 	if (workspaceRoot === undefined) {
 		throw Error("no workspaceRoot");
 	}
@@ -213,7 +226,7 @@ function updateCurrentEnvironment()
 // update c_cpp_properties.json file
 
 function zmkUpdateBundlesInclude() {
-	const workspaceRoot = vscode.workspace.rootPath;
+	const workspaceRoot = getWorkspaceRoot();
 	if (workspaceRoot === undefined) {
 		throw Error("no workspaceRoot");
 	}
