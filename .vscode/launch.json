@@ -4,19 +4,21 @@
 // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
 	"version": "0.2.0",
-	"configurations": [{
+	"configurations": [
+		{
 			"name": "Run Extension",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
+				// "/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
+				"${workspaceFolder}/.."
 			],
 			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
+				"${workspaceFolder}/dist/**/*.js"
 			],
-			"preLaunchTask": "npm: watch"
+			"preLaunchTask": "esbuild"
 		},
 		{
 			"name": "Extension Tests",
@@ -31,6 +33,6 @@
 				"${workspaceFolder}/out/test/**/*.js"
 			],
 			"preLaunchTask": "npm: watch"
-		}
+		},
 	]
 }

@@ -24,7 +24,18 @@ export default defineConfig([
     ...tseslint.configs.recommended,
     {
         "rules": {
-            "@typescript-eslint/naming-convention": "warn",
+            "@typescript-eslint/naming-convention": [
+                "error",
+                // Enforce that all variables, functions and properties follow are camelCase
+                { "selector": "variableLike", "format": ["camelCase"] },
+                // Enforce that private members are prefixed with an underscore
+                {
+                    "selector": "variableLike",
+                    "modifiers": ["private"],
+                    "format": ["camelCase"],
+                    "leadingUnderscore": "require"
+                }
+            ],
             "@typescript-eslint/no-unused-expressions": "warn",
             "@typescript-eslint/no-unused-vars": "warn",
             "curly": "warn",

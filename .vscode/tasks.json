@@ -4,16 +4,27 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "esbuild",
+			"type": "shell",
+			"command": "node build.js",
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
 			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {
-				"reveal": "never"
+				"reveal": "never",
+				"clear": true
 			},
 			"group": {
 				"kind": "build",
-				"isDefault": true
+				"isDefault": false
 			}
 		}
 	]

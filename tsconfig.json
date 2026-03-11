@@ -5,10 +5,15 @@
 		"module": "es2022",
 		"moduleResolution": "node",
 		"sourceMap": true,
+		"inlineSourceMap": false,
+		"inlineSources": false,
 		"strict": true,   /* enable all strict type-checking options */
 		"esModuleInterop": true,
-		"outDir": "out",
+		"skipLibCheck": true,  /* Skip type checking of declaration files - major performance boost */
+		"forceConsistentCasingInFileNames": true,
+		// "outDir": "out",
 		"rootDir": "src",
+		"noEmit": true,
 		/* Additional Checks */
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */

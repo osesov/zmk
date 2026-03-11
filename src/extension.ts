@@ -2,60 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { QuickPickItem, TextEditor, TextEditorEdit } from 'vscode';
-import { URL } from 'url';
+import { ValhallaCppToolsProvider } from './cpptools';
+import { Settings } from './Settings';
+import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './utils';
 
 const zmkDocumentScheme = 'zmkdoc';
 
-function exists(file: string): boolean {
-	return fs.existsSync(file);
-}
-
-function findProjectRoot(p: string) : string {
-	while(true) {
-		const file = path.resolve(p, ".gn");
-
-		if (exists(file)) {
-			return p;
-		}
-
-		const n = path.dirname(p);
-
-		if (p === n) {
-			throw new Error("Valhalla root not found");
-		} else {
-			p = n;
-		}
-	}
-}
-
-function hasWorkspace(): boolean {
-	try {
-		findProjectRootInWorkspace();
-		return true
-	} catch(e: unknown) {
-		return false;
-	}
-}
-
-function getWorkspaceRoot(): string | undefined {
-	if (vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0)
-		return undefined;
-
-	// use the first opened workspace
-	return vscode.workspace.workspaceFolders[0].uri.fsPath;
-}
-
-function findProjectRootInWorkspace() : string {
-	const configuration = vscode.workspace.getConfiguration();
-
-	const workspaceRoot = getWorkspaceRoot();
-
-	if (workspaceRoot === undefined) {
-		throw Error("no workspaceRoot");
-	}
-
-	return findProjectRoot(workspaceRoot);
-}
 
 async function listConfigs() : Promise<string[]> {
 	const rootDir: string | undefined = getRootDir();
@@ -101,11 +53,8 @@ class ConfigItem implements QuickPickItem {
 
 async function updateConfig() {
 	const configuration = vscode.workspace.getConfiguration();
-
-	const quickPick = vscode.window.createQuickPick();
 	const options = await listConfigs();
 	const current = configuration.get('zmk.config');
-
 
 	const pick = vscode.window.createQuickPick<ConfigItem>();
 	pick.placeholder = "type gnb config name here";
@@ -265,6 +214,7 @@ function zmkUpdateBundlesInclude() {
 
 	if (configData && Array.isArray(configData.configurations)) {
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		configData.configurations.forEach((config : any, index : number) => {
 			const includePath : Array<string> = config["includePath"];
 			if (!includePath) {
@@ -283,24 +233,24 @@ function zmkUpdateBundlesInclude() {
 
 		const newConfigData = JSON.stringify(configData, null, 4);
 
-		const Ok = "Ok";
-		const ShowConfig = "Show new config";
-		const Cancel = "Cancel";
+		const okButton = "Ok";
+		const showConfigButton = "Show new config";
+		const cancelButton = "Cancel";
 
 		vscode.window
-		.showWarningMessage("Override 'c_cpp_properties.json' file? This would lose comments if any.", Ok, ShowConfig, Cancel)
+		.showWarningMessage("Override 'c_cpp_properties.json' file? This would lose comments if any.", okButton, showConfigButton, cancelButton)
 		.then( (outcome) => {
 			console.log(outcome);
 
 			switch(outcome) {
-				case Ok:
+				case okButton:
 					const oldFileName = configFileName + ".old";
 					if (!fs.existsSync(oldFileName)) {
 						fs.renameSync(configFileName, oldFileName);
 					}
 					fs.writeFileSync(configFileName, newConfigData, 'utf8');
 					break;
-				case ShowConfig:
+				case showConfigButton:
 					const uri = vscode.Uri.parse(zmkDocumentScheme + ":Virtual document: c_cpp_properties.json?" + newConfigData);
 					vscode.workspace.openTextDocument(uri)
 					.then( (doc) =>
@@ -417,13 +367,13 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 		"from Zodiac Systems Inc.",
 	].join('\n');
 
-	const lang_id = editor.document.languageId;
-	if (lang_id !== "cpp") {
+	const languageId = editor.document.languageId;
+	if (languageId !== "cpp") {
 		vscode.window.showWarningMessage("Language is not supported");
 		return;
 	}
 
-	const comment = languages[lang_id];
+	const comment = languages[languageId];
 	if (!comment) {
 		vscode.window.showWarningMessage("Unknown document language");
 		return;
@@ -483,9 +433,9 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 		return;
 	}
 
-	const lang_id = document.languageId;
+	const languageId = document.languageId;
 
-	if (lang_id !== "cpp") {
+	if (languageId !== "cpp") {
 		return;
 	}
 
@@ -493,27 +443,22 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 		return;
 	}
 
-	const ok = "Ok";
-	const no_ask = "Do not ask"
-	vscode.window.showWarningMessage("Document has no Copyright header, insert?", ok, no_ask)
+	const okButton = "Ok";
+	const doNotAskButton = "Do not ask"
+	vscode.window.showWarningMessage("Document has no Copyright header, insert?", okButton, doNotAskButton)
 		.then( action => {
-			if (action === ok) {
-				vscode.commands.executeCommand("extension.zmkUpdateCopyright");
+			if (action === okButton) {
+				vscode.commands.executeCommand("zmk.zmkUpdateCopyright");
 			}
-			else if (action === no_ask) {
+			else if (action === doNotAskButton) {
 				askCopyrightHeader = false;
 			}
 		});
 }
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-	console.log('Extension "zmk" is active');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
+export async function activate(context: vscode.ExtensionContext) {
+	// console.log('Extension "zmk" is active');
+	const settings = Settings.initialize(context);
 
 	const commands = [
 		{ label: 'zmkConfig', command: updateConfig },
@@ -575,6 +520,8 @@ export function activate(context: vscode.ExtensionContext) {
 	updateCurrentEnvironment();
 
 	// vscode.workspace.onDidOpenTextDocument( (e) => checkCopyrightHeader(e) );
+
+	await ValhallaCppToolsProvider.create(context, settings);
 }
 
 // this method is called when your extension is deactivated
