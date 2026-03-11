@@ -160,9 +160,13 @@ function getRootDir(): string {
 }
 
 function getBuildDir(): string {
-	return getOrDefault("zmk.buildDir", () => {
-		return path.resolve(getRootDir(), `out.${getTargetConfig()}`);
-	});
+	return getOrDefault("zmk.buildDir", () => path.resolve(getRootDir(), `out.${getTargetConfig()}`));
+}
+
+function getBuildDirAndCreate(): string {
+	const dir = getBuildDir();
+	fs.mkdirSync(dir, {recursive: true})
+	return dir
 }
 
 function getBundleDir(): string {
@@ -516,7 +520,7 @@ export function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmkGetTargetConfig', command: getTargetConfig },
 		{ label: 'zmkGetNinjaTarget', command: getNinjaTarget },
 		{ label: 'zmkGetRootDir', command: getRootDir },
-		{ label: 'zmkGetBuildDir', command: getBuildDir },
+		{ label: 'zmkGetBuildDir', command: getBuildDirAndCreate },
 		{ label: 'zmkGetNfsDir', command: getNfsDir },
 		{ label: 'zmkGetCurrentFile', command: getCurrentFile },
 		{ label: 'showCurrentZmkConfig', command: showCurrentConfig},
@@ -534,9 +538,9 @@ export function activate(context: vscode.ExtensionContext) {
 				console.info(`Command [${elem.label}]: -> ${x}`);
 				return x;
 			}
-			catch(e) {
+			catch(e: unknown) {
 				console.error(`Command: [${elem.label}]: ${e}`);
-				let message = (e instanceof Error ? e.message : e.toString());
+				let message = (e instanceof Error ? e.message : String(e));
 				vscode.window.showErrorMessage(message);
 				throw e;
 			}

@@ -3,9 +3,13 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/app/src/**",
+                "${workspaceFolder}/app/src",
+                "${workspaceFolder}/app/third_party/tl/include",
+                "${workspaceFolder}/app/third_party/stb/include",
+                "${workspaceFolder}/app/third_party/mpegts",
+                "${workspaceFolder}/app/third_party/include",
                 "${env:zmk.bundleDir}/appcloud_sdk/include",
+                "${env:zmk.bundleDir}/appcontrollerclient/include",
                 "${env:zmk.bundleDir}/bitsery/include",
                 "${env:zmk.bundleDir}/boost-1.69/include",
                 "${env:zmk.bundleDir}/breakpad/include",
@@ -54,6 +58,7 @@
                 "${env:zmk.bundleDir}/net-snmp-5.7.3/include",
                 "${env:zmk.bundleDir}/protobuf_host-2.5.0/include",
                 "${env:zmk.bundleDir}/protobuf_static-2.5.0/include",
+                "${env:zmk.bundleDir}/wvcdm_wrapper/include",
                 "${env:zmk.bundleDir}/serviced_message/include",
                 "${env:zmk.bundleDir}/span-cpp20/include",
                 "${env:zmk.bundleDir}/ubus-1.0/include",
@@ -64,14 +69,19 @@
                 "${env:zmk.bundleDir}/ztl/include"
             ],
             "defines": [
+                "Z_BUILD_VARIANT=\"dev\"",
                 "WITHOUT_TRACE_EVENT",
                 "ZM_APP_CONTROLLER_CLIENT",
                 "ZM_WIDEVINE_ENABLED",
-                "Z_BUILD_VARIANT=\"dev\""
+                "ZM_TEST_SIGNATURE=1",
+                "ZM_ENABLE_SYSMON=1",
+                "ZM_PLATFORM_NEXUS=1",
+                "ZM_APPCLOUD_UI=1",
+                "ZM_STREAM_WRITER=1"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
-            "cppStandard": "c++17",
+            "cppStandard": "c++11",
             "intelliSenseMode": "clang-x64"
         }
     ],

@@ -21,13 +21,14 @@ This extension contributes the following settings:
 * `zmk.bundleDir`: bundle dir
 
 ## using dynamic settings
+
 Externsion turned to use dynamically calculated settings using commands:
 
-* `${command:extension.zmkGetTargetConfig}`
-* `${command:extension.zmkGetNinjaTarget}`
-* `${command:extension.zmkGetRootDir}`
-* `${command:extension.zmkGetBuildDir}`
-* `${command:extension.zmkGetNfsDir}`
+* `${command:extension.zmkGetTargetConfig}`: returns current config name (like `charter-humaxwb11-powerup-dev`). Value `zmk.config` setting.
+* `${command:extension.zmkGetNinjaTarget}`: returns current ninja target to use in build (like `components/zebra_mini/unit_tests:sysroot`). Value of `zmk.target` setting
+* `${command:extension.zmkGetRootDir}`: returns root Valhalla folder (value of `zmk.rootDir` if defined)
+* `${command:extension.zmkGetBuildDir}`: build dir similar to this: `${zmk.rootDir}/out.${zmk.config}`. (!) This also creates the output dir
+* `${command:extension.zmkGetNfsDir}`: get nfs dir within build. something like this: `${command:extension.zmkGetBuildDir}/linux/build_nfs_image/home/zodiac`. This is used to debug.
 
 ## Known Issues
 
@@ -43,10 +44,9 @@ Initial release of extension
 
 **Enjoy!**
 
-----------------------------------------------
+---
 
 # Extra info
-
 
 ## Links
 
@@ -66,7 +66,7 @@ Initial release of extension
 
 ### For more information
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+* [Visual Studio Code Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
 * [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 ## Release

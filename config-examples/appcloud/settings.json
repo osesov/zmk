@@ -4,16 +4,20 @@
     // "zmk.target": "components/zebra_mini/unit_tests/units-zebra_mini-state_controller:run_unittests",
 
     // "zmk.config": "zodiac-pc_linux-appcloud-dev",
-    "zmk.config": "local-arriswb20-appcloud-dev",
+    // "zmk.config": "local-arriswb20-appcloud-dev",
+    // "zmk.config": "charter-humaxwb20-powerup-dev",
 
-    "zmk.target": "third-parties/appcloud/app:build",
+    // "zmk.target": "third-parties/appcloud/app:build",
     // "zmk.target": "third-parties/appcloud/app:install_to_bundle",
     // "zmk.target": "third-parties/appcloud/app:nfs",
     // "zmk.target": "third-parties/appcloud/app:sysroot",
+    // "zmk.target": "generate_symbols",
     // "zmk.target": "nfs_image",
 
     // "zmk.target": "components/gst_player:sysroot",
     // "zmk.config": "zodiac-humaxwb20-zebra-tst",
+
+    "zmk.developer": "Oleg Sesov <oleg.sesov@zodiacsystems.com>",
 
     "psi-header.templates": [
         {
