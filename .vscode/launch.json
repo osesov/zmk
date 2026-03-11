@@ -10,7 +10,8 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"

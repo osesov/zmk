@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // .vscode-test.js
 const { defineConfig } = require('@vscode/test-cli');
 

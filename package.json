@@ -4,7 +4,7 @@
 	"description": "Zodiac Make",
 	"version": "1.4.0",
 	"engines": {
-		"vscode": "^1.38.0"
+		"vscode": "^1.111.0"
 	},
 	"categories": [
 		"Other"
@@ -15,9 +15,7 @@
 		"url": "git@github.com:osesov/zmk.git"
 	},
 	"activationEvents": [
-		"*",
-		"onCommand:extension.zmkConfig",
-		"onCommand:extension.zmkUpdateCopyright"
+		"*"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -107,17 +105,23 @@
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"test": "npm run compile && vscode-test",
-		"package": "npm i && npm run compile && vsce package"
+		"package": "npm i && npm run compile && vsce package",
+		"lint": "eslint ."
 	},
 	"devDependencies": {
-		"@types/mocha": "^10.0.7",
-		"@types/node": "^20.14.12",
-		"@types/vscode": "^1.91.0",
-		"@vscode/test-cli": "^0.0.10",
-		"@vscode/test-electron": "^2.4.1",
-		"@vscode/vsce": "^2.31.1",
-		"tslint": "^5.20.1",
-		"typescript": "^5.5.4",
+		"@eslint/js": "^10.0.1",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "^25.4.0",
+		"@types/vscode": "^1.110.0",
+		"@typescript-eslint/parser": "^8.57.0",
+		"@vscode/test-cli": "^0.0.12",
+		"@vscode/test-electron": "^2.5.2",
+		"@vscode/vsce": "^3.7.1",
+		"eslint": "^10.0.3",
+		"globals": "^17.4.0",
+		"jiti": "^2.6.1",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.57.0",
 		"vscode-cpptools": "^7.1.1"
 	},
 	"license": "0BSD"

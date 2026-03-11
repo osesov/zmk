@@ -1,5 +1,14 @@
 // Place your settings in this file to overwrite default and user settings.
 {
+    "files.associations": {
+        "package.json": "json",
+        "package-lock.json": "json",
+        "settings.json": "jsonc",
+        "launch.json": "jsonc",
+        "tasks.json": "jsonc",
+        "extensions.json": "jsonc",
+        "tsconfig.json": "jsonc"
+    },
     "files.exclude": {
         "out": false // set this to true to hide the "out" folder with the compiled JS files
     },

@@ -12,13 +12,13 @@ function exists(file: string): boolean {
 
 function findProjectRoot(p: string) : string {
 	while(true) {
-		let file = path.resolve(p, ".gn");
+		const file = path.resolve(p, ".gn");
 
 		if (exists(file)) {
 			return p;
 		}
 
-		let n = path.dirname(p);
+		const n = path.dirname(p);
 
 		if (p === n) {
 			throw new Error("Valhalla root not found");
@@ -32,7 +32,7 @@ function hasWorkspace(): boolean {
 	try {
 		findProjectRootInWorkspace();
 		return true
-	} catch(e) {
+	} catch(e: unknown) {
 		return false;
 	}
 }
@@ -46,7 +46,7 @@ function getWorkspaceRoot(): string | undefined {
 }
 
 function findProjectRootInWorkspace() : string {
-	let configuration = vscode.workspace.getConfiguration();
+	const configuration = vscode.workspace.getConfiguration();
 
 	const workspaceRoot = getWorkspaceRoot();
 
@@ -63,11 +63,11 @@ async function listConfigs() : Promise<string[]> {
 		return [];
 	}
 
-	let configDir = path.resolve(rootDir, "configs");
+	const configDir = path.resolve(rootDir, "configs");
 
 	return new Promise<string[]>((resolve, _reject) => {
 			fs.readdir( configDir, (err, files) => {
-					let result : string[] = [];
+					const result : string[] = [];
 
 					files.forEach( file => {
 							if (file.endsWith(".yaml") && fs.statSync(path.resolve(configDir, file)).isFile()) {
@@ -82,7 +82,7 @@ async function listConfigs() : Promise<string[]> {
 }
 
 async function showCurrentConfig() {
-	let configuration = vscode.workspace.getConfiguration();
+	const configuration = vscode.workspace.getConfiguration();
 
 	const currentConfig = configuration.get('zmk.config');
 	const currentTarget = configuration.get('zmk.target');
@@ -100,7 +100,7 @@ class ConfigItem implements QuickPickItem {
 }
 
 async function updateConfig() {
-	let configuration = vscode.workspace.getConfiguration();
+	const configuration = vscode.workspace.getConfiguration();
 
 	const quickPick = vscode.window.createQuickPick();
 	const options = await listConfigs();
@@ -131,7 +131,7 @@ async function updateConfig() {
 }
 
 function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
-	let configuration = vscode.workspace.getConfiguration();
+	const configuration = vscode.workspace.getConfiguration();
 	const config = configuration.get(setting);
 	let value : string | undefined = undefined;
 
@@ -182,14 +182,14 @@ function getNfsDir(): string {
 }
 
 function getCurrentFile(): string {
-	let editor = vscode.window.activeTextEditor;
+	const editor = vscode.window.activeTextEditor;
 	if (editor === undefined) {
 		return "";
 	}
 
-	let currentFile = editor.document.fileName;
+	const currentFile = editor.document.fileName;
 
-	let currentFileRelative = path.relative( getBuildDir(), currentFile);
+	const currentFileRelative = path.relative( getBuildDir(), currentFile);
 	return currentFileRelative;
 }
 
@@ -208,7 +208,7 @@ function updateCurrentEnvironment()
 		'zmk.bundleDir': getBundleDir,
 	};
 
-	var item;
+	let item;
 	if (!hasWorkspace()) {
 		Object.keys(values)
 		.forEach( item => delete process.env[item]);
@@ -237,26 +237,26 @@ function zmkUpdateBundlesInclude() {
 
 	const configuration = vscode.workspace.getConfiguration();
 	const skipBundles : Array<string> = configuration.get("zmk.excludeBundles") || [];
-	var configFileName  = path.resolve(workspaceRoot, ".vscode", "c_cpp_properties.json");
+	const configFileName  = path.resolve(workspaceRoot, ".vscode", "c_cpp_properties.json");
 
 	if (!fs.existsSync(configFileName)) {
 		return;
 	}
 
-	var fileData = fs.readFileSync(configFileName, 'utf8');
-	var configData = JSON.parse(fileData);
+	const fileData = fs.readFileSync(configFileName, 'utf8');
+	const configData = JSON.parse(fileData);
 
-	var bundleDir = getBundleDir();
+	const bundleDir = getBundleDir();
 
 	if (!fs.existsSync(bundleDir)) {
 		throw new Error(`Bundle path not found: ${bundleDir}`);
 	}
 
-	var includes = fs.readdirSync(bundleDir, { withFileTypes: true })
+	const includes = fs.readdirSync(bundleDir, { withFileTypes: true })
 		.filter(item => item.isDirectory())
 		.filter(item => !!skipBundles.indexOf(item.name))
 		.filter(item => {
-			var includeDir = path.resolve(bundleDir, item.name, "include");
+			const includeDir = path.resolve(bundleDir, item.name, "include");
 			return fs.existsSync(includeDir) && fs.statSync(includeDir).isDirectory();
 		})
 		.map( item =>
@@ -266,22 +266,22 @@ function zmkUpdateBundlesInclude() {
 	if (configData && Array.isArray(configData.configurations)) {
 
 		configData.configurations.forEach((config : any, index : number) => {
-			var includePath : Array<string> = config["includePath"];
+			const includePath : Array<string> = config["includePath"];
 			if (!includePath) {
 				return;
 			}
 
-			var otherIncludes = includePath.filter((item) =>
+			const otherIncludes = includePath.filter((item) =>
 				!item.startsWith("${env:zmk.bundleDir}")
 			);
 
-			var newIncludePath = otherIncludes.concat(includes);
+			const newIncludePath = otherIncludes.concat(includes);
 			console.log(newIncludePath);
 
 			configData.configurations[index]["includePath"] = newIncludePath;
 		});
 
-		var newConfigData = JSON.stringify(configData, null, 4);
+		const newConfigData = JSON.stringify(configData, null, 4);
 
 		const Ok = "Ok";
 		const ShowConfig = "Show new config";
@@ -294,14 +294,14 @@ function zmkUpdateBundlesInclude() {
 
 			switch(outcome) {
 				case Ok:
-					var oldFileName = configFileName + ".old";
+					const oldFileName = configFileName + ".old";
 					if (!fs.existsSync(oldFileName)) {
 						fs.renameSync(configFileName, oldFileName);
 					}
 					fs.writeFileSync(configFileName, newConfigData, 'utf8');
 					break;
 				case ShowConfig:
-					let uri = vscode.Uri.parse(zmkDocumentScheme + ":Virtual document: c_cpp_properties.json?" + newConfigData);
+					const uri = vscode.Uri.parse(zmkDocumentScheme + ":Virtual document: c_cpp_properties.json?" + newConfigData);
 					vscode.workspace.openTextDocument(uri)
 					.then( (doc) =>
 						vscode.window.showTextDocument(doc),
@@ -320,7 +320,7 @@ type Comment = { begin:string, end:string, prefix: string };
 
 function comment(b: string, i: string, e: string) : Comment
 {
-	var c: Comment = {
+	const c: Comment = {
 		begin: b, prefix: i, end: e
 	};
 
@@ -331,9 +331,9 @@ const languages : { [key:string]: Comment } = {
 };
 
 function formatDate(date: Date) {
-    var month = '' + (date.getMonth() + 1);
-    var day = '' + date.getDate();
-    var year = date.getFullYear();
+    let month = '' + (date.getMonth() + 1);
+    let day = '' + date.getDate();
+    const year = date.getFullYear();
 
     if (month.length < 2) {
 		month = '0' + month;
@@ -417,7 +417,7 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 		"from Zodiac Systems Inc.",
 	].join('\n');
 
-	var lang_id = editor.document.languageId;
+	const lang_id = editor.document.languageId;
 	if (lang_id !== "cpp") {
 		vscode.window.showWarningMessage("Language is not supported");
 		return;
@@ -438,13 +438,13 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 	const document = editor.document;
 	const range = matchCopyrightComment(document);
 
-	var commentText = template
+	const commentText = template
 		.replace("@DEVELOPER@", developer)
 		.replace("@YEAR@", currentYear)
 		.replace("@DATE@", currentDate)
 		;
 
-	var lines = "/*\n"
+	let lines = "/*\n"
 		+ commentText
 			.split('\n')
 			.map( line => (line.length === 0 ? ' *' : ` * ${line}`) )
@@ -456,7 +456,7 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 		edit.replace(range, lines);
 	}
 	else {
-		var position = findInsertionPoint(document);
+		let position = findInsertionPoint(document);
 		if (position === null) {
 			position = new vscode.Position(0,0);
 		}
@@ -475,7 +475,7 @@ function zmkUpdateCopyright(editor: TextEditor, edit: TextEditorEdit) {
 	}
 }
 
-var askCopyrightHeader = true;
+let askCopyrightHeader = true;
 
 function checkCopyrightHeader(document: vscode.TextDocument)
 {
@@ -483,7 +483,7 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 		return;
 	}
 
-	var lang_id = document.languageId;
+	const lang_id = document.languageId;
 
 	if (lang_id !== "cpp") {
 		return;
@@ -532,26 +532,26 @@ export function activate(context: vscode.ExtensionContext) {
 	];
 
 	commands.forEach( (elem) => {
-		let command = () => {
+		const command = () => {
 			try {
-				let x = elem.command();
+				const x = elem.command();
 				console.info(`Command [${elem.label}]: -> ${x}`);
 				return x;
 			}
 			catch(e: unknown) {
 				console.error(`Command: [${elem.label}]: ${e}`);
-				let message = (e instanceof Error ? e.message : String(e));
+				const message = (e instanceof Error ? e.message : String(e));
 				vscode.window.showErrorMessage(message);
 				throw e;
 			}
 		};
 
-		let disposable = vscode.commands.registerCommand(`extension.${elem.label}`, command);
+		const disposable = vscode.commands.registerCommand(`extension.${elem.label}`, command);
 		context.subscriptions.push(disposable);
 	});
 
 	textCommands.forEach( (elem) => {
-		let disposable = vscode.commands.registerTextEditorCommand(`extension.${elem.label}`, elem.command);
+		const disposable = vscode.commands.registerTextEditorCommand(`extension.${elem.label}`, elem.command);
 		context.subscriptions.push(disposable);
 	});
 
