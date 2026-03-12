@@ -14,6 +14,9 @@
 		// "outDir": "out",
 		"rootDir": "src",
 		"noEmit": true,
+		"disableSourceOfProjectReferenceRedirect": true,  /* Performance: don't follow project references */
+		"disableSolutionSearching": true,  /* Performance: don't search for related projects */
+		"disableReferencedProjectLoad": true  /* Performance: don't load referenced projects */
 		/* Additional Checks */
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
@@ -22,11 +25,14 @@
 		//
 	},
 	"include": [
-		"src"
+		"src/**/*"
 	],
 	"exclude": [
 		"node_modules",
 		".vscode-test",
 		"eslint.config.mjs",
+		"dist",
+		"out",
+		"**/*.test.ts"
 	]
 }

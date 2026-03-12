@@ -20,7 +20,7 @@ export function exists(file: string): boolean {
     return fs.existsSync(file);
 }
 
-export function findProjectRoot(p: string) : string {
+export function findProjectRoot(p: string) : string | undefined {
     while(true) {
         const file = path.resolve(p, ".gn");
 
@@ -31,7 +31,7 @@ export function findProjectRoot(p: string) : string {
         const n = path.dirname(p);
 
         if (p === n) {
-            throw new Error("Valhalla root not found");
+            return undefined;
         } else {
             p = n;
         }
@@ -57,9 +57,21 @@ export function findProjectRootInWorkspace() : string {
         throw Error("no workspaceRoot");
     }
 
-    return findProjectRoot(workspaceRoot);
+    const valhallaRoot = findProjectRoot(workspaceRoot);
+
+    if (valhallaRoot === undefined) {
+        throw Error("no valhalla root found in workspace");
+    }
+
+    return valhallaRoot;
 }
 
 export function isDevContainerHost(): boolean {
     return vscode.env.remoteName === 'dev-container';
+}
+
+
+export function isNotEmpty<T>(e : T | undefined ): e is T
+{
+    return e !== undefined;
 }

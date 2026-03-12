@@ -10,12 +10,43 @@
         "tsconfig.json": "jsonc"
     },
     "files.exclude": {
-        "out": false // set this to true to hide the "out" folder with the compiled JS files
+        "out": false, // set this to true to hide the "out" folder with the compiled JS files
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/node_modules": false
     },
     "search.exclude": {
-        "out": true // set this to false to include "out" folder in search results
+        "out": true, // set this to false to include "out" folder in search results
+        "**/node_modules": true,
+        "**/package-lock.json": true
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off",
-    "npm.enableScriptExplorer": true
+    "npm.enableScriptExplorer": true,
+    
+    // Performance optimizations for TypeScript
+    "typescript.tsserver.maxTsServerMemory": 4096,
+    "typescript.disableAutomaticTypeAcquisition": true,
+    "typescript.surveys.enabled": false,
+    
+    // Reduce file watching overhead
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/.vscode-test/**": true,
+        "**/dist/**": true
+    },
+    
+    // Disable features that might slow down IntelliSense
+    "editor.suggest.showStatusBar": false,
+    "editor.suggest.preview": false,
+    
+    // Limit IntelliSense
+    "editor.quickSuggestionsDelay": 100,
+    "editor.suggest.maxVisibleSuggestions": 8,
+    
+    // C/C++ extension performance (for when you use the extension itself)
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.autocomplete": "disabled"
 }

@@ -13,7 +13,8 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				// "/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
-				"${workspaceFolder}/.."
+				// "${workspaceFolder}/.."
+				"/home/osesov/zodiac/valhalla"
 			],
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"

@@ -36,10 +36,6 @@
 			{
 				"command": "zmk.zmkUpdateCopyright",
 				"title": "ZMK: Insert or update Copyright header"
-			},
-			{
-				"command": "zmk.showConfiguration",
-				"title": "ZMK: Show current file configuration"
 			}
 		],
 		"configuration": {
@@ -103,7 +99,44 @@
 					"description": "Copyright comment template"
 				}
 			}
-		}
+		},
+		"taskDefinitions": [
+			{
+				"type": "gnb",
+				"properties": {
+					"config": {
+						"type": "string",
+						"description": "gnb config (see configs/*.yaml)"
+					},
+					"target": {
+						"type": "string",
+						"description": "ninja target to build"
+					},
+
+					"gnbFlags": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"title": "gnb flag"
+						},
+						"description": "additional gnb flags"
+					},
+					"gnFlags": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"title": "gn flag"
+						},
+						"description": "additional gn flags"
+					},
+					"env": {
+						"type": "object",
+						"description": "Environment variables",
+						"additionalProperties": true
+					}
+				}
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run bundle",

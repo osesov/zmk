@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import vscode from "vscode";
 import shell from "shell-quote";
-import { CppStandard, SourceFileConfiguration } from "vscode-cpptools";
+import * as cpptools from "vscode-cpptools";
 import { isDevContainerHost, Mutable } from "./utils";
 
 export interface CompileCommandEntry {
@@ -13,7 +13,7 @@ export interface CompileCommandEntry {
 
 export type CompileCommandsFile = CompileCommandEntry[];
 
-interface SourceFileConfigurationEx extends SourceFileConfiguration {
+interface SourceFileConfigurationEx extends cpptools.SourceFileConfiguration {
     _compilerPath: string
 }
 
@@ -108,7 +108,7 @@ export class CompileCommands {
             } else if (word.startsWith('-D')) {
                 result.defines.push(word.slice(2));
             } else if (word.startsWith('-std=')) {
-                result.standard = word.slice(5) as CppStandard;
+                result.standard = word.slice(5) as cpptools.CppStandard;
 
                 if (result.standard.includes('++'))
                     this.cppCompiler = words[0] as string; // TODO: not safe?
@@ -124,10 +124,9 @@ export class CompileCommands {
         if (this.compileCommandsCache.size === 0)
             return null;
 
-
         const entry = this.compileCommandsCache.get(path.normalize(filePath));
         if (!entry) {
-            vscode.window.showWarningMessage(`No compile command found for ${filePath}. IntelliSense may not work correctly for this file.`);
+            // vscode.window.showWarningMessage(`No compile command found for ${filePath}. IntelliSense may not work correctly for this file.`);
             return null;
         }
 

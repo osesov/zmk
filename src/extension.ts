@@ -2,9 +2,16 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { QuickPickItem, TextEditor, TextEditorEdit } from 'vscode';
-import { ValhallaCppToolsProvider } from './cpptools';
-import { Settings } from './Settings';
-import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './utils';
+import { ValhallaCppToolsProviderService } from './services/impl/ValhallaCppToolsProviderService';
+import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './components/utils';
+import { ServiceContainer } from './services/ServiceContainer';
+import { VirtualDocumentProvider } from './services/impl/VirtualDocumentProviderService';
+import { AppServices } from './services/AppServices';
+import { BuilderService } from './services/impl/BuilderService';
+import { SettingsService } from './services/impl/SettingsService';
+import { StatusService } from './services/impl/StatusService';
+import { ValhallaTaskProvider } from './components/tasks';
+import { BuildStatusService } from './services/impl/BuildStatusService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -458,7 +465,24 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 
 export async function activate(context: vscode.ExtensionContext) {
 	// console.log('Extension "zmk" is active');
-	const settings = Settings.initialize(context);
+
+	const services = new ServiceContainer<AppServices>();
+	const buildOutputChannel = vscode.window.createOutputChannel('Valhalla Build');
+	const logOutputChannel = vscode.window.createOutputChannel('Valhalla', {log: true});
+
+	services
+		.registerInstance('context', context)
+		.registerInstance('buildOutputChannel', buildOutputChannel)
+		.registerInstance('logOutputChannel', logOutputChannel)
+		// .registerFactory("logger", () => new ConsoleLogger())
+		.registerInstance('settings', new SettingsService(services))
+		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
+		.registerInstance('builder', new BuilderService(services))
+		.registerInstance('buildStatus', new BuildStatusService(services))
+		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
+		.registerInstance('tasks', new ValhallaTaskProvider(services))
+		.registerInstance('status', new StatusService(services))
+		;
 
 	const commands = [
 		{ label: 'zmkConfig', command: updateConfig },
@@ -521,7 +545,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// vscode.workspace.onDidOpenTextDocument( (e) => checkCopyrightHeader(e) );
 
-	await ValhallaCppToolsProvider.create(context, settings);
 }
 
 // this method is called when your extension is deactivated
