@@ -5,7 +5,7 @@ import { AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, IBuilderService } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
 import { isDevContainerHost, isNotEmpty } from '../../components/utils';
-import { Setting } from '../ISettingsService';
+import { JsonValue, Setting } from '../ISettingsService';
 import path from 'path';
 import { CompletableFeature } from '../../components/promise';
 
@@ -45,6 +45,17 @@ export class BuilderService implements IBuilderService
         const outputDirName = `out.${valhallaConfig}`
         const outputDir = path.join(valhallaDir.fsPath, outputDirName);
         return outputDir;
+    }
+
+    public getConfigsDir(): string | null
+    {
+        const settings = this.services.get('settings');
+        const valhallaDir = settings.get(Setting.valhallaFolder);
+        if (!valhallaDir)
+            return null;
+
+        const configsDir = path.join(valhallaDir.fsPath, 'configs');
+        return configsDir;
     }
 
     async buildTarget(target: string | undefined): Promise<void>
@@ -177,31 +188,40 @@ export class BuilderService implements IBuilderService
 
     public getBuildCommand(options ?: BuildCommandOptions): BuildCommand | null
     {
+
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
         const valhallaConfig = options?.config ?? settings.get(Setting.config);
         const target = options?.target ?? settings.get(Setting.target);
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
         const gnFlags = options?.gnFlags ?? settings.getOrDefault(Setting.gnFlags, []);
+        const configEnv = options?.env ?? settings.getOrDefault(Setting.env, {});
 
         if (!valhallaDir || !valhallaConfig) {
             return null;
         }
 
-        const makeEnvironment = (env: NodeJS.ProcessEnv): Record<string, string> =>
+        type EnvObject = {[k: string] : JsonValue | null | undefined }
+        const makeEnvironment = (...envs: (EnvObject | undefined)[]): Record<string, string> =>
         {
             const result: Record<string, string> = {}
 
-            for (const [key, value] of Object.entries(env)) {
-                if (value !== undefined) {
-                    result[key] = value;
+            for (const env of envs) {
+                if (!env)
+                    continue;
+
+                for (const [key, value] of Object.entries(env)) {
+                    if (value === undefined || value === null)
+                        delete result[key]
+                    else
+                        result[key] = String(value);
                 }
             }
             return result;
         }
 
         const command = [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...(target ? [target] : [])];
-        const env = makeEnvironment(process.env);
+        const env = makeEnvironment(process.env, configEnv);
         const cwd = valhallaDir.fsPath;
 
         if (options?.env) {
@@ -213,5 +233,28 @@ export class BuilderService implements IBuilderService
             }
         }
         return { command, cwd, env };
+    }
+
+    async listConfigs(): Promise<string[]>
+    {
+        const configsDir = this.getConfigsDir();
+        if (!configsDir) {
+            return [];
+        }
+
+        try {
+            const entries = await fs.promises.readdir(configsDir, { withFileTypes: true });
+            const configs = entries
+                .filter(entry => entry.isFile() && entry.name.endsWith('.yaml'))
+                .map(entry => entry.name.substring(0, entry.name.length - '.yaml'.length));
+            return configs;
+        } catch (err) {
+            return [];
+        }
+    }
+
+    listTargets(config ?: string): Promise<string[]>
+    {
+        throw new Error('Not implemented');
     }
 }

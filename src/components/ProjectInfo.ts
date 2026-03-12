@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import vscode from "vscode";
 import { SourceFileConfiguration } from "vscode-cpptools";
+import { MutableSourceFileConfiguration } from "./SourceFileConfiguration";
 
 // GN's project.json format is not documented anywhere, so this is just a guess based on the output of `gn desc --format=json`
 export interface ProjectJsonTarget {
@@ -67,7 +68,7 @@ interface CacheEntry
     cache: SourceFileConfiguration | undefined;
 }
 
-export class ProjectJson
+export class ProjectInfo
 {
     private projectJsonCache: ProjectJsonFile | null = null;
     private projectJsonMTime: number = 0;
@@ -89,7 +90,7 @@ export class ProjectJson
 
     private static extractPath(p: string): string | null
     {
-        const m = p.match(ProjectJson.pathRegex);
+        const m = p.match(ProjectInfo.pathRegex);
         if (!m)
             return null;
 
@@ -113,9 +114,7 @@ export class ProjectJson
                 return this.projectJsonCache;
             }
 
-            // cache can be different
-
-            const content = fs.readFileSync(file, 'utf-8'); // touch the file to update its mtime
+            const content = fs.readFileSync(file, 'utf-8');
             const projectJson = JSON.parse(content) as ProjectJsonFile;
 
             this.projectJsonMTime = mtime;
@@ -126,7 +125,7 @@ export class ProjectJson
             this.links.clear();
             for (const [key, target] of Object.entries(projectJson.targets)) {
 
-                const path = ProjectJson.extractPath(key);
+                const path = ProjectInfo.extractPath(key);
                 if (!path)
                     continue;
 
@@ -180,7 +179,7 @@ export class ProjectJson
         return null;
     }
 
-    public getSourceFileConfiguration(valhallaDir: string, uri: vscode.Uri, cpp: string | null): SourceFileConfiguration | null
+    public getSourceFileConfiguration(valhallaDir: string, uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null
     {
         const entry = this.getContainingFolder(uri);
         if (!entry) {
@@ -191,7 +190,7 @@ export class ProjectJson
             return entry.cache;
         }
 
-        const config: SourceFileConfiguration = {
+        const config: MutableSourceFileConfiguration = {
             defines: [],
             includePath: [],
             compilerPath: cpp ?? '/usr/bin/g++', // TODO: toolchain
@@ -213,7 +212,7 @@ export class ProjectJson
             for (const includeDir of target.include_dirs ?? []) {
                 if (!includeSeen.has(includeDir)) {
                     includeSeen.add(includeDir);
-                    const p = ProjectJson.extractPath(includeDir);
+                    const p = ProjectInfo.extractPath(includeDir);
                     if (p) {
                         const fullPath = path.join(valhallaDir, p);
                         config.includePath.push(fullPath);

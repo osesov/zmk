@@ -12,6 +12,8 @@ import { SettingsService } from './services/impl/SettingsService';
 import { StatusService } from './services/impl/StatusService';
 import { ValhallaTaskProvider } from './components/tasks';
 import { BuildStatusService } from './services/impl/BuildStatusService';
+import { UIService } from './services/impl/UIService';
+import { ConfigTreeProvider } from './components/ConfigTreeDataProvider';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -482,6 +484,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
 		.registerInstance('tasks', new ValhallaTaskProvider(services))
 		.registerInstance('status', new StatusService(services))
+		.registerInstance('ui', new UIService(services))
+		.registerInstance('configTree', new ConfigTreeProvider(services))
 		;
 
 	const commands = [

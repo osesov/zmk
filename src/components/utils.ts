@@ -75,3 +75,86 @@ export function isNotEmpty<T>(e : T | undefined ): e is T
 {
     return e !== undefined;
 }
+
+export function extractPart(str: string, start: number, separator = '-'): string
+{
+    const parts = str.split(separator);
+    if (start < 0)
+        start = parts.length + start;
+    return parts.slice(start, start + 1).join(separator);
+}
+
+export function stripParts(array: string[], strip: number, separator='-'): string[]
+{
+    return Array.from(new Set(array.map( e => {
+        const parts = e.split(separator);
+        if (parts.length <= strip)
+            return e
+        return parts.slice(strip).join(separator);
+    })));
+}
+
+export function extractRange(str: string, start: number, end: number, separator = '-'): string
+{
+    const parts = str.split(separator);
+    if (start < 0)
+        start = parts.length + start;
+    if (end < 0)
+        end = parts.length + end;
+    return parts.slice(start, end).join(separator);
+}
+
+export function groupBy<T>(array: T[], key: (item: T) => string): { [k: string]: T[] }
+{
+    const result: { [k: string]: T[] } = {};
+
+    for (const item of array) {
+        const k = key(item);
+        if (!result[k]) {
+            result[k] = [];
+        }
+        result[k].push(item);
+    }
+    return result;
+}
+
+// export function groupBy(array: string[], index: number, options ?: {
+//     separator?: string,
+//     default?: string,
+//     strip?: boolean,
+// }): { [k: string]: string[] }
+// {
+//     const separator = options?.separator ?? '-';
+//     const defaultValue = options?.default ?? 'default';
+//     const strip = options?.strip ?? false;
+//     const result: { [k: string]: string[] } = {};
+
+//     for (const item of array) {
+//         const parts = item.split(separator);
+//         const i = index < 0 ? parts.length + index : index;
+//         const key = parts.length > i ? parts[i] : defaultValue;
+
+//         if (!result[key]) {
+//             result[key] = [];
+//         }
+
+//         if (strip)
+//             parts.splice(i, 1);
+
+//         result[key].push(parts.join(separator));
+//     }
+
+//     return result;
+// }
+
+// export function stripRange(array: string[], start: number, end: number, separator: string = '-'): string[]
+// {
+//     return Array.from(new Set(array.map(item => {
+//         const parts = item.split(separator);
+//         if (parts.length > end) {
+//             parts.splice(start, end - start + 1);
+//             return parts.join(separator);
+//         }
+//         return item;
+//     })).keys());
+// }

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Lower half gear with five teeth">
+  <path fill="#000" d="
+    M12 32
+    L12 40
+    L18 40
+    L20 46
+    L15 50
+    L21 56
+    L26 52
+    L32 54
+    L32 60
+    L40 60
+    L40 54
+    L46 52
+    L51 56
+    L57 50
+    L52 46
+    L54 40
+    L60 40
+    L60 32
+    A28 28 0 0 0 12 32
+    Z
+  "/>
+  <path fill="#fff" d="
+    M22 32
+    A10 10 0 0 0 42 32
+    L38 32
+    A6 6 0 0 1 26 32
+    Z
+  "/>
+</svg>

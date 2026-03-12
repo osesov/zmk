@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
 import path from 'path';
 import fs from 'fs';
-import { ProjectJson } from '../../components/ProjectJson';
+import { ProjectInfo } from '../../components/ProjectInfo';
 import { CompileCommands } from '../../components/CompileCommands';
 import { ServiceContainer } from '../ServiceContainer';
 import { AppServices } from '../AppServices';
@@ -12,6 +12,8 @@ import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
 import { IVirtualDocumentProvider } from '../IVirtualDocumentProvider';
 import { IBuilderService } from '../IBuilderService';
 import { IBuildStatusService } from '../IBuildStatusService';
+import { ToolchainInfo } from '../../components/ToolchainInfo';
+import { MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
@@ -22,8 +24,9 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private builder: IBuilderService;
     private buildStatus: IBuildStatusService;
 
-    private projectJson: ProjectJson = new ProjectJson();
+    private projectJson: ProjectInfo = new ProjectInfo();
     private compileCommands = new CompileCommands();
+    private toolchainInfo = new ToolchainInfo();
 
     private statusBarItem: vscode.StatusBarItem;
 
@@ -63,8 +66,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
                 || event.affects(Setting.workspaceFolders)
             ) {
                 this.logOutputChannel.info('Configuration changed. Invalidating caches...');
-                this.projectJson.reset();
-                this.compileCommands.reset();
+                this.resetState();
                 cppToolsApi.didChangeCustomConfiguration(this);
             }
         });
@@ -169,10 +171,10 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     ///////////////////////////////////////////////////////////////////
 
-    private beforeRebuild() {
-        this.logOutputChannel.info('Rebuilding Valhalla to update configurations...');
+    private resetState() {
         this.projectJson.reset();
         this.compileCommands.reset();
+        this.toolchainInfo.reset();
     }
 
     private getOutputDir(): string | null
@@ -186,7 +188,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
 
         await this.builder.buildDefaultTargetIfNeeded(
-            () => this.beforeRebuild()
+            () => this.resetState()
         );
 
         if (!await this.compileCommands.load(outputDir))
@@ -214,26 +216,22 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private async getSourceFileConfiguration(uri: vscode.Uri): Promise<cpptools.SourceFileConfigurationItem | null> {
 
-        const entry = await this.getFromCompileCommands(uri);
-        if (entry) {
-            return {
-                uri,
-                configuration: entry
-            };
-        }
+        let entry = await this.getFromCompileCommands(uri);
+        if (!entry)
+            entry = await this.getFromProjectInfo(uri);
 
-        const pjEntry = await this.getFromProjectJson(uri);
-        if (pjEntry) {
-            return {
-                uri,
-                configuration: pjEntry,
-            };
-        }
+        if (!entry)
+            return null;
 
-        return null;
+        entry = await this.enrich(entry);
+
+        return {
+            uri,
+            configuration: entry
+        };
     }
 
-    private async getProjectJson(): Promise<ProjectJson | null>
+    private async getProjectInfo(): Promise<ProjectInfo | null>
     {
         const outputDir = this.getOutputDir();
 
@@ -241,14 +239,14 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
 
         await this.builder.buildDefaultTargetIfNeeded(
-            () => this.beforeRebuild()
+            () => this.resetState()
         );
 
         await this.projectJson.load(outputDir);
         return this.projectJson;
     }
 
-    private async getFromCompileCommands(uri: vscode.Uri): Promise<cpptools.SourceFileConfiguration | null>
+    private async getFromCompileCommands(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
     {
         const compileCommands = await this.getCompileCommands();
         if (!compileCommands) {
@@ -259,9 +257,9 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         return entry ?? null;
     }
 
-    private async getFromProjectJson(uri: vscode.Uri): Promise<cpptools.SourceFileConfiguration | null>
+    private async getFromProjectInfo(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
     {
-        const projectJson = await this.getProjectJson();
+        const projectJson = await this.getProjectInfo();
         if (!projectJson) {
             return null;
         }
@@ -272,6 +270,40 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         }
         const target = projectJson.getSourceFileConfiguration(valhallaFolder.fsPath, uri, this.compileCommands.cpp);
         return target ?? null;
+    }
+
+    private async enrich(info: MutableSourceFileConfiguration): Promise<MutableSourceFileConfiguration>
+    {
+        const outputDir = this.getOutputDir();
+        const toolchainPath = this.settings.get(Setting.toolchainInfo);
+        const compilerArgs = this.settings.get(Setting.compiler);
+        const intelliSenseMode = this.settings.get(Setting.intelliSenseMode);
+        const result = Object.assign({}, info);
+
+        const includeDirs = this.settings.get(Setting.includeDirs)
+        if (includeDirs && includeDirs.length > 0)
+            result.includePath = [...includeDirs, ...result.includePath]
+        const defines = this.settings.get(Setting.defines);
+        if (defines)
+            result.defines = [...Object.entries(defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
+
+        if (compilerArgs && compilerArgs.length > 0 && !result.compilerPath) {
+            result.compilerPath = compilerArgs[0];
+            result.compilerArgs = compilerArgs.slice(1);
+        }
+
+        if (intelliSenseMode && !result.intelliSenseMode) {
+            result.intelliSenseMode = intelliSenseMode as MutableSourceFileConfiguration['intelliSenseMode'];
+        }
+
+        const loaded = await this.toolchainInfo.load(outputDir, toolchainPath)
+        if (loaded) {
+            const toolchainIncludeDirs = this.toolchainInfo.getIncludeDirs();
+            if (toolchainIncludeDirs && toolchainIncludeDirs.length > 0)
+                result.includePath = [...result.includePath, ...toolchainIncludeDirs]
+        }
+
+        return result;
     }
 
     // private async extractSystemIncludes(uri: vscode.Uri)
@@ -325,8 +357,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         return vscode.window.showWarningMessage(`Output directory ${outputDir} does not exist.`, buildNowButton, skipButton)
         .then(async answer => {;
             if (answer === buildNowButton) {
-                this.compileCommands.reset();
-                this.projectJson.reset();
+                this.resetState();
                 await this.builder.buildDefaultTarget();
             }
         });

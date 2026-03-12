@@ -36,6 +36,20 @@
 			{
 				"command": "zmk.zmkUpdateCopyright",
 				"title": "ZMK: Insert or update Copyright header"
+			},
+
+			{
+				"command": "zmk.setConfig",
+				"title": "ZMK: Set Config"
+			},
+			{
+				"command": "zmk.pickConfig",
+				"title": "Pick Configuration"
+			},
+			{
+				"command": "zmk.refreshConfigTree",
+				"title": "ZMK: Refresh Configurations",
+				"icon": "$(refresh)"
 			}
 		],
 		"configuration": {
@@ -53,7 +67,8 @@
 				},
 				"zmk.bundleDir": {
 					"type": "string",
-					"description": "zmk bundle folder location"
+					"description": "zmk bundle folder location",
+					"default": null
 				},
 				"zmk.config": {
 					"type": "string",
@@ -97,6 +112,44 @@
 					],
 					"default": null,
 					"description": "Copyright comment template"
+				},
+
+				"zmk.toolchainInfo": {
+					"type": "string",
+					"description": "Path to toolchain.json file",
+					"default": null
+				},
+				"zmk.includeDirs": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Extra include dirs for intellisense",
+					"default": []
+				},
+				"zmk.defines": {
+					"type": "object",
+					"description": "Extra defines for intellisense",
+					"additionalProperties": {
+						"oneOf": [
+							{ "type": "string" },
+							{ "type": "null" }
+						]
+					},
+					"default": {}
+				},
+				"zmk.compiler": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Intellisense compiler path and args",
+					"default": []
+				},
+				"zmk.intelliSenseMode": {
+					"type": "string",
+					"markdownDescription": "Intellisense mode (e.g. 'gcc-x64'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)",
+					"default": null
 				}
 			}
 		},
@@ -132,11 +185,43 @@
 					"env": {
 						"type": "object",
 						"description": "Environment variables",
-						"additionalProperties": true
+						"additionalProperties": {
+							"oneOf": [
+								{ "type": "string" },
+								{ "type": "null" }
+							]
+						}
 					}
 				}
 			}
-		]
+		],
+		"viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "valhallaContainer",
+                    "title": "Valhalla build system",
+                    "icon": "./images/helm.svg",
+                    "dark": "./images/helm.svg"
+                }
+            ]
+        },
+		"views": {
+			"valhallaContainer": [
+				{
+					"id": "configPickerView",
+					"name": "Valhalla Configurations"
+				}
+			]
+		},
+    	"menus": {
+      		"view/title": [
+        		{
+					"command": "zmk.refreshConfigTree",
+					"when": "view == configPickerView",
+					"group": "navigation"
+				}
+      		]
+    	}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run bundle",

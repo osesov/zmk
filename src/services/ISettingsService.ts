@@ -1,15 +1,27 @@
 import * as vscode from 'vscode';
 
+export type JsonValue = null | boolean | string | number | JsonArray | JsonObject
+export type JsonObject = { [k: string]: JsonValue}
+export type JsonArray = JsonValue[]
+
 export interface Setting
 {
     valhallaDir: string | undefined;
     valhallaFolder: vscode.Uri | undefined;
     workspaceFolder: vscode.Uri | undefined;
     workspaceFolders: vscode.Uri[] | undefined;
-    config: string
+    config: string;
     target: string | undefined;
     gnbFlags: string[];
     gnFlags: string[];
+
+    env: JsonObject | undefined;
+    toolchainInfo: string | undefined;
+    includeDirs: string[] | undefined;
+    defines: JsonObject | undefined;
+
+    compiler: string[] | undefined; // intellisense compiler path, used for CppTools configuration
+    intelliSenseMode: string | undefined; // intellisense mode, used for CppTools configuration
 }
 
 export enum SettingSource
@@ -21,7 +33,7 @@ export enum SettingSource
 
 export type SettingName = keyof Setting;
 export type SettingType<K extends SettingName> = Setting[K];
-export type SettingDecl<K extends SettingName> = { key: K; defaultValue: SettingType<K>, source: SettingSource };
+export type SettingDecl<K extends SettingName> = { key: string /*K*/; defaultValue: SettingType<K>, source: SettingSource };
 
 export const Setting: { [K in SettingName]: SettingDecl<K> } =
 {
@@ -33,6 +45,16 @@ export const Setting: { [K in SettingName]: SettingDecl<K> } =
     target: { key: 'target', defaultValue: undefined, source: SettingSource.configuration },
     gnbFlags: { key: 'gnbFlags', defaultValue: [], source: SettingSource.configuration },
     gnFlags: { key: 'gnFlags', defaultValue: [], source: SettingSource.configuration },
+
+    // extra build information
+    env: { key: 'env', defaultValue: undefined, source: SettingSource.configuration },
+    toolchainInfo: { key: 'toolchainInfo', defaultValue: undefined, source: SettingSource.configuration},
+    includeDirs: { key: 'includeDirs', defaultValue: undefined, source: SettingSource.configuration},
+    defines: { key: 'defines', defaultValue: undefined, source: SettingSource.configuration},
+
+    // CppTools configuration
+    compiler: { key: 'compiler', defaultValue: undefined, source: SettingSource.calculated },
+    intelliSenseMode: { key: 'intelliSenseMode', defaultValue: undefined, source: SettingSource.calculated },
 } as const;
 
 export type SettingKey = keyof typeof Setting;

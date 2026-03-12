@@ -6,6 +6,8 @@ import { IVirtualDocumentProvider } from './IVirtualDocumentProvider';
 import { IStatusService } from './IStatusService';
 import { IValhallaTaskProvider } from './IValhallaTaskProvider';
 import { IBuildStatusService } from './IBuildStatusService';
+import { IUIService } from './IUIService';
+import { IConfigTreeProvider } from './IConfigTreeProvider';
 
 export type AppServices =
 {
@@ -19,4 +21,6 @@ export type AppServices =
     cppToolsProvider: IValhallaCppToolsProvider | null;
     status: IStatusService;
     tasks: IValhallaTaskProvider;
+    ui: IUIService;
+    configTree: IConfigTreeProvider;
 }

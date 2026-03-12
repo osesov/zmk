@@ -4,6 +4,7 @@ import vscode from "vscode";
 import shell from "shell-quote";
 import * as cpptools from "vscode-cpptools";
 import { isDevContainerHost, Mutable } from "./utils";
+import { MutableSourceFileConfiguration } from "./SourceFileConfiguration";
 
 export interface CompileCommandEntry {
     file: string;
@@ -13,7 +14,7 @@ export interface CompileCommandEntry {
 
 export type CompileCommandsFile = CompileCommandEntry[];
 
-interface SourceFileConfigurationEx extends cpptools.SourceFileConfiguration {
+interface SourceFileConfigurationEx extends MutableSourceFileConfiguration {
     _compilerPath: string
 }
 
@@ -53,9 +54,7 @@ export class CompileCommands {
                 return this.compileCommandsCache;
             }
 
-            // cache can be different
-
-            const content = fs.readFileSync(file, 'utf-8'); // touch the file to update its mtime
+            const content = fs.readFileSync(file, 'utf-8');
             const compileCommands = JSON.parse(content) as CompileCommandsFile;
 
             this.compileCommandsMTime = mtime;

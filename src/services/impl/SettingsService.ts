@@ -116,7 +116,7 @@ export class SettingsService implements ISettingsService
 
     update<K extends SettingName>(setting: SettingDecl<K>, value: SettingType<K>, isGlobal: boolean = false): Thenable<void>
     {
-        if (setting.source) {
+        if (setting.source != SettingSource.configuration) {
             return Promise.reject(new Error(`Setting "${setting.key}" is read-only.`));
         }
         const config = vscode.workspace.getConfiguration(SettingSection);

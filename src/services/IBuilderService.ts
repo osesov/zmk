@@ -27,4 +27,7 @@ export interface IBuilderService
     buildTarget(target: string | undefined): Promise<void>;
     buildDefaultTarget(): Promise<void>;
     buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
+
+    listConfigs(): Promise<string[]>;
+    listTargets(config ?: string): Promise<string[]>;
 }
