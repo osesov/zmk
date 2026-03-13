@@ -28,7 +28,9 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private compileCommands = new CompileCommands();
     private toolchainInfo = new ToolchainInfo();
 
-    private statusBarItem: vscode.StatusBarItem;
+    private readonly providedConfigurations = new Map<string, MutableSourceFileConfiguration>();
+    private sourceFileConfiguration = new vscode.EventEmitter<void>();
+    public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfiguration.event;
 
     static async create(services: ServiceContainer<AppServices>): Promise<ValhallaCppToolsProviderService | null> {
         const settings = services.get('settings')
@@ -60,10 +62,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         this.projectInfo = services.get('projectInfo');
         this.virtualDocumentProvider = services.get('virtualDocumentProvider');
         this.logOutputChannel = services.get('logOutputChannel');
-        this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-
-        this.statusBarItem.text = 'Valhalla: Ready';
-        this.statusBarItem.show();
 
         this.resetState();
 
@@ -89,7 +87,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             cppToolsApi.didChangeCustomConfiguration(this);
         });
 
-        context.subscriptions.push(this.statusBarItem);
         context.subscriptions.push(this);
 
         cppToolsApi.registerCustomConfigurationProvider(this);
@@ -148,35 +145,16 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     ///////////////////////////////////////////////////////////////////
 
+    public getProvidedConfiguration(uri: vscode.Uri): MutableSourceFileConfiguration | null
+    {
+        const config = this.providedConfigurations.get(uri.toString());
+        return config ?? null;
+    }
+
     private setProvidedConfig(uri: vscode.Uri, config: cpptools.SourceFileConfigurationItem)
     {
-        const configText = new vscode.MarkdownString();
-
-        configText.appendMarkdown(`# \`${uri.fsPath}\`\n\n`);
-        configText.appendMarkdown(`**C++ Standard:** \`${config.configuration.standard ?? "not set"}\`\n\n`);
-        configText.appendMarkdown(`**Compiler Path:** \`${config.configuration.compilerPath ?? "not set"}\`\n\n`);
-        configText.appendMarkdown(`**Compiler Args:** \`${config.configuration.compilerArgs?.join(' ') ?? "not set"}\`\n\n`);
-        configText.appendMarkdown(`**Include Paths:**\n\n${config.configuration.includePath?.map(p => `- \`${p}\``).join('\n') ?? "not set"}\n\n`);
-        configText.appendMarkdown(`**Defines:**\n\n${config.configuration.defines?.map(d => `- \`${d}\``).join('\n') ?? "not set"}\n\n`);
-
-        const docUri = this.virtualDocumentProvider.update('configuration.md', configText.value);
-
-        const options: vscode.TextDocumentShowOptions = {
-            preview: true,
-            viewColumn: vscode.ViewColumn.Beside
-        };
-
-        const label = `Valhalla Configuration: ${path.basename(uri.fsPath)}`;
-
-        this.statusBarItem.text = `Valhalla: ${path.basename(uri.fsPath)}`;
-        this.statusBarItem.tooltip = configText;
-        this.statusBarItem.command = {
-            title: 'Show Configuration',
-            command: 'vscode.open',
-            arguments: [docUri, options, label]
-        }
-
-        this.statusBarItem.show();
+        this.providedConfigurations.set(uri.toString(), config.configuration);
+        this.sourceFileConfiguration.fire();
     }
 
     ///////////////////////////////////////////////////////////////////

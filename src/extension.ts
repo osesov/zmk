@@ -16,6 +16,7 @@ import { UIService } from './services/impl/UIService';
 import { ConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
 import { TargetTreeProvider } from './services/impl/TargetTreeProvider';
 import { ProjectInfoService } from './services/impl/ProjectInfoService';
+import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -487,6 +488,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('ui', new UIService(services))
 		.registerInstance('configTree', new ConfigTreeProvider(services))
 		.registerInstance('targetTree', new TargetTreeProvider(services))
+		.registerInstance('sourceFileConfigurationTree', new SourceFileConfigurationItemTreeProvider(services))
 		;
 
 	const commands = [

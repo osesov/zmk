@@ -10,6 +10,7 @@ import { IUIService } from './IUIService';
 import { IConfigTreeProvider } from './IConfigTreeProvider';
 import { ITargetTreeProvider } from './ITargetTreeProvider';
 import { IProjectInfoService } from './IProjectInfoService';
+import { ISourceFileConfigurationItemTreeProvider } from './ISourceFileConfigurationItemTreeProvider';
 
 export type AppServices =
 {
@@ -27,4 +28,5 @@ export type AppServices =
     ui: IUIService;
     configTree: IConfigTreeProvider;
     targetTree: ITargetTreeProvider;
+    sourceFileConfigurationTree: ISourceFileConfigurationItemTreeProvider;
 }
