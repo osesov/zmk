@@ -8,6 +8,8 @@ import { IValhallaTaskProvider } from './IValhallaTaskProvider';
 import { IBuildStatusService } from './IBuildStatusService';
 import { IUIService } from './IUIService';
 import { IConfigTreeProvider } from './IConfigTreeProvider';
+import { ITargetTreeProvider } from './ITargetTreeProvider';
+import { IProjectInfoService } from './IProjectInfoService';
 
 export type AppServices =
 {
@@ -18,9 +20,11 @@ export type AppServices =
     virtualDocumentProvider: IVirtualDocumentProvider;
     builder: IBuilderService;
     buildStatus: IBuildStatusService;
+    projectInfo: IProjectInfoService;
     cppToolsProvider: IValhallaCppToolsProvider | null;
     status: IStatusService;
     tasks: IValhallaTaskProvider;
     ui: IUIService;
     configTree: IConfigTreeProvider;
+    targetTree: ITargetTreeProvider;
 }

@@ -58,6 +58,8 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         this.statusBarItem.text = 'Valhalla: Ready';
         this.statusBarItem.show();
 
+        this.resetState();
+
         settings.onChange(event => {
             if (event.affects(Setting.config)
                 || event.affects(Setting.target)
@@ -67,7 +69,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             ) {
                 this.logOutputChannel.info('Configuration changed. Invalidating caches...');
                 this.resetState();
-                cppToolsApi.didChangeCustomConfiguration(this);
+                // cppToolsApi.didChangeCustomConfiguration(this);
             }
         });
 
@@ -84,8 +86,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         context.subscriptions.push(this);
 
         cppToolsApi.registerCustomConfigurationProvider(this);
-
-        this.checkOutputDirExists().then(() => cppToolsApi.notifyReady(this));
+        this.buildStatus.initialBuildStatus.wait.then(() => { cppToolsApi.notifyReady(this); });
     }
 
     public readonly name = 'Valhalla';
@@ -343,23 +344,4 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     //     interact.stop();
     // }
 
-    private checkOutputDirExists(): Thenable<void>
-    {
-        const outputDir = this.getOutputDir();
-        if (!outputDir)
-            return Promise.resolve();
-
-        if (fs.existsSync(outputDir))
-            return Promise.resolve();
-
-        const buildNowButton = 'Build Now';
-        const skipButton = 'Skip';
-        return vscode.window.showWarningMessage(`Output directory ${outputDir} does not exist.`, buildNowButton, skipButton)
-        .then(async answer => {;
-            if (answer === buildNowButton) {
-                this.resetState();
-                await this.builder.buildDefaultTarget();
-            }
-        });
-    }
 }

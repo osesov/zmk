@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
-import { ServiceContainer } from "../services/ServiceContainer";
-import { AppServices } from "../services/AppServices";
-import { zmkCommand } from "./constants";
-import { Setting } from "../services/ISettingsService";
+import { ServiceContainer } from "../ServiceContainer";
+import { AppServices } from "../AppServices";
+import { zmkCommand } from "../../components/constants";
+import { Setting } from "../ISettingsService";
+import { IConfigTreeProvider } from "../IConfigTreeProvider";
 
 type BuildMode = "dev" | "prd" | "tst" | "cqa";
 
@@ -110,7 +111,7 @@ class ConfigTreeItem extends vscode.TreeItem {
             this.description = node.fullName;
             this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
             this.command = {
-                command: zmkCommand.zmkPickConfig,
+                command: zmkCommand.zmkSetDefaultConfig,
                 title: "Pick Configuration",
                 arguments: [node.fullName],
             };
@@ -122,7 +123,8 @@ class ConfigTreeItem extends vscode.TreeItem {
     }
 }
 
-export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode> {
+export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, IConfigTreeProvider
+{
     private _onDidChangeTreeData = new vscode.EventEmitter<ModelNode | undefined | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
@@ -134,14 +136,14 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode> {
     {
         const context = services.get('context');
 
-        context.subscriptions.push(vscode.window.registerTreeDataProvider("configPickerView", this));
+        context.subscriptions.push(vscode.window.registerTreeDataProvider("configTreeView", this));
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRefreshConfigTree,
             () => {
                 this.refresh();
             }
         ));
 
-        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkPickConfig,
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkSetDefaultConfig,
             async (configName: string) => {
                 await this.services.get('settings').update(Setting.config, configName);
             }

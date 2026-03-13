@@ -13,7 +13,9 @@ import { StatusService } from './services/impl/StatusService';
 import { ValhallaTaskProvider } from './components/tasks';
 import { BuildStatusService } from './services/impl/BuildStatusService';
 import { UIService } from './services/impl/UIService';
-import { ConfigTreeProvider } from './components/ConfigTreeDataProvider';
+import { ConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
+import { TargetTreeProvider } from './services/impl/TargetTreeProvider';
+import { ProjectInfoService } from './services/impl/ProjectInfoService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -466,8 +468,6 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-	// console.log('Extension "zmk" is active');
-
 	const services = new ServiceContainer<AppServices>();
 	const buildOutputChannel = vscode.window.createOutputChannel('Valhalla Build');
 	const logOutputChannel = vscode.window.createOutputChannel('Valhalla', {log: true});
@@ -476,16 +476,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('context', context)
 		.registerInstance('buildOutputChannel', buildOutputChannel)
 		.registerInstance('logOutputChannel', logOutputChannel)
-		// .registerFactory("logger", () => new ConsoleLogger())
 		.registerInstance('settings', new SettingsService(services))
 		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
 		.registerInstance('builder', new BuilderService(services))
 		.registerInstance('buildStatus', new BuildStatusService(services))
+		.registerInstance('projectInfo', new ProjectInfoService(services))
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
 		.registerInstance('tasks', new ValhallaTaskProvider(services))
 		.registerInstance('status', new StatusService(services))
 		.registerInstance('ui', new UIService(services))
 		.registerInstance('configTree', new ConfigTreeProvider(services))
+		.registerInstance('targetTree', new TargetTreeProvider(services))
 		;
 
 	const commands = [

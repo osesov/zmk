@@ -13,7 +13,7 @@ export interface BuildCommandOptions
     target ?: string;
     gnbFlags ?: string[];
     gnFlags ?: string[];
-    env: { [k: string]: string | null | undefined } | undefined
+    env ?: { [k: string]: string | null | undefined } | undefined
 }
 
 export interface IBuilderService
@@ -29,5 +29,4 @@ export interface IBuilderService
     buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
 
     listConfigs(): Promise<string[]>;
-    listTargets(config ?: string): Promise<string[]>;
 }

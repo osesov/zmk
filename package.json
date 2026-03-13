@@ -37,20 +37,35 @@
 				"command": "zmk.zmkUpdateCopyright",
 				"title": "ZMK: Insert or update Copyright header"
 			},
-
 			{
 				"command": "zmk.setConfig",
 				"title": "ZMK: Set Config"
 			},
 			{
-				"command": "zmk.pickConfig",
-				"title": "Pick Configuration"
+				"command": "zmk.setDefaultConfig",
+				"title": "Select Configuration"
 			},
 			{
 				"command": "zmk.refreshConfigTree",
 				"title": "ZMK: Refresh Configurations",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "zmk.buildTarget",
+				"title": "Build",
+				"icon": "$(play)"
+			},
+			{
+				"command": "zmk.setDefaultTarget",
+				"title": "Set as Default",
+				"icon": "$(star-empty)"
+			},
+			{
+				"command": "zmk.refreshTargetTree",
+				"title": "Refresh Targets",
+				"icon": "$(refresh)"
 			}
+
 		],
 		"configuration": {
 			"title": "zmk",
@@ -208,8 +223,12 @@
 		"views": {
 			"valhallaContainer": [
 				{
-					"id": "configPickerView",
-					"name": "Valhalla Configurations"
+					"id": "configTreeView",
+					"name": "Configurations"
+				},
+				{
+					"id": "targetTreeView",
+					"name": "Targets"
 				}
 			]
 		},
@@ -217,10 +236,38 @@
       		"view/title": [
         		{
 					"command": "zmk.refreshConfigTree",
-					"when": "view == configPickerView",
+					"when": "view == configTreeView",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.refreshTargetTree",
+					"when": "view == targetTreeView",
 					"group": "navigation"
 				}
-      		]
+      		],
+			"view/item/context": [
+				{
+					"command": "zmk.buildTarget",
+					"when": "view == targetTreeView && viewItem == target",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.buildTarget",
+					"when": "view == targetTreeView && viewItem == target",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.setDefaultTarget",
+					"when": "view == targetTreeView && viewItem == target",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.setDefaultTarget",
+					"when": "view == targetTreeView && viewItem == target",
+					"group": "navigation@2"
+				}
+			]
+
     	}
 	},
 	"scripts": {

@@ -67,25 +67,17 @@ export class BuilderService implements IBuilderService
         }
 
         const outputChannel = this.services.get('buildOutputChannel');
-        const settings = this.services.get('settings');
-
-        const cwd = settings.get(Setting.valhallaFolder)?.fsPath;
-        const valhallaConfig = settings.get(Setting.config);
-        const gnbFlags = settings.getOrDefault(Setting.gnbFlags, []);
-        const gnFlags = settings.getOrDefault(Setting.gnFlags, []);
 
         outputChannel.clear();
 
-        if (!valhallaConfig) {
+        const buildCommand = this.getBuildCommand({target: target});
+        if (!buildCommand) {
+            vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
             return;
         }
 
-        const buildCommand = this.getBuildCommand();
-
-        const cmdLine = [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...(target ? [target] : [])];
-
-        outputChannel.appendLine(`Running command: ${cmdLine.join(' ')}`);
-        outputChannel.appendLine(`In directory: ${cwd}`);
+        outputChannel.appendLine(`Running command: ${buildCommand.command.join(' ')}`);
+        outputChannel.appendLine(`In directory: ${buildCommand.cwd}`);
         // outputChannel.show(true);
 
         return vscode.window.withProgress({
@@ -99,8 +91,9 @@ export class BuilderService implements IBuilderService
 
             return new Promise<void>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';
-                const proc = child_process.spawn(cmdLine[0], cmdLine.slice(1), {
-                    cwd,
+                const proc = child_process.spawn(buildCommand.command[0], buildCommand.command.slice(1), {
+                    cwd: buildCommand.cwd,
+                    env: buildCommand.env,
                     shell: false,
                     stdio: ['ignore', 'pipe', 'pipe'], // inherit stdout, pipe stderr
                     // Linux: start a new session so we can kill the whole process tree if needed
@@ -192,7 +185,7 @@ export class BuilderService implements IBuilderService
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
         const valhallaConfig = options?.config ?? settings.get(Setting.config);
-        const target = options?.target ?? settings.get(Setting.target);
+        let target = options?.target ?? settings.get(Setting.target);
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
         const gnFlags = options?.gnFlags ?? settings.getOrDefault(Setting.gnFlags, []);
         const configEnv = options?.env ?? settings.getOrDefault(Setting.env, {});
@@ -218,6 +211,10 @@ export class BuilderService implements IBuilderService
                 }
             }
             return result;
+        }
+
+        if (target?.startsWith("//")) {
+            target = target.substring(2);
         }
 
         const command = [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...(target ? [target] : [])];
@@ -251,10 +248,5 @@ export class BuilderService implements IBuilderService
         } catch (err) {
             return [];
         }
-    }
-
-    listTargets(config ?: string): Promise<string[]>
-    {
-        throw new Error('Not implemented');
     }
 }

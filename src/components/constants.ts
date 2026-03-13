@@ -4,7 +4,11 @@ export namespace zmkCommand
     export const setConfig = 'zmk.setConfig';
     export const setTarget = 'zmk.setTarget';
     export const zmkRefreshConfigTree = "zmk.refreshConfigTree";
-    export const zmkPickConfig = "zmk.pickConfig";
+    export const zmkSetDefaultConfig = "zmk.selectConfig";
+
+    export const zmkRefreshTargetTree = "zmk.refreshTargetTree";
+    export const zmkBuildTarget = "zmk.buildTarget";
+    export const zmkSetDefaultTarget = "zmk.setDefaultTarget";
 }
 
 export namespace BuildConstants
