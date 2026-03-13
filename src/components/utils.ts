@@ -170,3 +170,13 @@ export function assertNever(x: never): never {
     callDebugger("Unexpected object: " + x);
     throw new Error("Didn't expect to get here");
 }
+
+
+export async function setContext(name: string, value: string | boolean | number)
+{
+    return vscode.commands.executeCommand("setContext", name, value)
+        .then(
+            () => {},
+            (e) => {vscode.window.showErrorMessage(`Failed to set context for ${name}: ${e}`)}
+        );
+}

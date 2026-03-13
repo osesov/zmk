@@ -70,8 +70,17 @@
 				"command": "zmk.refreshTargetTree",
 				"title": "Refresh Targets",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "zmk.toggleIncludeListView",
+				"title": "Show Includes as list",
+				"icon": "$(list-unordered)"
+			},
+			{
+				"command": "zmk.toggleIncludeTreeView",
+				"title": "Show Includes as tree",
+				"icon": "$(list-tree)"
 			}
-
 		],
 		"configuration": {
 			"title": "zmk",
@@ -271,6 +280,16 @@
 				{
 					"command": "zmk.resetTarget",
 					"when": "view == targetTreeView && zmk.targetSelected",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.toggleIncludeListView",
+					"when": "view == cppSourceConfig && zmk.includeViewMode == 'tree'",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.toggleIncludeTreeView",
+					"when": "view == cppSourceConfig && zmk.includeViewMode == 'list'",
 					"group": "navigation"
 				}
       		],

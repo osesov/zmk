@@ -5,6 +5,7 @@ import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { Setting } from "../ISettingsService";
+import { setContext } from "../../components/utils";
 
 interface CurrentTarget {
     selection: ParsedTarget | undefined | null
@@ -160,11 +161,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         this.currentTarget.selection = target ? parseTarget(target, true) : undefined;
         this.refresh(this.currentTarget.selection?.original);
 
-        vscode.commands.executeCommand("setContext", zmkCommand.zmkTargetSelected, !!target)
-        .then(
-            () => {},
-            (e) => {vscode.window.showErrorMessage(`Failed to set context for targetSelected: ${e}`)}
-        );
+        setContext(zmkCommand.zmkTargetSelected, !!target);
     }
 
     setCurrentTarget(target: string | undefined)

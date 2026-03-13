@@ -12,6 +12,14 @@ export namespace zmkCommand
     export const zmkResetTarget = "zmk.resetTarget";
     export const zmkTargetSelected = "zmk.targetSelected";
 
+    export const toggleIncludeTreeView = "zmk.toggleIncludeTreeView";
+    export const toggleIncludeListView = "zmk.toggleIncludeListView";
+
+}
+
+export namespace Context
+{
+    export const includeViewMode = "zmk.includeViewMode";
 }
 
 export namespace BuildConstants

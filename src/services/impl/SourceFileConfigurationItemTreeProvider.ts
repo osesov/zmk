@@ -5,10 +5,13 @@ import { AppServices } from "../AppServices";
 import { ServiceContainer } from "../ServiceContainer";
 import { Setting } from "../ISettingsService";
 import path from "path";
+import { Context, zmkCommand } from "../../components/constants";
+import { setContext } from "../../components/utils";
 
 type NodeType =
     | "compiler"
     | "includes"
+    | "include"
     | "defines"
     | "intellisense"
     | "args"
@@ -20,6 +23,7 @@ type NodeType =
 const ICONS: Record<NodeType, vscode.ThemeIcon | undefined> = {
     compiler: new vscode.ThemeIcon("gear"),
     includes: new vscode.ThemeIcon("folder-library"),
+    include: new vscode.ThemeIcon("folder-library"),
     defines: new vscode.ThemeIcon("symbol-constant"),
     intellisense: new vscode.ThemeIcon("lightbulb"),
     args: new vscode.ThemeIcon("symbol-parameter"),
@@ -33,6 +37,7 @@ const ICONS: Record<NodeType, vscode.ThemeIcon | undefined> = {
 const TITLE: Record<NodeType, string> = {
     compiler: "Compiler",
     includes: "Includes",
+    include: "Include",
     defines: "Defines",
     intellisense: "IntelliSense",
     args: "Args",
@@ -51,7 +56,7 @@ interface PlainString
 export class ConfigNode extends vscode.TreeItem {
     constructor(
         public readonly nodeType: NodeType | PlainString,
-        public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+        public collapsibleState: vscode.TreeItemCollapsibleState,
         public readonly value?: string,
     ) {
         const isPredefined = typeof nodeType === "string";
@@ -66,6 +71,42 @@ export class ConfigNode extends vscode.TreeItem {
     }
 }
 
+export class IncludeNode extends ConfigNode
+{
+    public readonly children: IncludeNode[] = [];
+
+    constructor(public readonly path: string, fullPath: string)
+    {
+        super({ text: path, tooltip: fullPath }, vscode.TreeItemCollapsibleState.None);
+    }
+}
+
+function optimizeTree(node: IncludeNode[]): IncludeNode[]
+{
+    if (node.length === 1) {
+        const n = node[0];
+        while (n.children.length === 1) {
+            const child = n.children[0];
+            n.label += path.sep + child.label;
+            n.children.splice(0, 1, ...child.children);
+            n.collapsibleState = child.collapsibleState;
+        }
+        optimizeTree(n.children);
+        return node;
+    }
+
+    for (const n of node) {
+        while (n.children.length === 1) {
+            const child = n.children[0];
+            n.label += path.sep + child.label;
+            n.children.splice(0, 1, ...child.children);
+            n.collapsibleState = child.collapsibleState;
+        }
+        optimizeTree(n.children);
+    }
+    return node;
+}
+
 export class SourceFileConfigurationItemTreeProvider
     implements vscode.TreeDataProvider<ConfigNode>, ISourceFileConfigurationItemTreeProvider
 {
@@ -73,6 +114,7 @@ export class SourceFileConfigurationItemTreeProvider
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     private config?: cpptools.SourceFileConfiguration | null | undefined;
+    private viewMode: "tree" | "list" = "tree";
 
     constructor(private services: ServiceContainer<AppServices>)
     {
@@ -94,6 +136,16 @@ export class SourceFileConfigurationItemTreeProvider
             context.subscriptions.push( vscode.window.onDidChangeActiveTextEditor(() => loadCurrentConfig()));
             cppToolsProvider.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
         }
+
+        this.setViewMode("tree");
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeTreeView, () => {
+            this.setViewMode("tree");
+        }));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeListView, () => {
+            this.setViewMode("list");
+        }));
     }
 
     setConfiguration(cfg: cpptools.SourceFileConfiguration | null | undefined) {
@@ -122,43 +174,93 @@ export class SourceFileConfigurationItemTreeProvider
                 new ConfigNode("intellisense", vscode.TreeItemCollapsibleState.Collapsed)
             ]);
 
-        switch (element.label) {
+        switch (element.nodeType) {
 
-            case "Compiler":
+            case "compiler":
                 return Promise.resolve([
                     new ConfigNode("path", vscode.TreeItemCollapsibleState.None, this.config.compilerPath ?? "not set"),
                     new ConfigNode("args", vscode.TreeItemCollapsibleState.Collapsed)
                 ]);
 
-            case "Args":
+            case "args":
                 return Promise.resolve(
                     (this.config.compilerArgs ?? [])
                         .map(a => new ConfigNode({text: a}, vscode.TreeItemCollapsibleState.None))
                 );
 
-            case "Includes":
+            case "includes":
                 {
-                    const valhallaDir = this.services.get('settings').get(Setting.valhallaDir)
-                    return Promise.resolve(
-                        this.config.includePath.map(p => {
+                    const settings = this.services.get('settings');
+                    const valhallaDir = settings.get(Setting.valhallaDir);
+
+                    if (this.viewMode === "tree") {
+                        const nodes = new Map<string, IncludeNode>();
+                        const topLevelNodes: IncludeNode[] = [];
+
+                        for (const p of this.config.includePath ?? []) {
+                            const relativePath = valhallaDir ? path.relative(valhallaDir, p) : p;
+                            const parts = relativePath.split(path.sep);
+                            for (let i = 0; i < parts.length; i++) {
+                                const subPath = parts.slice(0, i + 1).join(path.sep);
+
+                                if (!nodes.has(subPath)) {
+                                    const nodePath = parts.slice(0, i + 1).join(path.sep);
+                                    const node = new IncludeNode(parts[i], nodePath);
+                                    nodes.set(subPath, node);
+                                    if (i > 0) {
+                                        const parentSubPath = parts.slice(0, i).join(path.sep);
+                                        const parentNode = nodes.get(parentSubPath);
+                                        if (parentNode) {
+                                            parentNode.children.push(node);
+                                            parentNode.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+                                        }
+                                    }
+                                    else {
+                                        topLevelNodes.push(node);
+                                    }
+                                }
+                            }
+                        }
+
+                        return Promise.resolve(optimizeTree(topLevelNodes));
+                    }
+
+                    else {
+                        return Promise.resolve((this.config.includePath ?? [])
+                        .sort((a, b) => a.localeCompare(b))
+                        .map(p => {
                             const relativePath = valhallaDir ? path.relative(valhallaDir, p) : p;
                             return new ConfigNode({text:relativePath, tooltip: p}, vscode.TreeItemCollapsibleState.None);
-                    }));
+                        }));
+                    }
                 }
 
-            case "Defines":
+            case "defines":
                 return Promise.resolve(
                     (this.config.defines ?? [])
                         .map(d => new ConfigNode({text:d}, vscode.TreeItemCollapsibleState.None))
                 );
 
-            case "IntelliSense":
+            case "intellisense":
                 return Promise.resolve([
                     new ConfigNode("mode", vscode.TreeItemCollapsibleState.None, this.config.intelliSenseMode),
                     new ConfigNode("standard", vscode.TreeItemCollapsibleState.None, this.config.standard)
                 ]);
+
+            default:
+                if (element instanceof IncludeNode) {
+                    return Promise.resolve(element.children);
+                }
+                break;
         }
 
         return Promise.resolve([]);
+    }
+
+    private setViewMode(mode: typeof this.viewMode): void
+    {
+        this.viewMode = mode;
+        setContext(Context.includeViewMode, mode);
+        this.refresh();
     }
 }
