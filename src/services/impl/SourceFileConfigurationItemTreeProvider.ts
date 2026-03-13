@@ -58,13 +58,11 @@ export class ConfigNode extends vscode.TreeItem {
         const label = isPredefined ? TITLE[nodeType] : nodeType.text;
         super(label, collapsibleState);
 
-        if (value !== undefined) {
-            this.description = value;
-        }
-
+        this.description = value ? value
+        : isPredefined ? undefined
+        : nodeType.description;
         this.iconPath = isPredefined ? ICONS[nodeType] : undefined
-        this.description = isPredefined ? undefined : nodeType.description;
-        this.tooltip = isPredefined ? undefined : nodeType.tooltip;
+        this.tooltip = isPredefined ? value : nodeType.tooltip;
     }
 }
 
@@ -78,11 +76,12 @@ export class SourceFileConfigurationItemTreeProvider
 
     constructor(private services: ServiceContainer<AppServices>)
     {
+        const context = services.get('context');
+        const cppToolsProvider = this.services.get('cppToolsProvider');
+
         vscode.window.createTreeView("cppSourceConfig", {
             treeDataProvider: this
         });
-
-        const cppToolsProvider = this.services.get('cppToolsProvider');
 
         if (cppToolsProvider) {
             const loadCurrentConfig = () => {
@@ -91,8 +90,9 @@ export class SourceFileConfigurationItemTreeProvider
                 this.setConfiguration(config);
             }
 
-            cppToolsProvider.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
             loadCurrentConfig();
+            context.subscriptions.push( vscode.window.onDidChangeActiveTextEditor(() => loadCurrentConfig()));
+            cppToolsProvider.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
         }
     }
 
@@ -137,12 +137,14 @@ export class SourceFileConfigurationItemTreeProvider
                 );
 
             case "Includes":
-                return Promise.resolve(
-                    this.config.includePath.map(p => {
-                        const valhallaDir = this.services.get('settings').get(Setting.valhallaDir)
-                        const relativePath = valhallaDir ? path.relative(valhallaDir, p) : p;
-                        return new ConfigNode({text:relativePath, tooltip: p}, vscode.TreeItemCollapsibleState.None);
-                }));
+                {
+                    const valhallaDir = this.services.get('settings').get(Setting.valhallaDir)
+                    return Promise.resolve(
+                        this.config.includePath.map(p => {
+                            const relativePath = valhallaDir ? path.relative(valhallaDir, p) : p;
+                            return new ConfigNode({text:relativePath, tooltip: p}, vscode.TreeItemCollapsibleState.None);
+                    }));
+                }
 
             case "Defines":
                 return Promise.resolve(

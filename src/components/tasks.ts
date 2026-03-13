@@ -112,6 +112,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         switch (buildKind) {
         case undefined:
         case BuildKind.build:
+        case BuildKind.buildEmpty:
             task.group = vscode.TaskGroup.Build;
             break;
 
@@ -121,10 +122,6 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
         case BuildKind.deepClean:
             task.group = vscode.TaskGroup.Rebuild;
-            break;
-
-        case BuildKind.buildEmpty:
-            task.group = vscode.TaskGroup.Build;
             break;
 
         default: assertNever(buildKind);
