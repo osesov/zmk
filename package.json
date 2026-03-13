@@ -43,7 +43,8 @@
 			},
 			{
 				"command": "zmk.setDefaultConfig",
-				"title": "Select Configuration"
+				"title": "Select Configuration",
+				"icon": "$(star-empty)"
 			},
 			{
 				"command": "zmk.refreshConfigTree",
@@ -187,6 +188,10 @@
 			{
 				"type": "gnb",
 				"properties": {
+					"label": {
+						"type": "string",
+						"description": "Task label"
+					},
 					"config": {
 						"type": "string",
 						"description": "gnb config (see configs/*.yaml)"
@@ -270,6 +275,16 @@
 				}
       		],
 			"view/item/context": [
+				{
+					"command": "zmk.setDefaultConfig",
+					"when": "view == configTreeView && viewItem != zmk.defaultConfig",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.setDefaultConfig",
+					"when": "view == configTreeView && viewItem != zmk.defaultConfig",
+					"group": "navigation"
+				},
 				{
 					"command": "zmk.buildTarget",
 					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",

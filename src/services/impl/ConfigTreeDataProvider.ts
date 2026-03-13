@@ -110,11 +110,6 @@ class ConfigTreeItem extends vscode.TreeItem {
             this.contextValue = "config";
             this.description = node.fullName;
             this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
-            this.command = {
-                command: zmkCommand.zmkSetDefaultConfig,
-                title: "Pick Configuration",
-                arguments: [node.fullName],
-            };
         } else {
             const isCurrent = currentConfig.selection?.startsWith(node.prefix + '-') ?? false
             this.contextValue = "group";
@@ -144,7 +139,15 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
         ));
 
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkSetDefaultConfig,
-            async (configName: string) => {
+            async (configNode: ModelNode | string) => {
+                const configName = typeof configNode === "string" ? configNode
+                    : configNode.kind === "config" ? configNode.fullName
+                    : undefined;
+
+                if (!configName) {
+                    return;
+                }
+
                 await this.services.get('settings').update(Setting.config, configName);
             }
         ));

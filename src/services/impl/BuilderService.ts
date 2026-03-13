@@ -2,9 +2,9 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
-import { BuildCommand, BuildCommandOptions, IBuilderService } from "../IBuilderService";
+import { BuildCommand, BuildCommandOptions, BuildKind, IBuilderService } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
-import { isDevContainerHost, isNotEmpty } from '../../components/utils';
+import { assertNever, isDevContainerHost } from '../../components/utils';
 import { JsonValue, Setting } from '../ISettingsService';
 import path from 'path';
 import { CompletableFeature } from '../../components/promise';
@@ -179,7 +179,7 @@ export class BuilderService implements IBuilderService
         await this.buildTarget(defaultBuildTarget);
     }
 
-    public getBuildCommand(options ?: BuildCommandOptions): BuildCommand | null
+    public getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): BuildCommand | null
     {
 
         const settings = this.services.get('settings');
@@ -213,11 +213,47 @@ export class BuilderService implements IBuilderService
             return result;
         }
 
+        const getActualTarget = (buildKind ?: BuildKind): string | undefined => {
+            switch(buildKind) {
+                case undefined:
+                case BuildKind.build:
+                case BuildKind.clean:
+                case BuildKind.deepClean:
+                    return target;
+
+                case BuildKind.buildEmpty:
+                    return "empty";
+
+                default: assertNever(buildKind);
+            }
+        }
+
+        const prepareCommand = (buildKind: BuildKind | undefined, actualTarget: string[]) => {
+            switch(buildKind) {
+            case BuildKind.build:
+            case undefined:
+                return [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildKind.buildEmpty:
+                return [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildKind.clean:
+                return [...this.gnbCommand, valhallaConfig, '--clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildKind.deepClean:
+                return [...this.gnbCommand, valhallaConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            default:
+                assertNever(buildKind);
+            }
+        }
+
         if (target?.startsWith("//")) {
             target = target.substring(2);
         }
 
-        const command = [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...(target ? [target] : [])];
+        const actualTarget = getActualTarget(buildKind);
+        const command = prepareCommand(buildKind, actualTarget ? [actualTarget] : []);
         const env = makeEnvironment(process.env, configEnv);
         const cwd = valhallaDir.fsPath;
 
@@ -229,7 +265,7 @@ export class BuilderService implements IBuilderService
                     env[key] = value;
             }
         }
-        return { command, cwd, env };
+        return { command, cwd, env, actualTarget };
     }
 
     async listConfigs(): Promise<string[]>
