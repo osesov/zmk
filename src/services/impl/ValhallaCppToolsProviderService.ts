@@ -2,7 +2,6 @@
 import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
 import path from 'path';
-import fs from 'fs';
 import { ProjectInfo } from '../../components/ProjectInfo';
 import { CompileCommands } from '../../components/CompileCommands';
 import { ServiceContainer } from '../ServiceContainer';
@@ -14,6 +13,7 @@ import { IBuilderService } from '../IBuilderService';
 import { IBuildStatusService } from '../IBuildStatusService';
 import { ToolchainInfo } from '../../components/ToolchainInfo';
 import { MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
+import { IProjectInfoService } from '../IProjectInfoService';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
@@ -24,14 +24,14 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private builder: IBuilderService;
     private buildStatus: IBuildStatusService;
 
-    private projectJson: ProjectInfo = new ProjectInfo();
+    private projectInfo: IProjectInfoService;
     private compileCommands = new CompileCommands();
     private toolchainInfo = new ToolchainInfo();
 
     private statusBarItem: vscode.StatusBarItem;
 
-    static async create(container: ServiceContainer<AppServices>): Promise<ValhallaCppToolsProviderService | null> {
-        const settings = container.get('settings')
+    static async create(services: ServiceContainer<AppServices>): Promise<ValhallaCppToolsProviderService | null> {
+        const settings = services.get('settings')
 
         if (settings.get(Setting.disableCppToolsIntegration)) {
             return null;
@@ -44,21 +44,22 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
         }
 
-        const provider = new ValhallaCppToolsProviderService(container, cppToolsApi);
+        const provider = new ValhallaCppToolsProviderService(services, cppToolsApi);
         return provider;
     }
 
-    public constructor(private container: ServiceContainer<AppServices>, cppToolsApi: cpptools.CppToolsApi) {
-        const settings: ISettingsService = container.get('settings');
-        const context: vscode.ExtensionContext = container.get('context');
+    public constructor(private services: ServiceContainer<AppServices>, cppToolsApi: cpptools.CppToolsApi) {
+        const settings: ISettingsService = services.get('settings');
+        const context: vscode.ExtensionContext = services.get('context');
 
         this.cppToolsApi = cppToolsApi;
         this.extensionId = context.extension.id;
         this.settings = settings;
-        this.builder = container.get('builder');
-        this.buildStatus = container.get('buildStatus');
-        this.virtualDocumentProvider = container.get('virtualDocumentProvider');
-        this.logOutputChannel = container.get('logOutputChannel');
+        this.builder = services.get('builder');
+        this.buildStatus = services.get('buildStatus');
+        this.projectInfo = services.get('projectInfo');
+        this.virtualDocumentProvider = services.get('virtualDocumentProvider');
+        this.logOutputChannel = services.get('logOutputChannel');
         this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 
         this.statusBarItem.text = 'Valhalla: Ready';
@@ -181,7 +182,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     ///////////////////////////////////////////////////////////////////
 
     private resetState() {
-        this.projectJson.reset();
+        this.projectInfo.getProjectInfo().reset();
         this.compileCommands.reset();
         this.toolchainInfo.reset();
     }
@@ -240,19 +241,10 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         };
     }
 
-    private async getProjectInfo(): Promise<ProjectInfo | null>
+    private async getLoadedProjectInfo(): Promise<ProjectInfo | null>
     {
-        const outputDir = this.getOutputDir();
-
-        if (!outputDir)
-            return null;
-
-        await this.builder.buildDefaultTargetIfNeeded(
-            () => this.resetState()
-        );
-
-        await this.projectJson.load(outputDir);
-        return this.projectJson;
+        await this.projectInfo.getProjectDescription(); // trigger loading if not loaded yet
+        return this.projectInfo.getProjectInfo();
     }
 
     private async getFromCompileCommands(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
@@ -268,7 +260,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private async getFromProjectInfo(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
     {
-        const projectJson = await this.getProjectInfo();
+        const projectJson = await this.getLoadedProjectInfo();
         if (!projectJson) {
             return null;
         }
@@ -317,7 +309,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private async getBrowseConfiguration(): Promise<cpptools.WorkspaceBrowseConfiguration | null>
     {
-        const projectInfo = await this.getProjectInfo();
+        const projectInfo = await this.getLoadedProjectInfo();
         if (!projectInfo) {
             return null;
         }

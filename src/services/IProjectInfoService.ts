@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
-import { ProjectJsonFile } from "../components/ProjectInfo";
+import { ProjectInfo, ProjectJsonFile } from "../components/ProjectInfo";
 
 export interface IProjectInfoService
 {
     onChange: vscode.Event<void>;
-    getProjectInfo(): Promise<ProjectJsonFile | null>;
+    getProjectInfo(): ProjectInfo;
+    getProjectDescription(): Promise<ProjectJsonFile | null>;
 }

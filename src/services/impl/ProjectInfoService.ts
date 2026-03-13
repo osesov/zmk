@@ -18,7 +18,12 @@ export class ProjectInfoService implements IProjectInfoService
         buildStatus.onBuildComplete(() => this.updateProjectInfo());
     }
 
-    public async getProjectInfo(): Promise<ProjectJsonFile | null>
+    public getProjectInfo(): ProjectInfo
+    {
+        return this._projectInfo;
+    }
+
+    public async getProjectDescription(): Promise<ProjectJsonFile | null>
     {
         const builder = this.services.get('builder');
         const outputDir = builder.getOutputDir();

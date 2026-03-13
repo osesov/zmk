@@ -192,7 +192,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
     public async getChildren(element?: TargetNode): Promise<TargetNode[]> {
         if (!this.targetLoaded) {
-            const projectInfo = await this.services.get('projectInfo').getProjectInfo();
+            const projectInfo = await this.services.get('projectInfo').getProjectDescription();
             if (!projectInfo || !projectInfo.targets) {
                 this.targetLoaded = true;
                 return [];
