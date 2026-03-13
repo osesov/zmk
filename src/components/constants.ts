@@ -11,9 +11,17 @@ export namespace zmkCommand
     export const zmkSetDefaultTarget = "zmk.setDefaultTarget";
     export const zmkResetTarget = "zmk.resetTarget";
     export const zmkTargetSelected = "zmk.targetSelected";
+
 }
 
 export namespace BuildConstants
 {
     export const knownBuildModes = [ 'dev', 'prd', 'tst', 'cqa' ];
+}
+
+export namespace build
+{
+    export const defaultCompilerPath = undefined; // '/usr/bin/g++
+    export const defaultCppStandard = "c++17"; // TODO: guess from toolchain and/or use from config
+    export const defaultIntelliSenseMode = "linux-gcc-x64"; // TODO: guess from toolchain and/or use from config
 }

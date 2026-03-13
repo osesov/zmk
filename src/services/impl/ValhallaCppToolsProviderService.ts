@@ -31,6 +31,12 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private statusBarItem: vscode.StatusBarItem;
 
     static async create(container: ServiceContainer<AppServices>): Promise<ValhallaCppToolsProviderService | null> {
+        const settings = container.get('settings')
+
+        if (settings.get(Setting.disableCppToolsIntegration)) {
+            return null;
+        }
+
         const cppToolsApi = await cpptools.getCppToolsApi(cpptools.Version.latest);
 
         if (!cppToolsApi) {
@@ -118,11 +124,13 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     canProvideBrowseConfiguration(token?: vscode.CancellationToken): Thenable<boolean>
     {
-        return Promise.resolve(false);
+        // essentially we can provide per-workspace browse configuration (provideFolderBrowseConfiguration),
+        // but that requires some refactoring, since all the components currently assume a single workspace folder.
+        return Promise.resolve(true);
     }
 
-    provideBrowseConfiguration(token?: vscode.CancellationToken): Thenable<cpptools.WorkspaceBrowseConfiguration | null> {
-        return Promise.resolve(null);
+    async provideBrowseConfiguration(token?: vscode.CancellationToken): Promise<cpptools.WorkspaceBrowseConfiguration | null> {
+        return await this.getBrowseConfiguration();
     }
 
     canProvideBrowseConfigurationsPerFolder(token?: vscode.CancellationToken): Thenable<boolean> {
@@ -305,6 +313,31 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         }
 
         return result;
+    }
+
+    private async getBrowseConfiguration(): Promise<cpptools.WorkspaceBrowseConfiguration | null>
+    {
+        const projectInfo = await this.getProjectInfo();
+        if (!projectInfo) {
+            return null;
+        }
+
+        const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+        if (!valhallaFolder) {
+            return null;
+        }
+
+        const browseConfig = projectInfo.getBrowseConfiguration(this.settings);
+        if (!browseConfig) {
+            return null;
+        }
+
+        return {
+            browsePath: browseConfig.browsePath,
+            standard: browseConfig.standard,
+            compilerPath: browseConfig.compilerPath,
+            compilerArgs: browseConfig.compilerArgs
+        };
     }
 
     // private async extractSystemIncludes(uri: vscode.Uri)

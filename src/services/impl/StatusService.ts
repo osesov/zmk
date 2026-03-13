@@ -27,7 +27,7 @@ export class StatusService implements IStatusService
         this.buildStatus.text = 'Valhalla';
         this.buildStatus.detail = 'Ready';
         this.buildStatus.command = {
-            title: 'ZMK',
+            title: 'Show build output',
             command: zmkCommand.showOutput,
         };
 

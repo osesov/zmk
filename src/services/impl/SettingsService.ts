@@ -103,7 +103,7 @@ export class SettingsService implements ISettingsService
         }
     }
 
-    getOrDefault<K extends SettingName>(setting: SettingDecl<K>, defaultValue?: SettingType<K>): SettingType<K>
+    getOrDefault<K extends SettingName, V>(setting: SettingDecl<K>, defaultValue: SettingType<K>): SettingType<K>
     {
         try {
             const value = this.get(setting);

@@ -20,6 +20,8 @@ export interface Setting
     includeDirs: string[] | undefined;
     defines: JsonObject | undefined;
 
+    disableCppToolsIntegration: boolean;
+    cppStandard: string | undefined; // C++ standard, used for CppTools configuration
     compiler: string[] | undefined; // intellisense compiler path, used for CppTools configuration
     intelliSenseMode: string | undefined; // intellisense mode, used for CppTools configuration
 }
@@ -53,8 +55,10 @@ export const Setting: { [K in SettingName]: SettingDecl<K> } =
     defines: { key: 'defines', defaultValue: undefined, source: SettingSource.configuration},
 
     // CppTools configuration
-    compiler: { key: 'compiler', defaultValue: undefined, source: SettingSource.calculated },
-    intelliSenseMode: { key: 'intelliSenseMode', defaultValue: undefined, source: SettingSource.calculated },
+    disableCppToolsIntegration: { key: 'disableCppToolsIntegration', defaultValue: false, source: SettingSource.configuration },
+    cppStandard: { key: 'cppStandard', defaultValue: undefined, source: SettingSource.configuration },
+    compiler: { key: 'compiler', defaultValue: undefined, source: SettingSource.configuration },
+    intelliSenseMode: { key: 'intelliSenseMode', defaultValue: undefined, source: SettingSource.configuration },
 } as const;
 
 export type SettingKey = keyof typeof Setting;

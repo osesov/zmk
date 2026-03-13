@@ -134,6 +134,11 @@
 					"description": "Copyright comment template"
 				},
 
+				"zmk.disableCppToolsIntegration": {
+					"type": "boolean",
+					"description": "Disable C++ tools integration (include paths, defines, etc.). Use plain C++ tools configs.",
+					"default": false
+				},
 				"zmk.toolchainInfo": {
 					"type": "string",
 					"description": "Path to toolchain.json file",
@@ -169,6 +174,11 @@
 				"zmk.intelliSenseMode": {
 					"type": "string",
 					"markdownDescription": "Intellisense mode (e.g. 'gcc-x64'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)",
+					"default": null
+				},
+				"zmk.cppStandard": {
+					"type": "string",
+					"markdownDescription": "C++ standard (e.g. 'c++17'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)",
 					"default": null
 				}
 			}

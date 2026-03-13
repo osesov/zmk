@@ -2,7 +2,10 @@ import path from "path";
 import fs from "fs";
 import vscode from "vscode";
 import { SourceFileConfiguration } from "vscode-cpptools";
-import { MutableSourceFileConfiguration } from "./SourceFileConfiguration";
+import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "./SourceFileConfiguration";
+import { getGNPath } from "./parseTarget";
+import { build } from "./constants";
+import { ISettingsService, Setting } from "../services/ISettingsService";
 
 // GN's project.json format is not documented anywhere, so this is just a guess based on the output of `gn desc --format=json`
 export interface ProjectJsonTarget {
@@ -13,6 +16,7 @@ export interface ProjectJsonTarget {
     metadata: { [k: string]: unknown }  | undefined; // ???
     externs: { [k: string]: unknown }  | undefined; // ???
     outputs: string[] | undefined;
+    sources: string[] | undefined;
     public: string | undefined;
     public_configs: string[] | undefined;
     script: string | undefined;
@@ -70,9 +74,9 @@ interface CacheEntry
 
 export class ProjectInfo
 {
-    private projectJsonCache: ProjectJsonFile | null = null;
-    private projectJsonMTime: number = 0;
-    private projectJsonPath: string | null = null;
+    private projectJson: ProjectJsonFile | null = null;
+    private mtime: number = 0;
+    private filePath: string | null = null;
     private links: Map<string, CacheEntry> = new Map();
     private static readonly pathRegex = /^[/][/]([^:]+)(:.*)?$/;
 
@@ -82,9 +86,9 @@ export class ProjectInfo
 
     public reset(): void
     {
-        this.projectJsonCache = null;
-        this.projectJsonMTime = 0;
-        this.projectJsonPath = null;
+        this.projectJson = null;
+        this.mtime = 0;
+        this.filePath = null;
         this.links.clear();
     }
 
@@ -110,16 +114,16 @@ export class ProjectInfo
         try {
             const stats = fs.fstatSync(file);
             const mtime = stats.mtime.getTime();
-            if (mtime === this.projectJsonMTime && projectJsonPath === this.projectJsonPath) {
-                return this.projectJsonCache;
+            if (mtime === this.mtime && projectJsonPath === this.filePath) {
+                return this.projectJson;
             }
 
             const content = fs.readFileSync(file, 'utf-8');
             const projectJson = JSON.parse(content) as ProjectJsonFile;
 
-            this.projectJsonMTime = mtime;
-            this.projectJsonPath = projectJsonPath;
-            this.projectJsonCache = projectJson;
+            this.mtime = mtime;
+            this.filePath = projectJsonPath;
+            this.projectJson = projectJson;
 
             // prepare links
             this.links.clear();
@@ -135,7 +139,7 @@ export class ProjectInfo
                 this.links.get(path)!.targets.push(target);
             }
 
-            return this.projectJsonCache;
+            return this.projectJson;
         }
 
         finally {
@@ -145,11 +149,6 @@ export class ProjectInfo
 
     public getContainingFolder(uri: vscode.Uri): CacheEntry | null
     {
-        const folders = vscode.workspace.workspaceFolders;
-        if (!folders) {
-            return null;
-        }
-
         // extract relative path from uri
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
         if (!workspaceFolder) {
@@ -193,9 +192,9 @@ export class ProjectInfo
         const config: MutableSourceFileConfiguration = {
             defines: [],
             includePath: [],
-            compilerPath: cpp ?? '/usr/bin/g++', // TODO: toolchain
-            standard: 'c++17', // TODO: guess from toolchain
-            intelliSenseMode: 'linux-gcc-x64', // TODO: guess from toolchain
+            compilerPath: cpp ?? build.defaultCompilerPath, // TODO: toolchain
+            standard: build.defaultCppStandard, // TODO: guess from toolchain
+            intelliSenseMode: build.defaultIntelliSenseMode, // TODO: guess from toolchain
         };
 
         const defines = new Set<string>();
@@ -212,7 +211,7 @@ export class ProjectInfo
             for (const includeDir of target.include_dirs ?? []) {
                 if (!includeSeen.has(includeDir)) {
                     includeSeen.add(includeDir);
-                    const p = ProjectInfo.extractPath(includeDir);
+                    const p = getGNPath(includeDir, false);
                     if (p) {
                         const fullPath = path.join(valhallaDir, p);
                         config.includePath.push(fullPath);
@@ -223,5 +222,64 @@ export class ProjectInfo
 
         entry.cache = config;
         return config;
+    }
+
+    public getBrowseConfiguration(settings: ISettingsService): MutableWorkspaceBrowseConfiguration | null
+    {
+        // type": "(source_set|shared_library|static_library|executable)
+        const projectJson = this.projectJson;
+        if (!projectJson || !projectJson.targets) {
+            return null;
+        }
+
+        if (typeof projectJson.targets !== 'object') {
+            return null;
+        }
+
+        const valhallaDir = settings.get(Setting.valhallaDir);
+        if (!valhallaDir) {
+            return null;
+        }
+
+        const dirSet = new Set<string>();
+        for (const target of Object.values(projectJson.targets)) {
+            if (target.type !== 'source_set'
+                && target.type !== 'executable'
+                && target.type !== 'shared_library'
+                && target.type !== 'static_library') {
+                continue;
+            }
+
+            if (!target.sources)
+                continue;
+
+            for (const source of target.sources) {
+                if (typeof source !== 'string')
+                    continue;
+                const gnPath = getGNPath(source, false);
+                if (!gnPath)
+                    continue;
+
+                const sourcePath = path.join(valhallaDir, gnPath);
+                if (gnPath.startsWith("out."))
+                    continue; // skip generated files
+                const dirName = path.dirname(sourcePath);
+
+                dirSet.add(dirName);
+            }
+        }
+
+        const compiler = settings.getOrDefault(Setting.compiler) ?? [];
+        const cppStandard = (settings.getOrDefault(Setting.cppStandard) ?? build.defaultCppStandard) as MutableWorkspaceBrowseConfiguration['standard'];
+
+        const browseConfig: MutableWorkspaceBrowseConfiguration = {
+            browsePath: Array.from(dirSet),
+            standard: cppStandard,
+
+            compilerPath: compiler.length > 0 ? compiler[0] : undefined,
+            compilerArgs: compiler.length > 0 ? compiler.slice(1) : undefined,
+        };
+
+        return browseConfig;
     }
 }

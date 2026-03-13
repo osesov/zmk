@@ -6,21 +6,28 @@ export interface ParsedTarget
     action: string;
 }
 
-export function parseTarget(target: string): ParsedTarget {
+export function parseTarget(target: string, withValidation: boolean): ParsedTarget | null
+{
     if (!target.startsWith("//")) {
-        throw new Error(`Invalid target '${target}': must start with '//'`);
+        if (withValidation)
+            throw new Error(`Invalid target '${target}': must start with '//'`);
+        return null;
     }
 
     const colon = target.lastIndexOf(":");
     if (colon < 0) {
-        throw new Error(`Invalid target '${target}': must contain ':'`);
+        if (withValidation)
+            throw new Error(`Invalid target '${target}': must contain ':'`);
+        return null;
     }
 
     const rawPath = target.slice(2, colon);
     const action = target.slice(colon + 1);
 
     if (!action) {
-        throw new Error(`Invalid target '${target}': action is empty`);
+        if (withValidation)
+            throw new Error(`Invalid target '${target}': action is empty`);
+        return null;
     }
 
     const pathParts = rawPath
@@ -33,4 +40,15 @@ export function parseTarget(target: string): ParsedTarget {
         pathParts,
         action,
     };
+}
+
+export function getGNPath(path: string, withValidation: boolean): string | null
+{
+    if (!path.startsWith("//")) {
+        if (withValidation)
+            throw new Error(`Invalid target '${path}': must start with '//'`);
+        return null;
+    }
+
+    return path.slice(2);
 }

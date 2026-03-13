@@ -5,6 +5,7 @@ import shell from "shell-quote";
 import * as cpptools from "vscode-cpptools";
 import { isDevContainerHost, Mutable } from "./utils";
 import { MutableSourceFileConfiguration } from "./SourceFileConfiguration";
+import { build } from "./constants";
 
 export interface CompileCommandEntry {
     file: string;
@@ -87,8 +88,8 @@ export class CompileCommands {
         const result: Mutable<SourceFileConfigurationEx> = {
             includePath: [],
             defines: [],
-            standard: 'c++17',
-            intelliSenseMode: 'gcc-x64',
+            standard: build.defaultCppStandard,
+            intelliSenseMode: build.defaultIntelliSenseMode,
 
             forcedInclude: undefined,
             compilerPath: isDevContainerHost() ? words[0] as string : undefined,

@@ -7,7 +7,7 @@ import { zmkCommand } from "../../components/constants";
 import { Setting } from "../ISettingsService";
 
 interface CurrentTarget {
-    selection: ParsedTarget | undefined
+    selection: ParsedTarget | undefined | null
 }
 
 interface TargetGroupNode {
@@ -39,7 +39,7 @@ function createGroup(label: string, prefix: string[] | undefined, parent: Target
     };
 }
 
-function isNodeAffected(node: TargetGroupNode, target: ParsedTarget | undefined): boolean
+function isNodeAffected(node: TargetGroupNode, target: ParsedTarget | undefined | null): boolean
 {
     if (!node.prefix) { // root node
         return false;
@@ -80,7 +80,9 @@ export function buildTargetTree(targets: readonly string[], nodeMap: Map<string,
     const root = createGroup("root", undefined, undefined);
 
     for (const target of targets) {
-        const parsed = parseTarget(target);
+        const parsed = parseTarget(target, false);
+        if (!parsed)
+            continue;
 
         let current = root;
 
@@ -155,7 +157,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         if (this.currentTarget.selection) {
             this.refresh(this.currentTarget.selection.original);
         }
-        this.currentTarget.selection = target ? parseTarget(target) : undefined;
+        this.currentTarget.selection = target ? parseTarget(target, true) : undefined;
         this.refresh(this.currentTarget.selection?.original);
 
         vscode.commands.executeCommand("setContext", zmkCommand.zmkTargetSelected, !!target)
