@@ -11,7 +11,6 @@ import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
 import { IVirtualDocumentProvider } from '../IVirtualDocumentProvider';
 import { IBuilderService } from '../IBuilderService';
 import { IBuildStatusService } from '../IBuildStatusService';
-import { ToolchainInfo } from '../../components/ToolchainInfo';
 import { MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
 import { IProjectInfoService } from '../IProjectInfoService';
 
@@ -26,7 +25,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private projectInfo: IProjectInfoService;
     private compileCommands = new CompileCommands();
-    private toolchainInfo = new ToolchainInfo();
 
     private readonly providedConfigurations = new Map<string, MutableSourceFileConfiguration>();
     private sourceFileConfiguration = new vscode.EventEmitter<void>();
@@ -162,7 +160,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private resetState() {
         this.projectInfo.getProjectInfo().reset();
         this.compileCommands.reset();
-        this.toolchainInfo.reset();
     }
 
     private getOutputDir(): string | null
@@ -273,13 +270,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
         if (intelliSenseMode && !result.intelliSenseMode) {
             result.intelliSenseMode = intelliSenseMode as MutableSourceFileConfiguration['intelliSenseMode'];
-        }
-
-        const loaded = await this.toolchainInfo.load(outputDir, toolchainPath)
-        if (loaded) {
-            const toolchainIncludeDirs = this.toolchainInfo.getIncludeDirs();
-            if (toolchainIncludeDirs && toolchainIncludeDirs.length > 0)
-                result.includePath = [...result.includePath, ...toolchainIncludeDirs]
         }
 
         return result;

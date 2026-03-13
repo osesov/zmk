@@ -149,11 +149,6 @@
 					"description": "Disable C++ tools integration (include paths, defines, etc.). Use plain C++ tools configs.",
 					"default": false
 				},
-				"zmk.toolchainInfo": {
-					"type": "string",
-					"description": "Path to toolchain.json file",
-					"default": null
-				},
 				"zmk.includeDirs": {
 					"type": "array",
 					"items": {
