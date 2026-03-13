@@ -61,6 +61,11 @@
 				"icon": "$(star-empty)"
 			},
 			{
+				"command": "zmk.resetTarget",
+				"title": "Reset Target",
+				"icon": "$(discard)"
+			},
+			{
 				"command": "zmk.refreshTargetTree",
 				"title": "Refresh Targets",
 				"icon": "$(refresh)"
@@ -243,17 +248,22 @@
 					"command": "zmk.refreshTargetTree",
 					"when": "view == targetTreeView",
 					"group": "navigation"
+				},
+				{
+					"command": "zmk.resetTarget",
+					"when": "view == targetTreeView && zmk.targetSelected",
+					"group": "navigation"
 				}
       		],
 			"view/item/context": [
 				{
 					"command": "zmk.buildTarget",
-					"when": "view == targetTreeView && viewItem == target",
+					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",
 					"group": "inline"
 				},
 				{
 					"command": "zmk.buildTarget",
-					"when": "view == targetTreeView && viewItem == target",
+					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",
 					"group": "navigation"
 				},
 				{
@@ -264,6 +274,16 @@
 				{
 					"command": "zmk.setDefaultTarget",
 					"when": "view == targetTreeView && viewItem == target",
+					"group": "navigation@2"
+				},
+				{
+					"command": "zmk.resetTarget",
+					"when": "view == targetTreeView && viewItem == currentTarget",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.resetTarget",
+					"when": "view == targetTreeView && viewItem == currentTarget",
 					"group": "navigation@2"
 				}
 			]

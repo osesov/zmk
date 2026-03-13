@@ -9,6 +9,8 @@ export namespace zmkCommand
     export const zmkRefreshTargetTree = "zmk.refreshTargetTree";
     export const zmkBuildTarget = "zmk.buildTarget";
     export const zmkSetDefaultTarget = "zmk.setDefaultTarget";
+    export const zmkResetTarget = "zmk.resetTarget";
+    export const zmkTargetSelected = "zmk.targetSelected";
 }
 
 export namespace BuildConstants

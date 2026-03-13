@@ -14,6 +14,7 @@ interface TargetGroupNode {
     kind: "group";
     label: string;
     prefix: string[] | undefined;
+    parent: TargetGroupNode | undefined;
     children: Map<string, TargetGroupNode>;
     targets: TargetLeafNode[];
 }
@@ -22,18 +23,31 @@ interface TargetLeafNode {
     kind: "target";
     label: string;      // action
     fullTarget: string; // original target
+    parent: TargetGroupNode | undefined;
 }
 
 type TargetNode = TargetGroupNode | TargetLeafNode;
 
-function createGroup(label: string, prefix: string[] | undefined): TargetGroupNode {
+function createGroup(label: string, prefix: string[] | undefined, parent: TargetGroupNode | undefined): TargetGroupNode {
     return {
         kind: "group",
         label,
         prefix,
+        parent,
         children: new Map(),
         targets: [],
     };
+}
+
+function isNodeAffected(node: TargetGroupNode, target: ParsedTarget | undefined): boolean
+{
+    if (!node.prefix) { // root node
+        return false;
+    }
+    if (node.prefix.length > (target?.pathParts.length ?? 0)) {
+        return false;
+    }
+    return node.prefix.every((part, index) => part === target?.pathParts[index]);
 }
 
 export class TargetTreeItem extends vscode.TreeItem {
@@ -49,23 +63,21 @@ export class TargetTreeItem extends vscode.TreeItem {
         );
 
         if (node.kind === "group") {
-            const isCurrent = currentTarget.selection?.pathParts
-                .slice(0, node.prefix?.length)
-                .every((part, index) => part === node.prefix?.[index]) ?? false;
+            const isCurrent = isNodeAffected(node, currentTarget.selection);
             this.iconPath = isCurrent ? new vscode.ThemeIcon('folder-active') : new vscode.ThemeIcon('folder');
             this.contextValue = "targetGroup";
         } else {
             const isCurrent = currentTarget.selection?.original === node.fullTarget;
 
             this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
-            this.contextValue = "target";
+            this.contextValue = isCurrent ? "currentTarget" : "target";
             this.description = node.fullTarget;
         }
     }
 }
 
-export function buildTargetTree(targets: readonly string[]): TargetGroupNode {
-    const root = createGroup("root", undefined);
+export function buildTargetTree(targets: readonly string[], nodeMap: Map<string, TargetLeafNode>): TargetGroupNode {
+    const root = createGroup("root", undefined, undefined);
 
     for (const target of targets) {
         const parsed = parseTarget(target);
@@ -76,17 +88,20 @@ export function buildTargetTree(targets: readonly string[]): TargetGroupNode {
             const part = parsed.pathParts[index];
             let next = current.children.get(part);
             if (!next) {
-                next = createGroup(part, parsed.pathParts.slice(0, index + 1));
+                next = createGroup(part, parsed.pathParts.slice(0, index + 1), current);
                 current.children.set(part, next);
             }
             current = next;
         }
 
-        current.targets.push({
+        const leafNode: TargetLeafNode = {
             kind: "target",
             label: parsed.action,
             fullTarget: parsed.original,
-        });
+            parent: current,
+        };
+        current.targets.push(leafNode);
+        nodeMap.set(target, leafNode);
     }
 
     return root;
@@ -96,9 +111,10 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 {
     private readonly _onDidChangeTreeData = new vscode.EventEmitter<TargetNode | undefined | void>();
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-    private root: TargetGroupNode = createGroup("root", undefined);
+    private root: TargetGroupNode = createGroup("root", undefined, undefined);
     private currentTarget: CurrentTarget = { selection: undefined }
     private targetLoaded: boolean = false;
+    private nodeMap = new Map<string, TargetLeafNode>();
 
     constructor(private services: ServiceContainer<AppServices>)
     {
@@ -118,6 +134,12 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             }
         ));
 
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkResetTarget,
+            async () => {
+                await settings.update(Setting.target, undefined);
+            }
+        ));
+
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkBuildTarget,
             async (node: TargetLeafNode) => {
                 await this.services.get('builder').buildTarget(node.fullTarget);
@@ -130,7 +152,17 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
     private setCurrentTargetWithoutEvent(target: string | undefined)
     {
+        if (this.currentTarget.selection) {
+            this.refresh(this.currentTarget.selection.original);
+        }
         this.currentTarget.selection = target ? parseTarget(target) : undefined;
+        this.refresh(this.currentTarget.selection?.original);
+
+        vscode.commands.executeCommand("setContext", zmkCommand.zmkTargetSelected, !!target)
+        .then(
+            () => {},
+            (e) => {vscode.window.showErrorMessage(`Failed to set context for targetSelected: ${e}`)}
+        );
     }
 
     setCurrentTarget(target: string | undefined)
@@ -140,11 +172,15 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     }
 
     public setTargets(targets: readonly string[]): void {
-        this.root = buildTargetTree(targets);
+        this.nodeMap.clear();
+        this.root = buildTargetTree(targets, this.nodeMap);
         this.refresh();
     }
 
-    public refresh(node?: TargetNode): void {
+    public refresh(node?: TargetNode | string): void {
+        if (typeof node === "string") {
+            node = this.nodeMap.get(node);
+        }
         this._onDidChangeTreeData.fire(node);
     }
 
