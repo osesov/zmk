@@ -1,28 +1,22 @@
 // Integrate with CppTools to provide IntelliSense for Valhalla
 import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
-import path from 'path';
 import { ProjectInfo } from '../../components/ProjectInfo';
 import { CompileCommands } from '../../components/CompileCommands';
 import { ServiceContainer } from '../ServiceContainer';
 import { AppServices } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
-import { IVirtualDocumentProvider } from '../IVirtualDocumentProvider';
 import { IBuilderService } from '../IBuilderService';
-import { IBuildStatusService } from '../IBuildStatusService';
-import { MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
+import { CompilerStandard, IntelliSenseMode, MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
 import { IProjectInfoService } from '../IProjectInfoService';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
     private cppToolsApi: cpptools.CppToolsApi | undefined;
     private settings: ISettingsService;
-    private virtualDocumentProvider: IVirtualDocumentProvider;
     private logOutputChannel: vscode.LogOutputChannel;
     private builder: IBuilderService;
-    private buildStatus: IBuildStatusService;
-
     private projectInfo: IProjectInfoService;
     private compileCommands = new CompileCommands();
 
@@ -56,9 +50,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         this.extensionId = context.extension.id;
         this.settings = settings;
         this.builder = services.get('builder');
-        this.buildStatus = services.get('buildStatus');
         this.projectInfo = services.get('projectInfo');
-        this.virtualDocumentProvider = services.get('virtualDocumentProvider');
         this.logOutputChannel = services.get('logOutputChannel');
 
         this.resetState();
@@ -76,7 +68,10 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             }
         });
 
-        this.buildStatus.onBuildComplete(success => {
+        const buildCompleteEvent = services.get('buildComplete');
+        const initialBuild = services.get('initialBuild');
+
+        buildCompleteEvent(success => {
             if (success) {
                 this.logOutputChannel.info('Build completed successfully. Updating IntelliSense configuration...');
             } else {
@@ -88,7 +83,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         context.subscriptions.push(this);
 
         cppToolsApi.registerCustomConfigurationProvider(this);
-        this.buildStatus.initialBuildStatus.wait.then(() => { cppToolsApi.notifyReady(this); });
+        initialBuild.then(() => { cppToolsApi.notifyReady(this); });
     }
 
     public readonly name = 'Valhalla';
@@ -250,8 +245,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private async enrich(info: MutableSourceFileConfiguration): Promise<MutableSourceFileConfiguration>
     {
-        const outputDir = this.getOutputDir();
-        const toolchainPath = this.settings.get(Setting.toolchainInfo);
         const compilerArgs = this.settings.get(Setting.compiler);
         const intelliSenseMode = this.settings.get(Setting.intelliSenseMode);
         const result = Object.assign({}, info);
@@ -269,7 +262,31 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         }
 
         if (intelliSenseMode && !result.intelliSenseMode) {
-            result.intelliSenseMode = intelliSenseMode as MutableSourceFileConfiguration['intelliSenseMode'];
+            result.intelliSenseMode = intelliSenseMode as IntelliSenseMode;
+        }
+
+        const toolchain = this.builder.toolchain()
+        if (toolchain) {
+            if (!result.compilerPath && toolchain.compiler && toolchain.compiler.length > 0) {
+                result.compilerPath = toolchain.compiler[0];
+                result.compilerArgs = toolchain.compiler.slice(1);
+            }
+
+            if (toolchain.intelliSenseMode && !result.intelliSenseMode) {
+                result.intelliSenseMode = toolchain.intelliSenseMode as IntelliSenseMode;
+            }
+
+            if (toolchain.cppStandard && !result.standard) {
+                result.standard = toolchain.cppStandard as CompilerStandard;
+            }
+
+            if (toolchain.includeDirs && toolchain.includeDirs.length > 0) {
+                result.includePath = [...toolchain.includeDirs, ...result.includePath];
+            }
+
+            if (toolchain.defines) {
+                result.defines = [...Object.entries(toolchain.defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
+            }
         }
 
         return result;

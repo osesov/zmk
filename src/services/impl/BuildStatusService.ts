@@ -5,15 +5,15 @@ import { IBuildStatusService } from "../IBuildStatusService";
 import { ServiceContainer } from '../ServiceContainer';
 import { AppServices } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
-import { CompletableFeature } from '../../components/promise';
+import { Completion } from '../../components/promise';
 
 export class BuildStatusService implements IBuildStatusService
 {
-    private _onBuildComplete = new vscode.EventEmitter<boolean>()
-    public readonly onBuildComplete: vscode.Event<boolean> = this._onBuildComplete.event;
-    public readonly initialBuildStatus = new CompletableFeature<boolean>('initialBuildStatus');
-
-    public constructor(private services: ServiceContainer<AppServices>)
+    public constructor(
+        private services: ServiceContainer<AppServices>,
+        private _onBuildComplete: vscode.EventEmitter<boolean>,
+        private _onInitialBuildComplete: Completion<boolean>
+    )
     {
         const builder = services.get('builder');
         builder.onBuildFinished((success) => this._onBuildComplete.fire(success));
@@ -25,8 +25,9 @@ export class BuildStatusService implements IBuildStatusService
         });
 
         Promise.resolve().then(() => this.checkOutputDirExists())
-        .then(() => this.initialBuildStatus.complete(true))
-        .catch(() => this.initialBuildStatus.complete(false));
+        .then(() => this._onInitialBuildComplete.complete(true))
+        .catch(() => this._onInitialBuildComplete.complete(false))
+        ;
     }
 
     private async checkOutputDirExists(): Promise<void>

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Toolchain } from './ISettingsService';
 
 export interface BuildCommand
 {
@@ -40,4 +41,7 @@ export interface IBuilderService
     buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
 
     listConfigs(): Promise<string[]>;
+    toolchainSelector(): string | null;
+    toolchain(): Toolchain | null;
+    // args(): ArgsFile | null;
 }

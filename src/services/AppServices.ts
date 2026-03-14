@@ -17,6 +17,8 @@ export type AppServices =
     context: vscode.ExtensionContext;
     buildOutputChannel: vscode.OutputChannel;
     logOutputChannel: vscode.LogOutputChannel;
+    buildComplete: vscode.Event<boolean>; // some build has completed (maybe run by user), with success or failure
+    initialBuild: Promise<boolean>; // initial valhalla build complete
     settings: ISettingsService;
     virtualDocumentProvider: IVirtualDocumentProvider;
     builder: IBuilderService;

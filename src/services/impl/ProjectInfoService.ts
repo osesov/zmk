@@ -13,9 +13,11 @@ export class ProjectInfoService implements IProjectInfoService
 
     constructor(private services: ServiceContainer<AppServices>)
     {
-        const buildStatus = services.get('buildStatus')
-        buildStatus.initialBuildStatus.promise.then(() => this.updateProjectInfo());
-        buildStatus.onBuildComplete(() => this.updateProjectInfo());
+        const initialBuild = services.get('initialBuild');
+        const buildComplete = services.get('buildComplete')
+
+        initialBuild.then(() => this.updateProjectInfo());
+        buildComplete(() => this.updateProjectInfo());
     }
 
     public getProjectInfo(): ProjectInfo

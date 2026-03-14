@@ -17,6 +17,7 @@ import { ConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
 import { TargetTreeProvider } from './services/impl/TargetTreeProvider';
 import { ProjectInfoService } from './services/impl/ProjectInfoService';
 import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
+import { Completion } from './components/promise';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -473,14 +474,19 @@ export async function activate(context: vscode.ExtensionContext) {
 	const buildOutputChannel = vscode.window.createOutputChannel('Valhalla Build');
 	const logOutputChannel = vscode.window.createOutputChannel('Valhalla', {log: true});
 
+	const buildComplete = new vscode.EventEmitter<boolean>();
+	const initialBuild = new Completion<boolean>('initialBuildStatus');
+
 	services
 		.registerInstance('context', context)
 		.registerInstance('buildOutputChannel', buildOutputChannel)
 		.registerInstance('logOutputChannel', logOutputChannel)
+		.registerInstance('buildComplete', buildComplete.event)
+		.registerInstance('initialBuild', initialBuild.promise)
 		.registerInstance('settings', new SettingsService(services))
 		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
 		.registerInstance('builder', new BuilderService(services))
-		.registerInstance('buildStatus', new BuildStatusService(services))
+		.registerInstance('buildStatus', new BuildStatusService(services, buildComplete, initialBuild))
 		.registerInstance('projectInfo', new ProjectInfoService(services))
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
 		.registerInstance('tasks', new ValhallaTaskProvider(services))

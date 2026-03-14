@@ -5,9 +5,11 @@ import { AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildKind, IBuilderService } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
 import { assertNever, isDevContainerHost } from '../../components/utils';
-import { JsonValue, Setting } from '../ISettingsService';
+import { JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
-import { CompletableFeature } from '../../components/promise';
+import { Completion } from '../../components/promise';
+import { ArgsFile } from '../../components/ArgsFile';
+import { LazyCache } from '../../components/LazyCache';
 
 const defaultBuildTarget = 'empty';
 
@@ -21,7 +23,13 @@ export class BuilderService implements IBuilderService
     private _onBuildFinished = new vscode.EventEmitter<boolean>();
     public readonly onBuildFinished = this._onBuildFinished.event;
 
-    private _buildCompletable: CompletableFeature<void> | null = null;
+    private readonly argsFile = new ArgsFile();
+    private readonly _toolchain = new LazyCache<Toolchain | null>(() => this.selectToolchain());
+
+    // TODO: is this correct? User can start more than a single build at any time.
+    // We probably need to maintain own build only?
+
+    private _buildCompletable: Completion<void> | null = null;
 
     constructor(private services: ServiceContainer <AppServices>)
     {
@@ -29,6 +37,17 @@ export class BuilderService implements IBuilderService
             this.gnbCommand = ["./gnbc"];
         else
             this.gnbCommand = ["./gnb"];
+
+        const initialBuild = services.get('initialBuild');
+        const buildComplete = services.get('buildComplete');
+
+        const resetState = () => {
+            this.argsFile.reset();
+            this._toolchain.reset();
+        };
+
+        initialBuild.finally(() => resetState());
+        buildComplete(() => resetState());
     }
 
     public getOutputDir(): string | null
@@ -86,7 +105,7 @@ export class BuilderService implements IBuilderService
             cancellable: true
         }, (progress, token) => {
 
-            this._buildCompletable = new CompletableFeature<void>('build');
+            this._buildCompletable = new Completion<void>('build');
             this._onBuildStarted.fire();
 
             return new Promise<void>((resolve, reject) => {
@@ -179,9 +198,72 @@ export class BuilderService implements IBuilderService
         await this.buildTarget(defaultBuildTarget);
     }
 
+    private toolchainSelectorInternal()
+    {
+        const outputDir = this.getOutputDir();
+        if (!this.argsFile.load(outputDir))
+            return {};
+
+        const crossOS = this.argsFile.get<string>('cross_os');
+        const crossCPU = this.argsFile.get<string>('cross_cpu');
+        const crossABI = this.argsFile.get<string>('cross_abi');
+
+        return {crossOS, crossCPU, crossABI};
+    }
+
+    public toolchainSelector(): string | null
+    {
+        const {crossOS, crossCPU, crossABI} = this.toolchainSelectorInternal();
+        let result = '';
+
+        if (crossOS) {
+            result += crossOS;
+            if (crossCPU) {
+                result += `-${crossCPU}`;
+                if (crossABI) {
+                    result += `-${crossABI}`;
+                }
+            }
+        }
+
+        if (result.length === 0) {
+            return null;
+        }
+
+        return result;
+    }
+
+    private selectToolchain(): Toolchain | null
+    {
+        const settings = this.services.get('settings');
+        const toolchains = settings.get(Setting.toolchain);
+        if (!toolchains || toolchains.length === 0) {
+            return null;
+        }
+
+        const {crossOS, crossCPU, crossABI} = this.toolchainSelectorInternal();
+
+        for (const toolchain of toolchains) {
+            const pattern = toolchain.pattern;
+            if (!pattern)
+                continue;
+
+            const parts = pattern.split('-');
+            const [os, cpu, abi] = parts;
+            const matchOS = os === crossOS || os === '*' || os === undefined;
+            const matchCPU = cpu === crossCPU || cpu === '*' || cpu === undefined;
+            const matchABI = abi === crossABI || abi === '*' || abi === undefined;
+
+            if (matchOS && matchCPU && matchABI) {
+                return toolchain;
+            }
+        }
+
+        return null;
+    }
+
     public getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): BuildCommand | null
     {
-
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
         const valhallaConfig = options?.config ?? settings.get(Setting.config);
@@ -193,6 +275,8 @@ export class BuilderService implements IBuilderService
         if (!valhallaDir || !valhallaConfig) {
             return null;
         }
+
+        const toolchain = this._toolchain.get();
 
         type EnvObject = {[k: string] : JsonValue | null | undefined }
         const makeEnvironment = (...envs: (EnvObject | undefined)[]): Record<string, string> =>
@@ -254,17 +338,9 @@ export class BuilderService implements IBuilderService
 
         const actualTarget = getActualTarget(buildKind);
         const command = prepareCommand(buildKind, actualTarget ? [actualTarget] : []);
-        const env = makeEnvironment(process.env, configEnv);
+        const env = makeEnvironment(process.env, configEnv, options?.env, toolchain?.env);
         const cwd = valhallaDir.fsPath;
 
-        if (options?.env) {
-            for (const [key, value] of Object.entries(options?.env)) {
-                if (value === undefined || value === null)
-                    delete env[key]
-                else
-                    env[key] = value;
-            }
-        }
         return { command, cwd, env, actualTarget };
     }
 
@@ -284,5 +360,13 @@ export class BuilderService implements IBuilderService
         } catch (err) {
             return [];
         }
+    }
+
+    args(): ArgsFile | null {
+        return this.argsFile;
+    }
+
+    toolchain(): Toolchain | null {
+        return this._toolchain.get();
     }
 }

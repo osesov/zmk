@@ -4,6 +4,17 @@ export type JsonValue = null | boolean | string | number | JsonArray | JsonObjec
 export type JsonObject = { [k: string]: JsonValue}
 export type JsonArray = JsonValue[]
 
+export interface Toolchain
+{
+    pattern: string | undefined
+    compiler: string[] | undefined
+    intelliSenseMode: string | undefined
+    cppStandard: string | undefined
+    defines: JsonObject | undefined
+    includeDirs: string[] | undefined
+    env: JsonObject | undefined
+}
+
 export interface Setting
 {
     valhallaDir: string | undefined;
@@ -16,7 +27,6 @@ export interface Setting
     gnFlags: string[];
 
     env: JsonObject | undefined;
-    toolchainInfo: string | undefined;
     includeDirs: string[] | undefined;
     defines: JsonObject | undefined;
 
@@ -24,6 +34,7 @@ export interface Setting
     cppStandard: string | undefined; // C++ standard, used for CppTools configuration
     compiler: string[] | undefined; // intellisense compiler path, used for CppTools configuration
     intelliSenseMode: string | undefined; // intellisense mode, used for CppTools configuration
+    toolchain: Toolchain[] | undefined; // toolchain items, used for CppTools configuration
 }
 
 export enum SettingSource
@@ -50,7 +61,6 @@ export const Setting: { [K in SettingName]: SettingDecl<K> } =
 
     // extra build information
     env: { key: 'env', defaultValue: undefined, source: SettingSource.configuration },
-    toolchainInfo: { key: 'toolchainInfo', defaultValue: undefined, source: SettingSource.configuration},
     includeDirs: { key: 'includeDirs', defaultValue: undefined, source: SettingSource.configuration},
     defines: { key: 'defines', defaultValue: undefined, source: SettingSource.configuration},
 
@@ -59,6 +69,7 @@ export const Setting: { [K in SettingName]: SettingDecl<K> } =
     cppStandard: { key: 'cppStandard', defaultValue: undefined, source: SettingSource.configuration },
     compiler: { key: 'compiler', defaultValue: undefined, source: SettingSource.configuration },
     intelliSenseMode: { key: 'intelliSenseMode', defaultValue: undefined, source: SettingSource.configuration },
+    toolchain: { key: 'toolchain', defaultValue: undefined, source: SettingSource.configuration }
 } as const;
 
 export type SettingKey = keyof typeof Setting;

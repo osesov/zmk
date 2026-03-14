@@ -17,6 +17,7 @@ export class StatusService implements IStatusService
     private buildStatus: vscode.LanguageStatusItem;
     private currentConfig: vscode.LanguageStatusItem;
     private currentTarget: vscode.LanguageStatusItem;
+    private currentToolchain: vscode.LanguageStatusItem;
     private readonly settings: ISettingsService;
 
     constructor(private services: ServiceContainer<AppServices>)
@@ -64,18 +65,35 @@ export class StatusService implements IStatusService
 
         //
         this.currentConfig = vscode.languages.createLanguageStatusItem('zmk-current-config', selector);
+        this.currentConfig.text = 'Config';
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
         this.updateCurrentConfig();
 
         this.currentTarget = vscode.languages.createLanguageStatusItem('zmk-current-target', selector);
+        this.currentTarget.text = 'Target';
         this.settings.onChange(e => (e.affects(Setting.target)) && this.updateCurrentTarget());
         this.updateCurrentTarget();
+
+        // show toolchain info
+        this.currentToolchain = vscode.languages.createLanguageStatusItem('zmk-current-toolchain', selector);
+        this.currentToolchain.text = 'Toolchain';
+
+        const initialBuild = services.get('initialBuild');
+        const buildComplete = services.get('buildComplete');
+
+        const updateToolchain = () => {
+            const toolchain = builder.toolchainSelector();
+            this.currentToolchain.detail = toolchain ?? 'not set';
+        }
+
+        initialBuild.finally(() => updateToolchain());
+        buildComplete(() => updateToolchain());
     }
 
     private updateCurrentConfig()
     {
         const config = this.settings.get(Setting.config);
-        this.currentConfig.text = `Config: ${config ?? 'not set'}`;
+        this.currentConfig.detail = config ?? 'not set';
         this.currentConfig.command = {
             title: 'set config',
             command: zmkCommand.setConfig,
@@ -85,7 +103,7 @@ export class StatusService implements IStatusService
     private updateCurrentTarget()
     {
         const target = this.settings.get(Setting.target);
-        this.currentTarget.text = `Target: ${target ?? 'not set'}`;
+        this.currentTarget.detail = target ?? 'not set';
         this.currentTarget.command = {
             title: 'set target',
             command: zmkCommand.setTarget,

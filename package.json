@@ -185,6 +185,62 @@
 					"type": "string",
 					"markdownDescription": "C++ standard (e.g. 'c++17'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)",
 					"default": null
+				},
+				"zmk.toolchain": {
+					"type": "array",
+					"description": "Toolchain selection rules.",
+					"items": {
+						"type": "object",
+						"properties": {
+							"pattern": {
+								"type": "string",
+								"description": "Regex pattern to match compiler name. 'cross_os[-cross_cpu[-cross_abi]]'"
+							},
+							"compiler": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "Intellisense compiler path and args"
+							},
+							"intelliSenseMode": {
+								"type": "string",
+								"description": "Intellisense mode (e.g. 'gcc-x64'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)"
+							},
+							"cppStandard": {
+								"type": "string",
+								"description": "C++ standard (e.g. 'c++17'). See [VS Code C++ Intellisense Configuration](https://code.visualstudio.com/docs/cpp/customize-cpp-settings#_configuration-properties)"
+							},
+							"defines": {
+								"type": "object",
+								"description": "Defines for intellisense",
+								"additionalProperties": {
+									"oneOf": [
+										{ "type": "string" },
+										{ "type": "null" }
+									]
+								}
+							},
+							"includeDirs": {
+								"type": "array",
+								"description": "Include dirs for intellisense",
+								"items": {
+									"type": "string"
+								},
+								"default": null
+							},
+							"env": {
+								"type": "object",
+								"description": "Environment variables for intellisense",
+								"additionalProperties": {
+									"oneOf": [
+										{ "type": "string" },
+										{ "type": "null" }
+									]
+								}
+							}
+						}
+					}
 				}
 			}
 		},

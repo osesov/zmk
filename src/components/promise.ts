@@ -1,5 +1,5 @@
 
-export class CompletableFeature<T>
+export class Completion<T>
 {
     private _promise: Promise<T>;
     private _resolve!: (value: T) => void;
