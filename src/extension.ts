@@ -46,50 +46,12 @@ async function listConfigs() : Promise<string[]> {
 	});
 }
 
-async function showCurrentConfig() {
-	const configuration = vscode.workspace.getConfiguration();
-
-	const currentConfig = configuration.get('zmk.config');
-	const currentTarget = configuration.get('zmk.target');
-
-	vscode.window.showInformationMessage(`Config: ${currentConfig}`);
-	vscode.window.showInformationMessage(`Target: ${currentTarget}`);
-}
-
 class ConfigItem implements QuickPickItem {
 	label: string;
 
 	constructor(label: string) {
 		this.label = label;
 	}
-}
-
-async function updateConfig() {
-	const configuration = vscode.workspace.getConfiguration();
-	const options = await listConfigs();
-	const current = configuration.get('zmk.config');
-
-	const pick = vscode.window.createQuickPick<ConfigItem>();
-	pick.placeholder = "type gnb config name here";
-	pick.items = options.map( label => new ConfigItem(label));
-	pick.activeItems = pick.items.filter( item => item.label === current );
-	pick.onDidAccept( async () => {
-		if (pick.selectedItems.length !== 1) {
-			pick.dispose();
-			return;
-		}
-
-		const result = pick.selectedItems[0].label;
-		pick.dispose();
-
-		console.log(`Selected ${result}`);
-		vscode.window.showInformationMessage(`Selected: ${result}`);
-
-		await configuration.update("zmk.config", result, vscode.ConfigurationTarget.Workspace);
-		console.log(`new config is ${configuration.get("zmk.config")}`);
-	});
-
-	pick.show();
 }
 
 function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
@@ -461,7 +423,7 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 	vscode.window.showWarningMessage("Document has no Copyright header, insert?", okButton, doNotAskButton)
 		.then( action => {
 			if (action === okButton) {
-				vscode.commands.executeCommand("zmk.zmkUpdateCopyright");
+				vscode.commands.executeCommand("zmk.updateCopyright");
 			}
 			else if (action === doNotAskButton) {
 				askCopyrightHeader = false;
@@ -498,19 +460,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		;
 
 	const commands = [
-		{ label: 'zmkConfig', command: updateConfig },
-		{ label: 'zmkGetTargetConfig', command: getTargetConfig },
-		{ label: 'zmkGetNinjaTarget', command: getNinjaTarget },
-		{ label: 'zmkGetRootDir', command: getRootDir },
-		{ label: 'zmkGetBuildDir', command: getBuildDirAndCreate },
-		{ label: 'zmkGetNfsDir', command: getNfsDir },
-		{ label: 'zmkGetCurrentFile', command: getCurrentFile },
-		{ label: 'showCurrentZmkConfig', command: showCurrentConfig},
-		{ label: 'zmkUpdateBundlesInclude', command: zmkUpdateBundlesInclude }
+		{ label: 'zmk.getTargetConfig', command: getTargetConfig },
+		{ label: 'zmk.getNinjaTarget', command: getNinjaTarget },
+		{ label: 'zmk.getRootDir', command: getRootDir },
+		{ label: 'zmk.getBuildDir', command: getBuildDirAndCreate },
+		{ label: 'zmk.getNfsDir', command: getNfsDir },
+		{ label: 'zmk.getCurrentFile', command: getCurrentFile },
+		{ label: 'zmk.updateBundlesInclude', command: zmkUpdateBundlesInclude }
 	];
 
 	const textCommands = [
-		{ label: 'zmkUpdateCopyright', command: zmkUpdateCopyright }
+		{ label: 'zmk.updateCopyright', command: zmkUpdateCopyright }
 	];
 
 	commands.forEach( (elem) => {
@@ -528,12 +488,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		};
 
-		const disposable = vscode.commands.registerCommand(`extension.${elem.label}`, command);
+		const disposable = vscode.commands.registerCommand(elem.label, command);
 		context.subscriptions.push(disposable);
 	});
 
 	textCommands.forEach( (elem) => {
-		const disposable = vscode.commands.registerTextEditorCommand(`extension.${elem.label}`, elem.command);
+		const disposable = vscode.commands.registerTextEditorCommand(elem.label, elem.command);
 		context.subscriptions.push(disposable);
 	});
 

@@ -22,19 +22,11 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "zmk.zmkConfig",
-				"title": "ZMK: Update gnb config"
-			},
-			{
-				"command": "zmk.showCurrentZmkConfig",
-				"title": "ZMK: Show current gnb and ninja targets"
-			},
-			{
-				"command": "zmk.zmkUpdateBundlesInclude",
+				"command": "zmk.updateBundlesInclude",
 				"title": "ZMK: Update bundles Include Paths"
 			},
 			{
-				"command": "zmk.zmkUpdateCopyright",
+				"command": "zmk.updateCopyright",
 				"title": "ZMK: Insert or update Copyright header"
 			},
 			{

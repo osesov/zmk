@@ -6,9 +6,9 @@
         {
             "label": "make",
             "type": "shell",
-            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetNinjaTarget}",
+            "command": "../gnb --no-gen ${command:zmk.getTargetConfig} -- ${command:zmk.getNinjaTarget}",
             "options": {
-                "cwd": "${command:extension.zmkGetBuildDir}"
+                "cwd": "${command:zmk.getBuildDir}"
             },
             "group": {
                 "kind": "build",
@@ -16,7 +16,7 @@
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
             "presentation": {
                 "clear": true
@@ -25,13 +25,13 @@
         {
             "label": "Compile current file",
             "type": "shell",
-            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- ${command:extension.zmkGetCurrentFile}^",
+            "command": "../gnb --no-gen ${command:zmk.getTargetConfig} -- ${command:zmk.getCurrentFile}^",
             "options": {
-                "cwd": "${command:extension.zmkGetBuildDir}"
+                "cwd": "${command:zmk.getBuildDir}"
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
             "presentation": {
                 "clear": true
@@ -40,9 +40,9 @@
         {
             "label": "make symbols",
             "type": "shell",
-            "command": "../gnb --no-gen ${command:extension.zmkGetTargetConfig} -- generate_symbols",
+            "command": "../gnb --no-gen ${command:zmk.getTargetConfig} -- generate_symbols",
             "options": {
-                "cwd": "${command:extension.zmkGetBuildDir}"
+                "cwd": "${command:zmk.getBuildDir}"
             },
             // "group": {
             //     "kind": "build",
@@ -50,7 +50,7 @@
             // },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
             "presentation": {
                 "clear": true
@@ -60,13 +60,13 @@
         {
             "label": "refresh ninja",
             "type": "shell",
-            "command": "./gnb ${command:extension.zmkGetTargetConfig} -- empty",
+            "command": "./gnb ${command:zmk.getTargetConfig} -- empty",
             "options": {
-                "cwd": "${command:extension.zmkGetRootDir}"
+                "cwd": "${command:zmk.getRootDir}"
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetRootDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getRootDir}" ]
             },
             "presentation": {
                 "clear": true
@@ -75,34 +75,34 @@
         {
             "label": "build all",
             "type": "shell",
-            "command": "./gnb ${command:extension.zmkGetTargetConfig}",
+            "command": "./gnb ${command:zmk.getTargetConfig}",
             "options": {
-                "cwd": "${command:extension.zmkGetRootDir}"
+                "cwd": "${command:zmk.getRootDir}"
             },
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
         },
         {
             "label": "zebra: Valgrind/Callgrind",
             "type": "shell",
-            "options": { "cwd": "${command:extension.zmkGetBuildDir}",
+            "options": { "cwd": "${command:zmk.getBuildDir}",
                 "env": {
-                    "LD_LIBRARY_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib",
+                    "LD_LIBRARY_PATH": "${command:zmk.getBuildDir}/linux/sysroot/usr/lib",
                     "V8_FLAGS": "--max-old-space-size=50",
-                    "DFBARGS": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
-                    "SKIA_FONTS": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts",
-                    "ZEBRA_POLYFILLS_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills",
+                    "DFBARGS": "system=x11,module-dir=${command:zmk.getBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
+                    "SKIA_FONTS": "${command:zmk.getBuildDir}/linux/sysroot/home/zodiac/fonts",
+                    "ZEBRA_POLYFILLS_PATH": "${command:zmk.getBuildDir}/linux/sysroot/home/zodiac/polyfills",
                 }
             },
             "command": [ "valgrind", "--tool=callgrind",
-                "${command:extension.zmkGetBuildDir}/zebra_mini",
+                "${command:zmk.getBuildDir}/zebra_mini",
                 "--standalone", "http://lets.developonbox.ru/customers/comcast/comcast-x1/proto/"
             ],
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
             "presentation": {
                 "clear": true
@@ -111,22 +111,22 @@
         {
             "label": "zebra: Direct run",
             "type": "shell",
-            "options": { "cwd": "${command:extension.zmkGetBuildDir}",
+            "options": { "cwd": "${command:zmk.getBuildDir}",
                 "env": {
-                    "LD_LIBRARY_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib",
+                    "LD_LIBRARY_PATH": "${command:zmk.getBuildDir}/linux/sysroot/usr/lib",
                     "V8_FLAGS": "--max-old-space-size=50",
-                    "DFBARGS": "system=x11,module-dir=${command:extension.zmkGetBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
-                    "SKIA_FONTS": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/fonts",
-                    "ZEBRA_POLYFILLS_PATH": "${command:extension.zmkGetBuildDir}/linux/sysroot/home/zodiac/polyfills",
+                    "DFBARGS": "system=x11,module-dir=${command:zmk.getBuildDir}/linux/sysroot/usr/lib/directfb-1.7-8,no-cursor,no-debug,mode=1280x720,depth=32,no-sighandler",
+                    "SKIA_FONTS": "${command:zmk.getBuildDir}/linux/sysroot/home/zodiac/fonts",
+                    "ZEBRA_POLYFILLS_PATH": "${command:zmk.getBuildDir}/linux/sysroot/home/zodiac/polyfills",
                 }
             },
             "command": [
-                "${command:extension.zmkGetBuildDir}/zebra_mini",
+                "${command:zmk.getBuildDir}/zebra_mini",
                 "--standalone", "http://lets.developonbox.ru/customers/comcast/comcast-x1/proto/"
             ],
             "problemMatcher": {
                 "base": "$gcc",
-                "fileLocation": [ "relative", "${command:extension.zmkGetBuildDir}" ]
+                "fileLocation": [ "relative", "${command:zmk.getBuildDir}" ]
             },
             "presentation": {
                 "clear": true

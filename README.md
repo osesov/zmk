@@ -24,11 +24,11 @@ This extension contributes the following settings:
 
 Externsion turned to use dynamically calculated settings using commands:
 
-* `${command:extension.zmkGetTargetConfig}`: returns current config name (like `charter-humaxwb11-powerup-dev`). Value `zmk.config` setting.
-* `${command:extension.zmkGetNinjaTarget}`: returns current ninja target to use in build (like `components/zebra_mini/unit_tests:sysroot`). Value of `zmk.target` setting
-* `${command:extension.zmkGetRootDir}`: returns root Valhalla folder (value of `zmk.rootDir` if defined)
-* `${command:extension.zmkGetBuildDir}`: build dir similar to this: `${zmk.rootDir}/out.${zmk.config}`. (!) This also creates the output dir
-* `${command:extension.zmkGetNfsDir}`: get nfs dir within build. something like this: `${command:extension.zmkGetBuildDir}/linux/build_nfs_image/home/zodiac`. This is used to debug.
+* `${command:zmk.getTargetConfig}`: returns current config name (like `charter-humaxwb11-powerup-dev`). Value `zmk.config` setting.
+* `${command:zmk.getNinjaTarget}`: returns current ninja target to use in build (like `components/zebra_mini/unit_tests:sysroot`). Value of `zmk.target` setting
+* `${command:zmk.getRootDir}`: returns root Valhalla folder (value of `zmk.rootDir` if defined)
+* `${command:zmk.getBuildDir}`: build dir similar to this: `${zmk.rootDir}/out.${zmk.config}`. (!) This also creates the output dir
+* `${command:zmk.getNfsDir}`: get nfs dir within build. something like this: `${command:extension.zmkGetBuildDir}/linux/build_nfs_image/home/zodiac`. This is used to debug.
 
 ## Known Issues
 
