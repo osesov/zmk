@@ -33,15 +33,14 @@ export interface IBuilderService
     onBuildStarted: vscode.Event<void>;
     onBuildFinished: vscode.Event<boolean>;
 
-    getOutputDir(): string | null;
-    getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): BuildCommand | null;
+    getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): Promise<BuildCommand | null>;
 
     buildTarget(target: string | undefined): Promise<void>;
     buildDefaultTarget(): Promise<void>;
     buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
 
     listConfigs(): Promise<string[]>;
-    toolchainSelector(): string | null;
-    toolchain(): Toolchain | null;
+    toolchainSelector(): Promise<string | null>;
+    toolchain(): Promise<Toolchain | null>;
     // args(): ArgsFile | null;
 }

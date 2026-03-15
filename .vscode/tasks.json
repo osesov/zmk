@@ -26,6 +26,19 @@
 				"kind": "build",
 				"isDefault": false
 			}
+		},
+		{
+			"type": "npm",
+			"script": "compile",
+			"problemMatcher": "$tsc",
+			"presentation": {
+				"reveal": "never",
+				"clear": true
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
 		}
 	]
 }

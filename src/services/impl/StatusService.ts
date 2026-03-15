@@ -25,7 +25,7 @@ export class StatusService implements IStatusService
         this.settings = services.get('settings');
 
         this.buildStatus = vscode.languages.createLanguageStatusItem('zmk-status', selector);
-        this.buildStatus.text = 'Valhalla';
+        this.buildStatus.text = 'Valhalla Build';
         this.buildStatus.detail = 'Ready';
         this.buildStatus.command = {
             title: 'Show build output',
@@ -65,24 +65,24 @@ export class StatusService implements IStatusService
 
         //
         this.currentConfig = vscode.languages.createLanguageStatusItem('zmk-current-config', selector);
-        this.currentConfig.text = 'Config';
+        this.currentConfig.text = 'Valhalla Config';
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
         this.updateCurrentConfig();
 
         this.currentTarget = vscode.languages.createLanguageStatusItem('zmk-current-target', selector);
-        this.currentTarget.text = 'Target';
+        this.currentTarget.text = 'Valhalla Target';
         this.settings.onChange(e => (e.affects(Setting.target)) && this.updateCurrentTarget());
         this.updateCurrentTarget();
 
         // show toolchain info
         this.currentToolchain = vscode.languages.createLanguageStatusItem('zmk-current-toolchain', selector);
-        this.currentToolchain.text = 'Toolchain';
+        this.currentToolchain.text = 'Valhalla Toolchain';
 
         const initialBuild = services.get('initialBuild');
         const buildComplete = services.get('buildComplete');
 
-        const updateToolchain = () => {
-            const toolchain = builder.toolchainSelector();
+        const updateToolchain = async () => {
+            const toolchain = await builder.toolchainSelector();
             this.currentToolchain.detail = toolchain ?? 'not set';
         }
 

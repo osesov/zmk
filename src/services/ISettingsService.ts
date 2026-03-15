@@ -17,10 +17,14 @@ export interface Toolchain
 
 export interface Setting
 {
+    // calculated settings
     valhallaDir: string | undefined;
+    outputDir: string | undefined;
     valhallaFolder: vscode.Uri | undefined;
     workspaceFolder: vscode.Uri | undefined;
     workspaceFolders: vscode.Uri[] | undefined;
+
+    // configuration settings
     config: string;
     target: string | undefined;
     gnbFlags: string[];
@@ -54,6 +58,8 @@ export const Setting: { [K in SettingName]: SettingDecl<K> } =
     valhallaFolder: { key: 'valhallaFolder', defaultValue: undefined, source: SettingSource.calculated },
     workspaceFolder: { key: 'workspaceFolder', defaultValue: undefined, source: SettingSource.calculated },
     workspaceFolders: { key: 'workspaceFolders', defaultValue: undefined, source: SettingSource.calculated },
+    outputDir: { key: 'outputDir', defaultValue: undefined, source: SettingSource.calculated },
+
     config: { key: 'config', defaultValue: '', source: SettingSource.configuration },
     target: { key: 'target', defaultValue: undefined, source: SettingSource.configuration },
     gnbFlags: { key: 'gnbFlags', defaultValue: [], source: SettingSource.configuration },

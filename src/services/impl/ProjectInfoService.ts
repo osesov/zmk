@@ -3,6 +3,7 @@ import { ProjectInfo, ProjectJsonFile } from "../../components/ProjectInfo";
 import { IProjectInfoService } from "../IProjectInfoService";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
+import { Setting } from "../ISettingsService";
 
 export class ProjectInfoService implements IProjectInfoService
 {
@@ -13,11 +14,13 @@ export class ProjectInfoService implements IProjectInfoService
 
     constructor(private services: ServiceContainer<AppServices>)
     {
+        const settings = services.get('settings');
         const initialBuild = services.get('initialBuild');
         const buildComplete = services.get('buildComplete')
 
         initialBuild.then(() => this.updateProjectInfo());
         buildComplete(() => this.updateProjectInfo());
+        settings.onChange(() => this.updateProjectInfo());
     }
 
     public getProjectInfo(): ProjectInfo
@@ -27,8 +30,7 @@ export class ProjectInfoService implements IProjectInfoService
 
     public async getProjectDescription(): Promise<ProjectJsonFile | null>
     {
-        const builder = this.services.get('builder');
-        const outputDir = builder.getOutputDir();
+        const outputDir = this.services.get('settings').get(Setting.outputDir);
         if (!outputDir)
             return null;
         return this._projectInfo.load(outputDir);
@@ -36,8 +38,7 @@ export class ProjectInfoService implements IProjectInfoService
 
     private async updateProjectInfo(): Promise<void>
     {
-        const builder = this.services.get('builder');
-        const outputDir = builder.getOutputDir();
+        const outputDir = this.services.get('settings').get(Setting.outputDir);
         this._projectInfo.reset();
 
         if (outputDir) {

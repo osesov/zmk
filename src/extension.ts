@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { QuickPickItem, TextEditor, TextEditorEdit } from 'vscode';
+import { TextEditor, TextEditorEdit } from 'vscode';
 import { ValhallaCppToolsProviderService } from './services/impl/ValhallaCppToolsProviderService';
 import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './components/utils';
 import { ServiceContainer } from './services/ServiceContainer';
@@ -18,41 +18,10 @@ import { TargetTreeProvider } from './services/impl/TargetTreeProvider';
 import { ProjectInfoService } from './services/impl/ProjectInfoService';
 import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
 import { Completion } from './components/promise';
+import { ArgsFileService } from './services/impl/ArgsFileService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
-
-async function listConfigs() : Promise<string[]> {
-	const rootDir: string | undefined = getRootDir();
-	if (rootDir === undefined) {
-		return [];
-	}
-
-	const configDir = path.resolve(rootDir, "configs");
-
-	return new Promise<string[]>((resolve, _reject) => {
-			fs.readdir( configDir, (err, files) => {
-					const result : string[] = [];
-
-					files.forEach( file => {
-							if (file.endsWith(".yaml") && fs.statSync(path.resolve(configDir, file)).isFile()) {
-									console.log(`File: ${file}`);
-									result.push(file.substr(0,file.length-5));
-							}
-					});
-
-					resolve(result);
-			});
-	});
-}
-
-class ConfigItem implements QuickPickItem {
-	label: string;
-
-	constructor(label: string) {
-		this.label = label;
-	}
-}
 
 function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
 	const configuration = vscode.workspace.getConfiguration();
@@ -446,6 +415,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('buildComplete', buildComplete.event)
 		.registerInstance('initialBuild', initialBuild.promise)
 		.registerInstance('settings', new SettingsService(services))
+		.registerInstance('argsFile', new ArgsFileService(services))
 		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
 		.registerInstance('builder', new BuilderService(services))
 		.registerInstance('buildStatus', new BuildStatusService(services, buildComplete, initialBuild))

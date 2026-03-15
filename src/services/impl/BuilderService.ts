@@ -8,8 +8,7 @@ import { assertNever, isDevContainerHost } from '../../components/utils';
 import { JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
 import { Completion } from '../../components/promise';
-import { ArgsFile } from '../../components/ArgsFile';
-import { LazyCache } from '../../components/LazyCache';
+import { AsyncCache } from '../../components/LazyCache';
 
 const defaultBuildTarget = 'empty';
 
@@ -23,8 +22,7 @@ export class BuilderService implements IBuilderService
     private _onBuildFinished = new vscode.EventEmitter<boolean>();
     public readonly onBuildFinished = this._onBuildFinished.event;
 
-    private readonly argsFile = new ArgsFile();
-    private readonly _toolchain = new LazyCache<Toolchain | null>(() => this.selectToolchain());
+    private readonly _toolchain = new AsyncCache<Toolchain | null>(() => this.selectToolchain());
 
     // TODO: is this correct? User can start more than a single build at any time.
     // We probably need to maintain own build only?
@@ -42,28 +40,17 @@ export class BuilderService implements IBuilderService
         const buildComplete = services.get('buildComplete');
 
         const resetState = () => {
-            this.argsFile.reset();
+            // this.argsFile.reset();
             this._toolchain.reset();
         };
 
         initialBuild.finally(() => resetState());
         buildComplete(() => resetState());
+        this.services.get('settings').onChange(() => resetState());
     }
 
-    public getOutputDir(): string | null
-    {
-        const settings = this.services.get('settings');
-        const valhallaDir = settings.get(Setting.valhallaFolder);
-        if (!valhallaDir)
-            return null;
-
-        const valhallaConfig = settings.get(Setting.config);
-        if (!valhallaConfig)
-            return null;
-
-        const outputDirName = `out.${valhallaConfig}`
-        const outputDir = path.join(valhallaDir.fsPath, outputDirName);
-        return outputDir;
+    async toolchain(): Promise<Toolchain | null> {
+        return this._toolchain.get();
     }
 
     public getConfigsDir(): string | null
@@ -73,9 +60,14 @@ export class BuilderService implements IBuilderService
         if (!valhallaDir)
             return null;
 
-        const configsDir = path.join(valhallaDir.fsPath, 'configs');
-        return configsDir;
+        return path.join(valhallaDir.fsPath, 'configs');
     }
+
+    public getOutputDir(): string | null
+    {
+        const settings = this.services.get('settings');
+        return settings.get(Setting.outputDir) ?? null;
+     }
 
     async buildTarget(target: string | undefined): Promise<void>
     {
@@ -89,7 +81,7 @@ export class BuilderService implements IBuilderService
 
         outputChannel.clear();
 
-        const buildCommand = this.getBuildCommand({target: target});
+        const buildCommand = await this.getBuildCommand({target: target});
         if (!buildCommand) {
             vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
             return;
@@ -198,22 +190,23 @@ export class BuilderService implements IBuilderService
         await this.buildTarget(defaultBuildTarget);
     }
 
-    private toolchainSelectorInternal()
+    private async toolchainSelectorInternal()
     {
-        const outputDir = this.getOutputDir();
-        if (!this.argsFile.load(outputDir))
+        const argsFile = this.services.get('argsFile');
+        const args = await argsFile.getArgs();
+        if (!args)
             return {};
 
-        const crossOS = this.argsFile.get<string>('cross_os');
-        const crossCPU = this.argsFile.get<string>('cross_cpu');
-        const crossABI = this.argsFile.get<string>('cross_abi');
+        const crossOS = args.get<string>('cross_os');
+        const crossCPU = args.get<string>('cross_cpu');
+        const crossABI = args.get<string>('cross_abi');
 
         return {crossOS, crossCPU, crossABI};
     }
 
-    public toolchainSelector(): string | null
+    public async toolchainSelector(): Promise<string | null>
     {
-        const {crossOS, crossCPU, crossABI} = this.toolchainSelectorInternal();
+        const {crossOS, crossCPU, crossABI} = await this.toolchainSelectorInternal();
         let result = '';
 
         if (crossOS) {
@@ -233,7 +226,7 @@ export class BuilderService implements IBuilderService
         return result;
     }
 
-    private selectToolchain(): Toolchain | null
+    private async selectToolchain(): Promise<Toolchain | null>
     {
         const settings = this.services.get('settings');
         const toolchains = settings.get(Setting.toolchain);
@@ -241,7 +234,7 @@ export class BuilderService implements IBuilderService
             return null;
         }
 
-        const {crossOS, crossCPU, crossABI} = this.toolchainSelectorInternal();
+        const {crossOS, crossCPU, crossABI} = await this.toolchainSelectorInternal();
 
         for (const toolchain of toolchains) {
             const pattern = toolchain.pattern;
@@ -262,7 +255,7 @@ export class BuilderService implements IBuilderService
         return null;
     }
 
-    public getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): BuildCommand | null
+    public async getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): Promise<BuildCommand | null>
     {
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
@@ -276,7 +269,7 @@ export class BuilderService implements IBuilderService
             return null;
         }
 
-        const toolchain = this._toolchain.get();
+        const toolchain = await this._toolchain.get();
 
         type EnvObject = {[k: string] : JsonValue | null | undefined }
         const makeEnvironment = (...envs: (EnvObject | undefined)[]): Record<string, string> =>
@@ -360,13 +353,5 @@ export class BuilderService implements IBuilderService
         } catch (err) {
             return [];
         }
-    }
-
-    args(): ArgsFile | null {
-        return this.argsFile;
-    }
-
-    toolchain(): Toolchain | null {
-        return this._toolchain.get();
     }
 }

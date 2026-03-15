@@ -159,7 +159,8 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private getOutputDir(): string | null
     {
-        return this.builder.getOutputDir();
+        const settings = this.services.get('settings');
+        return settings.get(Setting.outputDir) ?? null;
     }
 
     private async getCompileCommands(): Promise<CompileCommands | null> {
@@ -265,7 +266,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             result.intelliSenseMode = intelliSenseMode as IntelliSenseMode;
         }
 
-        const toolchain = this.builder.toolchain()
+        const toolchain = await this.builder.toolchain()
         if (toolchain) {
             if (!result.compilerPath && toolchain.compiler && toolchain.compiler.length > 0) {
                 result.compilerPath = toolchain.compiler[0];

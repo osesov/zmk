@@ -6,6 +6,7 @@ import { ServiceContainer } from '../ServiceContainer';
 import { AppServices } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
+import { Setting } from '../ISettingsService';
 
 export class BuildStatusService implements IBuildStatusService
 {
@@ -33,8 +34,9 @@ export class BuildStatusService implements IBuildStatusService
     private async checkOutputDirExists(): Promise<void>
     {
         const builder = this.services.get('builder');
+        const settings = this.services.get('settings');
 
-        const outputDir = builder.getOutputDir();
+        const outputDir = settings.get(Setting.outputDir);
         if (!outputDir)
             return Promise.resolve();
 

@@ -25,7 +25,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         context.subscriptions.push(vscode.tasks.registerTaskProvider(gnbTaskType, this));
     }
 
-    public provideTasks(token: vscode.CancellationToken): vscode.ProviderResult<vscode.Task[]> {
+    public async provideTasks(token: vscode.CancellationToken): Promise<vscode.Task[]> {
 
         const settings = this.services.get('settings');
         const builder = this.services.get('builder');
@@ -43,22 +43,22 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         const multipleWorkspaceFolders = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1) ?? false;
 
         for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
-            this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildKind.build, taskDefinition, multipleWorkspaceFolders);
-            this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildKind.clean, taskDefinition, multipleWorkspaceFolders);
-            this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildKind.deepClean, taskDefinition, multipleWorkspaceFolders);
-            this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildKind.buildEmpty, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildKind.build, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildKind.clean, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildKind.deepClean, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildKind.buildEmpty, taskDefinition, multipleWorkspaceFolders);
         }
         return tasks;
     }
 
-    public resolveTask(task: vscode.Task, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Task> {
+    public async resolveTask(task: vscode.Task, token: vscode.CancellationToken): Promise<vscode.Task> {
         if (task.definition.type === gnbTaskType) {
             const builder = this.services.get('builder');
             const taskDefinition = task.definition as ValhallaTaskDefinition;
-            const buildCommand = builder.getBuildCommand(taskDefinition);
+            const buildCommand = await builder.getBuildCommand(taskDefinition);
 
             if (!buildCommand || buildCommand.command.length === 0) {
-                return undefined;
+                return task;
             }
 
             const newTask = new vscode.Task(
@@ -76,10 +76,10 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             newTask.group = vscode.TaskGroup.Build;
             return newTask;
         }
-        return undefined;
+        return task;
     }
 
-    private createBuildCommand(
+    private async createBuildCommand(
         tasks: vscode.Task[],
         workspaceFolder: vscode.WorkspaceFolder,
         title: string,
@@ -89,7 +89,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         multipleWorkspaceFolders: boolean
     )
     {
-        const buildCommand = builder.getBuildCommand(taskDefinitionTemplate, buildKind);
+        const buildCommand = await builder.getBuildCommand(taskDefinitionTemplate, buildKind);
 
         if (!buildCommand || buildCommand.command.length == 0)
             return;

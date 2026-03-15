@@ -11,6 +11,7 @@ import { IConfigTreeProvider } from './IConfigTreeProvider';
 import { ITargetTreeProvider } from './ITargetTreeProvider';
 import { IProjectInfoService } from './IProjectInfoService';
 import { ISourceFileConfigurationItemTreeProvider } from './ISourceFileConfigurationItemTreeProvider';
+import { IArgsFileService } from './IArgsFileService';
 
 export type AppServices =
 {
@@ -19,8 +20,11 @@ export type AppServices =
     logOutputChannel: vscode.LogOutputChannel;
     buildComplete: vscode.Event<boolean>; // some build has completed (maybe run by user), with success or failure
     initialBuild: Promise<boolean>; // initial valhalla build complete
+
+    argsFile: IArgsFileService;
     settings: ISettingsService;
     virtualDocumentProvider: IVirtualDocumentProvider;
+
     builder: IBuilderService;
     buildStatus: IBuildStatusService;
     projectInfo: IProjectInfoService;

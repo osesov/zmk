@@ -1,20 +1,30 @@
-import path from "path";
-import fs from "fs";
-import vscode from "vscode";
-import shell from "shell-quote";
-import * as cpptools from "vscode-cpptools";
-import { isDevContainerHost, Mutable } from "./utils";
-import { build } from "./constants";
-
 type ArgValue = string | boolean | number
-type ArgMap = Map<string, ArgValue>
 
-function parseArgs(text: string): ArgMap
+export namespace ArgsFile
+{
+    export const fileName = 'args.gn';
+}
+
+export class ArgsMap
+{
+    private values: Map<string, ArgValue>;
+
+    constructor(entries?: Iterable<readonly [string, ArgValue]>)
+    {
+        this.values = new Map(entries);
+    }
+
+    public get<T>(name: string): T | undefined {
+        return this.values.get(name) as T | undefined;
+    }
+}
+
+export function parseArgs(text: string): ArgsMap
 {
     // simplified args.gn parsing, only supports simple key=value pairs, no lists, values are single-line.
     // Format follows `gn/gnb_config_parser.py`
 
-    const result: ArgMap = new Map();
+    const result = new Map<string, ArgValue>();
 
     const re = /^\s*(?<name>[a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:(?<string>["]([\\].|[^\\"])*?["])|(?<number>\d+)|(?<boolean>true|false))\s*$/u;
 
@@ -39,53 +49,5 @@ function parseArgs(text: string): ArgMap
         }
     }
 
-    return result;
-}
-
-export class ArgsFile
-{
-    private values: ArgMap = new Map();
-    private mtime: number = 0;
-    private argsFile: string | null = null;
-
-    public reset(): void {
-        this.values.clear();
-        this.mtime = 0;
-        this.argsFile = null;
-    }
-
-    public load(outputDir: string | null | undefined): boolean {
-        if (!outputDir) {
-            return false;
-        }
-        const argsFile = path.join(outputDir, 'args.gn');
-        if (!fs.existsSync(argsFile)) {
-            vscode.window.showErrorMessage(`Failed to find args.gn in ${outputDir}. Make sure the build was successful and that the output directory is correct.`);
-            return false;
-        }
-
-        const file = fs.openSync(argsFile, 'r');
-        try {
-            const stats = fs.fstatSync(file);
-            const mtime = stats.mtime.getTime();
-            if (mtime === this.mtime && argsFile === this.argsFile) {
-                return true;
-            }
-
-            const content = fs.readFileSync(file, 'utf-8');
-            this.values = parseArgs(content);
-            this.mtime = mtime;
-            this.argsFile = argsFile;
-
-            return true;
-        }
-
-        finally {
-            fs.closeSync(file);
-        }
-    }
-
-    public get<T extends ArgValue>(name: string): T | undefined {
-        return this.values.get(name) as T | undefined;
-    }
+    return new ArgsMap(result);
 }

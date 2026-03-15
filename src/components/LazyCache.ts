@@ -26,3 +26,30 @@ export class LazyCache<T extends {} | null>
     }
 
 }
+
+export class AsyncCache<T extends {} | null>
+{
+    private value: T | null | undefined = undefined;
+    constructor(private evalValue: () => Promise<T> )
+    {
+    }
+
+    async get(): Promise<T>
+    {
+        if (this.value === undefined) {
+            this.value = null;
+            try {
+                this.value = await this.evalValue();
+            } catch {
+                this.value = null;
+            }
+        }
+        return this.value as T;
+    }
+
+    reset()
+    {
+        this.value = undefined;
+    }
+
+}
