@@ -223,7 +223,7 @@ You can configure toolchain-specific settings using pattern matching in your wor
 
 > [!Note] DevContainer support is currently under development and may not be
 > available in all Valhalla projects. See the [current
-> implementation](https://gerrit.zodiac.tv/c/znextgen/zscript-vscode/+/81163)
+> implementation](https://gerrit.zodiac.tv/c/znextgen/valhalla/+/81655)
 > for status.
 
 DevContainers rely on regular Valhalla containers to provide pre-configured
