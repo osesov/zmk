@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "1.4.0",
+	"version": "2.0.0",
 	"engines": {
 		"vscode": "^1.111.0"
 	},
@@ -12,7 +12,7 @@
 	"publisher": "osesov",
 	"repository": {
 		"type": "git",
-		"url": "git@github.com:osesov/zmk.git"
+		"url": "https://github.com/osesov/zmk.git"
 	},
 	"activationEvents": [
 		"*"
@@ -186,7 +186,7 @@
 						"properties": {
 							"pattern": {
 								"type": "string",
-								"description": "Regex pattern to match compiler name. 'cross_os[-cross_cpu[-cross_abi]]'"
+								"description": "Pattern to match compiler name. 'cross_os[-cross_cpu[-cross_abi]]'"
 							},
 							"compiler": {
 								"type": "array",

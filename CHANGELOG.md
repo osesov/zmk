@@ -4,6 +4,53 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 2.0.0
+
+Major architectural refactoring and feature enhancements.
+
+### Added
+
+- **Service-Oriented Architecture**: Implemented dependency injection container (`ServiceContainer`) for better modularity and testability
+- **Tree Views**: Added three custom tree views in "Valhalla build system" activity bar:
+  - **Configurations View**: Browse and select build configurations from `configs/*.yaml`
+  - **Targets View**: Navigate build targets from `project.json`, set default targets, build individual targets
+  - **Source File Configuration View**: Inspect IntelliSense settings for current file (includes, defines, compiler settings) with list/tree toggle
+- **Custom Task Provider**: Implemented `gnb` task type with automatic task generation for each workspace (Build, Clean build, Deep clean build, Minimal build)
+- **Enhanced IntelliSense Integration**: Full `CustomConfigurationProvider` implementation for VS Code C++ Extension:
+  - Automatic parsing of `compile_commands.json`
+  - Per-file configuration with includes, defines, compiler settings
+  - Custom toolchain support via `zmk.toolchain` setting with pattern-based matching
+  - Lazy loading and caching with mtime-based invalidation
+- **Project Information Service**: GN `project.json` parser for target metadata and dependency graph
+- **Build Status Tracking**: Real-time build status with event notifications and status bar integration
+- **Dev Container Support**: Automatic detection and `gnbc` command usage in dev containers
+
+### Changed
+
+- **Complete Code Restructure**: Migrated from monolithic architecture to service-based architecture
+- **Settings Service**: Centralized configuration management with type-safe access
+- **Builder Service**: Refactored build execution with improved process management and output handling
+- **Improved Extension Activation**: Asynchronous service initialization with proper event handling
+
+### Enhanced
+
+- **Toolchain Configuration**: Added `zmk.toolchain` setting for pattern-based toolchain selection with per-toolchain defines, includes, and environment variables
+- **IntelliSense Settings**: New settings for custom compiler configuration:
+  - `zmk.disableCppToolsIntegration`: Option to disable custom configuration provider
+  - `zmk.includeDirs`: Extra include directories
+  - `zmk.defines`: Extra preprocessor defines
+  - `zmk.compiler`: Compiler path and arguments
+  - `zmk.intelliSenseMode`: IntelliSense mode override
+  - `zmk.cppStandard`: C++ standard override
+- **Dynamic Settings Commands**: All settings now available as VS Code command variables for use in configuration files
+- **Comprehensive Documentation**: Extensively updated README.md with architecture details, implementation guide, and usage examples
+
+### Fixed
+
+- Multiple workspace folder support improvements
+- Configuration caching and invalidation logic
+- Error handling and user feedback
+
 ## 1.3.3
 
 - update dependencies to the latest
@@ -24,7 +71,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Implemented copyright header insert/update for C++ files.
   Developer name could be configured with 'zmk.developer' settings.
   Copyright template is configured with 'zmk.copyrightComment' setting.
-
 
 ## 1.2.0
 
