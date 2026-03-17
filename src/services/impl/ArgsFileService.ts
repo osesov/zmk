@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
-import { ServiceContainer } from "../ServiceContainer";
-import { AppServices } from "../AppServices";
+import { AppServiceContainer } from "../AppServices";
 import { IArgsFileService } from "../IArgsFileService";
 import { ArgsFile, ArgsMap, parseArgs } from "../../components/ArgsFile";
 import { Setting } from "../ISettingsService";
@@ -14,7 +13,7 @@ export class ArgsFileService implements IArgsFileService
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
-    constructor(services: ServiceContainer<AppServices>)
+    constructor(services: AppServiceContainer)
     {
         // const initialBuild = services.get('initialBuild');
         // const buildComplete = services.get('buildComplete')

@@ -15,6 +15,9 @@ export namespace zmkCommand
     export const toggleIncludeTreeView = "zmk.toggleIncludeTreeView";
     export const toggleIncludeListView = "zmk.toggleIncludeListView";
 
+    export const selectValhallaProject = "zmk.selectValhallaProject";
+    export const revealIncludeInExplorer = "zmk.revealIncludeInExplorer";
+    export const revealIncludeInOS = "zmk.revealIncludeInOS";
 }
 
 export namespace Context

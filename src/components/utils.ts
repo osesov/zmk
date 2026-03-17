@@ -1,6 +1,7 @@
 import vscode from 'vscode';
 import fs from 'fs';
 import path from 'path';
+import { Utils } from 'vscode-uri';
 
 export type Mutable<T> = {
     -readonly [K in keyof T]: T[K];
@@ -35,6 +36,26 @@ export function findProjectRoot(p: string) : string | undefined {
         } else {
             p = n;
         }
+    }
+}
+
+export async function findProjectRootUri(p: vscode.Uri) : Promise<vscode.Uri | undefined> {
+    while(true) {
+        const gnFile = vscode.Uri.joinPath(p, ".gn");
+        try {
+            const stat = await vscode.workspace.fs.stat(gnFile);
+            if (stat.type === vscode.FileType.File) {
+                return p;
+            }
+        } catch(e) {
+            // file does not exist, continue searching
+        }
+
+        const parent = Utils.dirname(p);
+        if (parent.path === p.path) {
+            return undefined;
+        }
+        p = parent;
     }
 }
 

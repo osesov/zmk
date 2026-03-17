@@ -1,192 +1,441 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
-import { ServiceContainer } from '../ServiceContainer';
-import { AppServices } from '../AppServices';
-import { findProjectRoot } from '../../components/utils';
-import { LazyCache } from '../../components/LazyCache';
-import { ISettingsService, Setting, SettingChangeEvent, SettingDecl, SettingName, SettingSection, SettingSource, SettingType } from '../ISettingsService';
-import path from 'node:path';
+import {
+    CalculatedSetting,
+    ConfigurationSetting,
+    EnvironmentSetting,
+    ISettingsService,
+    Setting,
+    SettingChangeEvent,
+    SettingMap,
+    ValueOf,
+    ValhallaProject,
+    WorkspaceStateSetting,
+    AnySettingDecl,
+} from '../ISettingsService';
+import { AppServiceContainer } from '../AppServices';
+import { findProjectRootUri } from '../../components/utils';
 
-export class SettingsService implements ISettingsService
-{
-    private onChangeEvent = new vscode.EventEmitter<SettingChangeEvent>();
-    onChange = this.onChangeEvent.event;
+type SettingsSnapshot = {
+    [K in keyof SettingMap]: SettingMap[K]['defaultValue'];
+};
 
-    private outputDirWatched: string | null = null;
-    private outputDirWatcher: vscode.FileSystemWatcher | null = null;
+type CalculatedDeps = {
+    workspaceFolders?: vscode.Uri[] | undefined;
+    valhallaProjects?: ValhallaProject[];
+    activeProject?: string | undefined;
+    valhallaFolder?: vscode.Uri | undefined;
+    valhallaDir?: string | undefined;
+    config?: string;
+};
 
-    private _valhallaFolder = new LazyCache<string | null>(
-        () => {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (!workspaceFolder)
-                return null;
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof vscode.Uri);
+}
 
-            const valhallaRoot = findProjectRoot(workspaceFolder.uri.fsPath);
-            if (!valhallaRoot)
-                return null;
-
-            return valhallaRoot;
-        }
-    );
-
-    private _outputDir = new LazyCache<string | null>(
-        () => {
-            const valhallaFolder = this._valhallaFolder.get();
-            if (!valhallaFolder)
-                return null;
-
-            const config = vscode.workspace.getConfiguration(SettingSection);
-            const valhallaConfig = config.get(Setting.config.key, undefined);
-
-            if (!valhallaConfig || typeof valhallaConfig !== 'string')
-                return null;
-
-            return path.join(valhallaFolder, 'out.' + valhallaConfig);
-        }
-    );
-
-    constructor(services: ServiceContainer<AppServices>)
-    {
-        const context = services.get('context');
-
-        const updateOutputDirWatcher = () => {
-            const valhallaFolder = this._valhallaFolder.get();
-            const outputDir = this._outputDir.get()
-            if (outputDir && valhallaFolder) {
-                if (this.outputDirWatched !== outputDir) {
-                    this.outputDirWatcher?.dispose();
-
-                    const eventWrapper: SettingChangeEvent = {
-                        affects: (setting: SettingDecl<any>) => setting.key === Setting.outputDir.key
-                    };
-
-                    const sub = path.relative(outputDir, valhallaFolder);
-
-                    this.outputDirWatcher = vscode.workspace.createFileSystemWatcher(
-                        new vscode.RelativePattern(valhallaFolder, sub),
-                    );
-                    this.outputDirWatcher.onDidChange(() => this.onChangeEvent.fire(eventWrapper));
-                    this.outputDirWatcher.onDidCreate(() => this.onChangeEvent.fire(eventWrapper));
-                    this.outputDirWatcher.onDidDelete(() => this.onChangeEvent.fire(eventWrapper));
-                    this.outputDirWatched = outputDir;
-                }
-            }
-            else {
-                this.outputDirWatcher?.dispose();
-                this.outputDirWatcher = null;
-                this.outputDirWatched = null;
-            }
-        }
-
-        context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
-            const eventWrapper: SettingChangeEvent = {
-                affects: (setting: SettingDecl<any>) => event.affectsConfiguration(`${SettingSection}.${setting.key}`)
-            };
-
-            if (event.affectsConfiguration(`${SettingSection}.${Setting.config.key}`)) {
-                this._outputDir.reset();
-            }
-
-            updateOutputDirWatcher();
-
-            this.onChangeEvent.fire(eventWrapper);
-        }));
-
-        context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
-            const eventWrapper: SettingChangeEvent = {
-                affects: (setting: SettingDecl<any>) => setting.key === Setting.workspaceFolder.key
-            };
-
-            this._valhallaFolder.reset();
-            this._outputDir.reset();
-            updateOutputDirWatcher();
-            this.onChangeEvent.fire(eventWrapper);
-        }));
-
-        updateOutputDirWatcher();
-
-        context.subscriptions.push(this.onChangeEvent);
-        context.subscriptions.push(this);
+function deepEqual(a: unknown, b: unknown): boolean {
+    if (a === b) {
+        return true;
     }
 
-    public dispose(): void
-    {
-        this.outputDirWatcher?.dispose();
-        this.onChangeEvent.dispose();
+    if (a instanceof vscode.Uri && b instanceof vscode.Uri) {
+        return a.toString() === b.toString();
     }
 
-    private getCalculatedSetting<K extends SettingName>(
-        setting: SettingDecl<K>
-    ): SettingType<K> {
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) {
+            return false;
+        }
+        for (let i = 0; i < a.length; i++) {
+            if (!deepEqual(a[i], b[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    if (isPlainObject(a) && isPlainObject(b)) {
+        const aKeys = Object.keys(a).sort();
+        const bKeys = Object.keys(b).sort();
+
+        if (!deepEqual(aKeys, bKeys)) {
+            return false;
+        }
+
+        for (const key of aKeys) {
+            if (!deepEqual(a[key], b[key])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+export class SettingsService implements ISettingsService {
+    private readonly _context: vscode.ExtensionContext;
+    private readonly _onChangeEmitter = new vscode.EventEmitter<SettingChangeEvent>();
+    public readonly onChange = this._onChangeEmitter.event;
+
+    private readonly _disposables: vscode.Disposable[] = [];
+    private _snapshot: SettingsSnapshot;
+    private _environment = new Map<string, string>();
+
+    public constructor(services: AppServiceContainer) {
+        this._context = services.get('context');
+
+        vscode.workspace.onDidChangeWorkspaceFolders(() => this.recomputeAndEmit(), this, this._disposables);
+        vscode.workspace.onDidChangeConfiguration(() => this.recomputeAndEmit(), this, this._disposables);
+
+        this._snapshot = this.createInitialSnapshot();
+    }
+
+    public dispose(): void {
+        this._onChangeEmitter.dispose();
+        for (const d of this._disposables) {
+            d.dispose();
+        }
+    }
+
+    public get<S extends AnySettingDecl>(setting: S): ValueOf<S> {
+        const name = this.toName(setting);
+        return this._snapshot[name] as ValueOf<S>;
+    }
+
+    public getOrDefault<S extends AnySettingDecl>(
+        setting: S,
+        defaultValue: NonNullable<ValueOf<S>>,
+    ): NonNullable<ValueOf<S>> {
+        const value = this.get(setting);
+        return (value ?? defaultValue) as NonNullable<ValueOf<S>>;
+    }
+
+    public async update<S extends ConfigurationSetting>(
+        setting: S,
+        value: ValueOf<S>,
+        target: vscode.ConfigurationTarget | boolean | null = vscode.ConfigurationTarget.Workspace,
+    ): Promise<void> {
+        await vscode.workspace.getConfiguration().update(setting.configurationKey, value, target);
+        await this.recomputeAndEmit()
+    }
+
+    public async updateWorkspaceState<S extends WorkspaceStateSetting>(
+        setting: S,
+        value: ValueOf<S>,
+    ): Promise<void> {
+        await this._context.workspaceState.update(setting.workspaceStateKey, value);
+        await this.recomputeAndEmit();
+    }
+
+    public async refresh(): Promise<void> {
+        await this.reloadEnvironment();
+        await this.recomputeAndEmit();
+    }
+
+    private createInitialSnapshot(): SettingsSnapshot {
+        return {
+            activeProject: Setting.activeProject.defaultValue,
+
+            isValhallaProject: Setting.isValhallaProject.defaultValue,
+            valhallaDir: Setting.valhallaDir.defaultValue,
+            valhallaFolder: Setting.valhallaFolder.defaultValue,
+            workspaceFolders: Setting.workspaceFolders.defaultValue,
+            outputDir: Setting.outputDir.defaultValue,
+            valhallaProjects: Setting.valhallaProjects.defaultValue,
+
+            config: Setting.config.defaultValue,
+            target: Setting.target.defaultValue,
+            gnbFlags: Setting.gnbFlags.defaultValue,
+            gnFlags: Setting.gnFlags.defaultValue,
+
+            env: Setting.env.defaultValue,
+            includeDirs: Setting.includeDirs.defaultValue,
+            defines: Setting.defines.defaultValue,
+
+            disableCppToolsIntegration: Setting.disableCppToolsIntegration.defaultValue,
+            cppStandard: Setting.cppStandard.defaultValue,
+            compiler: Setting.compiler.defaultValue,
+            intelliSenseMode: Setting.intelliSenseMode.defaultValue,
+            toolchain: Setting.toolchain.defaultValue,
+
+            path: Setting.path.defaultValue,
+            pythonPath: Setting.pythonPath.defaultValue,
+        };
+    }
+
+    private async computeSnapshot(): Promise<SettingsSnapshot> {
+        const workspaceFolders = await this.computeCalculated(Setting.workspaceFolders);
+        const valhallaProjects = await this.computeCalculated(Setting.valhallaProjects, { workspaceFolders });
+
+        const activeProject = this.readWorkspaceState(Setting.activeProject);
+
+        const valhallaFolder = await this.computeCalculated(Setting.valhallaFolder, {
+            valhallaProjects,
+            activeProject,
+        });
+
+        const valhallaDir = await this.computeCalculated(Setting.valhallaDir, { valhallaFolder });
+        const isValhallaProject = await this.computeCalculated(Setting.isValhallaProject, { valhallaDir });
+
+        const config = this.readConfiguration(Setting.config);
+        const outputDir = await this.computeCalculated(Setting.outputDir, { valhallaDir, config });
+
+        return {
+            activeProject,
+
+            isValhallaProject,
+            valhallaDir,
+            valhallaFolder,
+            workspaceFolders,
+            outputDir,
+            valhallaProjects,
+
+            config,
+            target: this.readConfiguration(Setting.target),
+            gnbFlags: this.readConfiguration(Setting.gnbFlags),
+            gnFlags: this.readConfiguration(Setting.gnFlags),
+
+            env: this.readConfiguration(Setting.env),
+            includeDirs: this.readConfiguration(Setting.includeDirs),
+            defines: this.readConfiguration(Setting.defines),
+
+            disableCppToolsIntegration: this.readConfiguration(Setting.disableCppToolsIntegration),
+            cppStandard: this.readConfiguration(Setting.cppStandard),
+            compiler: this.readConfiguration(Setting.compiler),
+            intelliSenseMode: this.readConfiguration(Setting.intelliSenseMode),
+            toolchain: this.readConfiguration(Setting.toolchain),
+
+            path: this.readEnvironment(Setting.path),
+            pythonPath: this.readEnvironment(Setting.pythonPath),
+        };
+    }
+
+    private computeCalculated<S extends CalculatedSetting>(
+        setting: S,
+        deps: CalculatedDeps = {},
+    ): ValueOf<S> | Promise<ValueOf<S>> {
         switch (setting.key) {
-            case 'valhallaDir': {
-                return (this._valhallaFolder.get() ?? undefined) as SettingType<K>;
-            }
-
-            case 'valhallaFolder':
-                return (this._valhallaFolder.get() ?? undefined) as SettingType<K>;
-
-            case 'workspaceFolder': {
-                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                return (workspaceFolder ? workspaceFolder.uri : setting.defaultValue) as SettingType<K>;
-            }
-
             case 'workspaceFolders': {
-                const workspaceFolders = vscode.workspace.workspaceFolders;
-                return (workspaceFolders
-                    ? workspaceFolders.map(folder => folder.uri)
-                    : setting.defaultValue) as SettingType<K>;
+                const folders = vscode.workspace.workspaceFolders?.map(it => it.uri);
+                return (folders && folders.length > 0 ? folders : undefined) as ValueOf<S>;
             }
 
-            case 'outputDir':
-                return (this._outputDir.get() ?? undefined) as SettingType<K>;
+            case 'valhallaProjects': {
+                return this.computeValhallaProjects(deps.workspaceFolders) as Promise<ValueOf<S>>;
+            }
 
-            default:
-                throw new Error(`Calculated setting "${setting.key}" does not have a getter implementation.`);
-        }
-    }
-
-    get<K extends SettingName>(setting: SettingDecl<K>): SettingType<K>
-    {
-        switch (setting.source) {
-            case SettingSource.calculated:
-                return this.getCalculatedSetting(setting) as SettingType<K>;
-
-            case SettingSource.environment:
-                {
-                    const envValue = process.env[setting.key];
-                    if (envValue !== undefined) {
-                        return envValue as unknown as SettingType<K>;
+            case 'valhallaFolder': {
+                const selected = deps.activeProject;
+                if (selected && deps.valhallaProjects) {
+                    const match = deps.valhallaProjects.find(p => p.uri.toString() === selected);
+                    if (match) {
+                        return match.uri as unknown as ValueOf<S>;
                     }
-                    return setting.defaultValue;
                 }
 
-            case SettingSource.configuration:
-                {
-                    const config = vscode.workspace.getConfiguration(SettingSection);
-                    return config.get<SettingType<K>>(setting.key, setting.defaultValue);
+                if (deps.valhallaProjects && deps.valhallaProjects.length > 0) {
+                    return deps.valhallaProjects[0].uri as unknown as ValueOf<S>;
                 }
+
+                return deps.workspaceFolders?.[0] as ValueOf<S>;
+            }
+
+            case 'valhallaDir': {
+                return this.computeValhallaDir(deps.valhallaFolder) as Promise<ValueOf<S>>;
+            }
+
+            case 'isValhallaProject': {
+                return Boolean(deps.valhallaDir) as ValueOf<S>;
+            }
+
+            case 'outputDir': {
+                if (!deps.valhallaDir) {
+                    return undefined as ValueOf<S>;
+                }
+
+                return path.join(deps.valhallaDir, `out.${deps.config ?? ''}`) as unknown as ValueOf<S>;
+            }
+
             default:
-                throw new Error(`Unknown setting source for setting "${setting.key}".`);
+                return this.assertNever(setting);
         }
     }
 
-    getOrDefault<K extends SettingName, V>(setting: SettingDecl<K>, defaultValue: SettingType<K>): SettingType<K>
-    {
+    private assertNever(x: never): never {
+        throw new Error(`Unhandled calculated setting: ${String((x as { key?: unknown }).key)}`);
+    }
+
+    private readConfiguration<S extends ConfigurationSetting>(setting: S): ValueOf<S> {
+        const value = vscode.workspace.getConfiguration().get<ValueOf<S>>(setting.configurationKey);
+        return (value ?? setting.defaultValue) as ValueOf<S>;
+    }
+
+    private readWorkspaceState<S extends WorkspaceStateSetting>(setting: S): ValueOf<S> {
+        const value = this._context.workspaceState.get<ValueOf<S>>(setting.workspaceStateKey);
+        return (value ?? setting.defaultValue) as ValueOf<S>;
+    }
+
+    private readEnvironment<S extends EnvironmentSetting>(setting: S): ValueOf<S> {
+        const value = this._environment.get(setting.envKey);
+        return (value ?? setting.defaultValue) as ValueOf<S>;
+    }
+
+    private async computeValhallaDir(folder: vscode.Uri | undefined): Promise<string | undefined> {
+        if (!folder) {
+            return undefined;
+        }
+
+        const root = await findProjectRootUri(folder);
+        return root?.fsPath;
+    }
+
+    private async computeValhallaProjects(
+        workspaceFolders: vscode.Uri[] | undefined,
+    ): Promise<ValhallaProject[]> {
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return [];
+        }
+
+        const resolved = await Promise.all(
+            workspaceFolders.map(async folder => ({
+                workspaceFolder: folder,
+                root: await findProjectRootUri(folder),
+            })),
+        );
+
+        const projects = new Map<string, ValhallaProject>();
+
+        for (const item of resolved) {
+            if (!item.root) {
+                continue;
+            }
+
+            const key = item.root.toString();
+            const existing = projects.get(key);
+
+            if (existing) {
+                existing.workspaceFolders.push(item.workspaceFolder);
+            } else {
+                const name = path.basename(item.root.fsPath);
+                projects.set(key, {
+                    name,
+                    uri: item.root,
+                    workspaceFolders: [item.workspaceFolder],
+                });
+            }
+        }
+
+        return [...projects.values()].sort((a, b) => a.uri.fsPath.localeCompare(b.uri.fsPath));
+    }
+
+    private async reloadEnvironment(): Promise<void> {
+        const envMap = new Map<string, string>();
+
+        for (const [key, value] of Object.entries(process.env)) {
+            if (typeof value === 'string') {
+                envMap.set(key, value);
+            }
+        }
+
+        const workspaceFolders = vscode.workspace.workspaceFolders?.map(it => it.uri);
+        const workspaceFolder = workspaceFolders?.[0];
+        const projects = await this.computeValhallaProjects(workspaceFolders);
+
+        const activeProject = this.readWorkspaceState(Setting.activeProject);
+
+        let valhallaFolder: vscode.Uri | undefined;
+        if (activeProject) {
+            valhallaFolder = projects.find(p => p.uri.toString() === activeProject)?.uri;
+        }
+
+        valhallaFolder ??= projects[0]?.uri;
+        valhallaFolder ??= workspaceFolder;
+
+        const valhallaDirUri = valhallaFolder ? await findProjectRootUri(valhallaFolder) : undefined;
+        if (valhallaDirUri) {
+            const dotEnvPath = path.join(valhallaDirUri.fsPath, '.env');
+            const extra = await this.readDotEnv(dotEnvPath);
+            for (const [key, value] of extra) {
+                envMap.set(key, value);
+            }
+        }
+
+        this._environment = envMap;
+    }
+
+    private async readDotEnv(fileName: string): Promise<Map<string, string>> {
+        const result = new Map<string, string>();
+
         try {
-            const value = this.get(setting);
-            return value !== undefined ? value : (defaultValue !== undefined ? defaultValue : setting.defaultValue);
+            const text = await fs.promises.readFile(fileName, 'utf8');
+
+            for (const rawLine of text.split(/\r?\n/)) {
+                const line = rawLine.trim();
+                if (!line || line.startsWith('#')) {
+                    continue;
+                }
+
+                const eq = line.indexOf('=');
+                if (eq < 0) {
+                    continue;
+                }
+
+                const key = line.slice(0, eq).trim();
+                let value = line.slice(eq + 1).trim();
+
+                if (
+                    (value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith('\'') && value.endsWith('\''))
+                ) {
+                    value = value.slice(1, -1);
+                }
+
+                result.set(key, value);
+            }
+        } catch {
+            // ignore missing .env
         }
-        catch {
-            return defaultValue !== undefined ? defaultValue : setting.defaultValue;
+
+        return result;
+    }
+
+    private static compareSnapshots(a: SettingsSnapshot, b: SettingsSnapshot): ReadonlySet<keyof SettingMap> {
+        const changed = new Set<keyof SettingMap>();
+
+        for (const key of Object.keys(a) as Array<keyof SettingMap>) {
+            if (!deepEqual(a[key], b[key])) {
+                changed.add(key);
+            }
+        }
+
+        return changed;
+    }
+
+    private async recomputeAndEmit(): Promise<void> {
+        const next = await this.computeSnapshot();
+
+        const changedSettings = SettingsService.compareSnapshots(this._snapshot, next);
+        if (changedSettings.size > 0) {
+            const event: SettingChangeEvent = {
+                changed: changedSettings,
+                affects: <S extends AnySettingDecl>(setting: S) => changedSettings.has(this.toName(setting)),
+            };
+            this._snapshot = next;
+            // delay event emission to ensure that all changes are applied before listeners react
+            Promise.resolve().then(() => this._onChangeEmitter.fire(event));
         }
     }
 
-    update<K extends SettingName>(setting: SettingDecl<K>, value: SettingType<K>, isGlobal: boolean = false): Thenable<void>
-    {
-        if (setting.source != SettingSource.configuration) {
-            return Promise.reject(new Error(`Setting "${setting.key}" is read-only.`));
+    private toName<S extends AnySettingDecl>(setting: S): keyof SettingMap {
+        for (const key of Object.keys(Setting) as Array<keyof SettingMap>) {
+            if (Setting[key] === setting) {
+                return key;
+            }
         }
-        const config = vscode.workspace.getConfiguration(SettingSection);
-        return config.update(setting.key, value, isGlobal);
+
+        throw new Error(`Unknown setting declaration: ${setting.key}`);
     }
 }

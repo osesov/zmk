@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { ServiceContainer } from '../services/ServiceContainer';
-import { AppServices } from '../services/AppServices';
+import { AppServiceContainer } from '../services/AppServices';
 import { Setting } from '../services/ISettingsService';
 import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
 import { BuildKind, IBuilderService } from '../services/IBuilderService';
@@ -19,7 +18,7 @@ interface ValhallaTaskDefinition extends vscode.TaskDefinition {
 
 export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskProvider
 {
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(private services: AppServiceContainer)
     {
         const context = services.get('context');
         context.subscriptions.push(vscode.tasks.registerTaskProvider(gnbTaskType, this));
@@ -44,6 +43,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
         for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
             await this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildKind.build, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Build All', builder, BuildKind.buildAll, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildKind.clean, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildKind.deepClean, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildKind.buildEmpty, taskDefinition, multipleWorkspaceFolders);
@@ -61,20 +61,16 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
                 return task;
             }
 
-            const newTask = new vscode.Task(
-                taskDefinition,
-                vscode.TaskScope.Workspace,
-                task.name,
-                gnbTaskType,
-                new vscode.ProcessExecution(
-                    buildCommand.command[0], buildCommand.command.slice(1), {
+            if (!task.execution) {
+                task.execution = new vscode.ProcessExecution(buildCommand.command[0], buildCommand.command.slice(1), {
                     cwd: buildCommand.cwd,
                     env: buildCommand.env
-                })
-            );
+                });
+            }
 
-            newTask.group = vscode.TaskGroup.Build;
-            return newTask;
+            if (!task.group) {
+                task.group = vscode.TaskGroup.Build;
+            }
         }
         return task;
     }
@@ -102,7 +98,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         const task = new vscode.Task(
             taskDefinition,
             workspaceFolder,
-            `${title} (${taskDefinition.config} | ${buildCommand.actualTarget ?? "default"})`,
+            `${title} (${taskDefinition.config} | ${buildCommand.actualTarget ?? "not set"})`,
             gnbTaskType,
             new vscode.ProcessExecution(buildCommand.command[0], buildCommand.command.slice(1), {
                 cwd: buildCommand.cwd,
@@ -113,6 +109,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         case undefined:
         case BuildKind.build:
         case BuildKind.buildEmpty:
+        case BuildKind.buildAll:
             task.group = vscode.TaskGroup.Build;
             break;
 
@@ -131,7 +128,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             clear: true
         }
         task.problemMatchers = [];
-        task.detail = `Target: ${buildCommand.actualTarget ?? "default"}`;
+        task.detail = `Target: ${buildCommand.actualTarget ?? "not set"}`;
         tasks.push(task);
     }
 }

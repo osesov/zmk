@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
-import { ServiceContainer } from "../ServiceContainer";
-import { AppServices } from "../AppServices";
+import { AppServiceContainer } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { Setting } from "../ISettingsService";
 import { IConfigTreeProvider } from "../IConfigTreeProvider";
@@ -55,7 +54,12 @@ interface ConfigNode {
     fullName: string;
 }
 
-type ModelNode = GroupNode | ConfigNode;
+interface NotValhallaProjectNode {
+    kind: "notValhalla";
+    label: string;
+}
+
+type ModelNode = GroupNode | ConfigNode | NotValhallaProjectNode;
 
 function createGroup(label: string, prefix: string | undefined): GroupNode {
     return {
@@ -107,13 +111,16 @@ class ConfigTreeItem extends vscode.TreeItem {
 
         if (node.kind === "config") {
             const isCurrent = currentConfig.selection === node.fullName;
-            this.contextValue = "config";
+            this.contextValue = isCurrent ? "defaultConfig" : "config";
             this.description = node.fullName;
             this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
-        } else {
+        } else if (node.kind === "group") {
             const isCurrent = currentConfig.selection?.startsWith(node.prefix + '-') ?? false
             this.contextValue = "group";
             this.iconPath = isCurrent ? new vscode.ThemeIcon('folder-active') : new vscode.ThemeIcon('folder')
+        } else if (node.kind === "notValhalla") {
+            this.contextValue = "notValhalla";
+            this.iconPath = new vscode.ThemeIcon('warning');
         }
     }
 }
@@ -124,12 +131,13 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     private root: GroupNode = createGroup("root", undefined);
-    private configs: string[] | null = null
+    private configs: string[] | null | undefined = undefined;
     private currentConfig: CurrentConfig = { selection: undefined }
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(private services: AppServiceContainer)
     {
         const context = services.get('context');
+        const settings = services.get('settings');
 
         context.subscriptions.push(vscode.window.registerTreeDataProvider("configTreeView", this));
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRefreshConfigTree,
@@ -148,32 +156,35 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
                     return;
                 }
 
-                await this.services.get('settings').update(Setting.config, configName);
+                await settings.update(Setting.config, configName);
             }
         ));
 
-        const settings = services.get('settings');
+        settings.onChange( e => {
+            if (e.affects(Setting.config) || e.affects(Setting.isValhallaProject)) {
+                this.setCurrentConfig(settings.get(Setting.config));
+            }
+        });
 
-        settings.onChange( e => e.affects(Setting.config) && this.setCurrentConfig(settings.get(Setting.config)))
         this.currentConfig.selection = settings.get(Setting.config);
 
         // vscode.workspace.createFileSystemWatcher('configs/*.yaml'/)
     }
 
-    setCurrentConfig(config: string | undefined)
+    private setCurrentConfig(config: string | undefined)
     {
         this.currentConfig.selection = config;
         this._onDidChangeTreeData.fire();
     }
 
-    setConfigurations(configs: string[]): void {
+    private setConfigurations(configs: string[]): void {
         this.root = buildConfigTree(configs);
         this.configs = configs;
         this._onDidChangeTreeData.fire();
     }
 
     refresh(): void {
-        this.configs = null;
+        this.configs = undefined;
         this._onDidChangeTreeData.fire();
     }
 
@@ -186,10 +197,27 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
     }
 
     async getChildren(element?: ModelNode): Promise<ModelNode[]> {
-        if (this.configs === null) {
-            const configs = await this.services.get('builder').listConfigs()
-            this.setConfigurations(configs);
+        if (this.configs === undefined) {
+            const settings = this.services.get('settings');
+            if (!settings.get(Setting.isValhallaProject)) {
+                this.configs = null;
+            }
+
+            else {
+                const configs = await this.services.get('builder').listConfigs()
+                this.setConfigurations(configs);
+            }
         }
+
+        if (this.configs === null) {
+            return [
+                {
+                    kind: "notValhalla",
+                    label: "Current workspace is not a Valhalla project",
+                }
+            ];
+        }
+
         if (!element) {
             return Promise.resolve(this.sortedChildren(this.root));
         }

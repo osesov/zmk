@@ -2,8 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { IBuildStatusService } from "../IBuildStatusService";
-import { ServiceContainer } from '../ServiceContainer';
-import { AppServices } from '../AppServices';
+import { AppServiceContainer } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
 import { Setting } from '../ISettingsService';
@@ -11,7 +10,7 @@ import { Setting } from '../ISettingsService';
 export class BuildStatusService implements IBuildStatusService
 {
     public constructor(
-        private services: ServiceContainer<AppServices>,
+        private services: AppServiceContainer,
         private _onBuildComplete: vscode.EventEmitter<boolean>,
         private _onInitialBuildComplete: Completion<boolean>
     )

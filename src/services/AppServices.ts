@@ -12,6 +12,7 @@ import { ITargetTreeProvider } from './ITargetTreeProvider';
 import { IProjectInfoService } from './IProjectInfoService';
 import { ISourceFileConfigurationItemTreeProvider } from './ISourceFileConfigurationItemTreeProvider';
 import { IArgsFileService } from './IArgsFileService';
+import { ServiceContainer } from './ServiceContainer';
 
 export type AppServices =
 {
@@ -36,3 +37,5 @@ export type AppServices =
     targetTree: ITargetTreeProvider;
     sourceFileConfigurationTree: ISourceFileConfigurationItemTreeProvider;
 }
+
+export type AppServiceContainer = ServiceContainer<AppServices>;

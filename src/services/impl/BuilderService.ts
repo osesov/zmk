@@ -294,12 +294,17 @@ export class BuilderService implements IBuilderService
             switch(buildKind) {
                 case undefined:
                 case BuildKind.build:
-                case BuildKind.clean:
-                case BuildKind.deepClean:
                     return target;
 
+                case BuildKind.clean:
+                case BuildKind.deepClean:
+                    return undefined;
+
+                case BuildKind.buildAll:
+                    return ":default";
+
                 case BuildKind.buildEmpty:
-                    return "empty";
+                    return ":empty";
 
                 default: assertNever(buildKind);
             }
@@ -308,6 +313,7 @@ export class BuilderService implements IBuilderService
         const prepareCommand = (buildKind: BuildKind | undefined, actualTarget: string[]) => {
             switch(buildKind) {
             case BuildKind.build:
+            case BuildKind.buildAll:
             case undefined:
                 return [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
 

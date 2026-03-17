@@ -269,15 +269,15 @@ export class ProjectInfo
             }
         }
 
-        const compiler = settings.getOrDefault(Setting.compiler) ?? [];
-        const cppStandard = (settings.getOrDefault(Setting.cppStandard) ?? build.defaultCppStandard) as MutableWorkspaceBrowseConfiguration['standard'];
+        const compiler = settings.get(Setting.compiler);
+        const cppStandard = (settings.get(Setting.cppStandard) ?? build.defaultCppStandard) as MutableWorkspaceBrowseConfiguration['standard'];
 
         const browseConfig: MutableWorkspaceBrowseConfiguration = {
             browsePath: Array.from(dirSet),
             standard: cppStandard,
 
-            compilerPath: compiler.length > 0 ? compiler[0] : undefined,
-            compilerArgs: compiler.length > 0 ? compiler.slice(1) : undefined,
+            compilerPath: compiler && compiler.length > 0 ? compiler[0] : undefined,
+            compilerArgs: compiler && compiler.length > 0 ? compiler.slice(1) : undefined,
         };
 
         return browseConfig;

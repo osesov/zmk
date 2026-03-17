@@ -17,7 +17,9 @@
 	"activationEvents": [
 		"*"
 	],
-	"extensionKind": ["workspace"],
+	"extensionKind": [
+		"workspace"
+	],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"commands": [
@@ -72,6 +74,16 @@
 				"command": "zmk.toggleIncludeTreeView",
 				"title": "Show Includes as tree",
 				"icon": "$(list-tree)"
+			},
+			{
+				"command": "zmk.revealIncludeInExplorer",
+				"title": "Reveal in Explorer View",
+				"icon": "$(file-directory)"
+			},
+			{
+				"command": "zmk.revealIncludeInOS",
+				"title": "Open Containing folder",
+				"icon": "$(file-directory)"
 			}
 		],
 		"configuration": {
@@ -135,7 +147,6 @@
 					"default": null,
 					"description": "Copyright comment template"
 				},
-
 				"zmk.disableCppToolsIntegration": {
 					"type": "boolean",
 					"description": "Disable C++ tools integration (include paths, defines, etc.). Use plain C++ tools configs.",
@@ -154,8 +165,12 @@
 					"description": "Extra defines for intellisense",
 					"additionalProperties": {
 						"oneOf": [
-							{ "type": "string" },
-							{ "type": "null" }
+							{
+								"type": "string"
+							},
+							{
+								"type": "null"
+							}
 						]
 					},
 					"default": {}
@@ -208,8 +223,12 @@
 								"description": "Defines for intellisense",
 								"additionalProperties": {
 									"oneOf": [
-										{ "type": "string" },
-										{ "type": "null" }
+										{
+											"type": "string"
+										},
+										{
+											"type": "null"
+										}
 									]
 								}
 							},
@@ -226,8 +245,12 @@
 								"description": "Environment variables for intellisense",
 								"additionalProperties": {
 									"oneOf": [
-										{ "type": "string" },
-										{ "type": "null" }
+										{
+											"type": "string"
+										},
+										{
+											"type": "null"
+										}
 									]
 								}
 							}
@@ -252,7 +275,6 @@
 						"type": "string",
 						"description": "ninja target to build"
 					},
-
 					"gnbFlags": {
 						"type": "array",
 						"items": {
@@ -274,8 +296,12 @@
 						"description": "Environment variables",
 						"additionalProperties": {
 							"oneOf": [
-								{ "type": "string" },
-								{ "type": "null" }
+								{
+									"type": "string"
+								},
+								{
+									"type": "null"
+								}
 							]
 						}
 					}
@@ -283,15 +309,15 @@
 			}
 		],
 		"viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "valhallaContainer",
-                    "title": "Valhalla build system",
-                    "icon": "./images/helm.svg",
-                    "dark": "./images/helm.svg"
-                }
-            ]
-        },
+			"activitybar": [
+				{
+					"id": "valhallaContainer",
+					"title": "Valhalla build system",
+					"icon": "./images/helm.svg",
+					"dark": "./images/helm.svg"
+				}
+			]
+		},
 		"views": {
 			"valhallaContainer": [
 				{
@@ -308,9 +334,9 @@
 				}
 			]
 		},
-    	"menus": {
-      		"view/title": [
-        		{
+		"menus": {
+			"view/title": [
+				{
 					"command": "zmk.refreshConfigTree",
 					"when": "view == configTreeView",
 					"group": "navigation"
@@ -335,16 +361,16 @@
 					"when": "view == cppSourceConfig && zmk.includeViewMode == 'list'",
 					"group": "navigation"
 				}
-      		],
+			],
 			"view/item/context": [
 				{
 					"command": "zmk.setDefaultConfig",
-					"when": "view == configTreeView && viewItem != zmk.defaultConfig",
+					"when": "view == configTreeView && viewItem == config",
 					"group": "inline"
 				},
 				{
 					"command": "zmk.setDefaultConfig",
-					"when": "view == configTreeView && viewItem != zmk.defaultConfig",
+					"when": "view == configTreeView && viewItem == config",
 					"group": "navigation"
 				},
 				{
@@ -376,10 +402,21 @@
 					"command": "zmk.resetTarget",
 					"when": "view == targetTreeView && viewItem == currentTarget",
 					"group": "navigation@2"
-				}
-			]
+				},
 
-    	}
+				{
+					"command": "zmk.revealIncludeInExplorer",
+					"when": "view == cppSourceConfig && viewItem == include",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.revealIncludeInOS",
+					"when": "view == cppSourceConfig && viewItem == include",
+					"group": "navigation"
+				}
+
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run bundle",
@@ -410,6 +447,7 @@
 	},
 	"license": "0BSD",
 	"dependencies": {
-		"shell-quote": "^1.8.3"
+		"shell-quote": "^1.8.3",
+		"vscode-uri": "^3.1.0"
 	}
 }

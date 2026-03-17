@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { ITargetTreeProvider } from "../ITargetTreeProvider";
 import { ParsedTarget, parseTarget } from "../../components/parseTarget";
-import { ServiceContainer } from "../ServiceContainer";
-import { AppServices } from "../AppServices";
+import { AppServiceContainer } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { Setting } from "../ISettingsService";
 import { setContext } from "../../components/utils";
@@ -27,7 +26,12 @@ interface TargetLeafNode {
     parent: TargetGroupNode | undefined;
 }
 
-type TargetNode = TargetGroupNode | TargetLeafNode;
+interface NotValhallaProjectNode {
+    kind: "notValhalla";
+    label: string;
+}
+
+type TargetNode = TargetGroupNode | TargetLeafNode | NotValhallaProjectNode;
 
 function createGroup(label: string, prefix: string[] | undefined, parent: TargetGroupNode | undefined): TargetGroupNode {
     return {
@@ -67,12 +71,15 @@ export class TargetTreeItem extends vscode.TreeItem {
             const isCurrent = isNodeAffected(node, currentTarget.selection);
             this.iconPath = isCurrent ? new vscode.ThemeIcon('folder-active') : new vscode.ThemeIcon('folder');
             this.contextValue = "targetGroup";
-        } else {
+        } else if (node.kind === "target") {
             const isCurrent = currentTarget.selection?.original === node.fullTarget;
 
             this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
             this.contextValue = isCurrent ? "currentTarget" : "target";
             this.description = node.fullTarget;
+        } else if (node.kind === "notValhalla") {
+            this.contextValue = "notValhalla";
+            this.iconPath = new vscode.ThemeIcon('warning');
         }
     }
 }
@@ -117,9 +124,10 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     private root: TargetGroupNode = createGroup("root", undefined, undefined);
     private currentTarget: CurrentTarget = { selection: undefined }
     private targetLoaded: boolean = false;
+    private isValhallaProject: boolean = false;
     private nodeMap = new Map<string, TargetLeafNode>();
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(private services: AppServiceContainer)
     {
         const context = services.get('context');
         const settings = services.get('settings');
@@ -164,13 +172,13 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         setContext(zmkCommand.zmkTargetSelected, !!target);
     }
 
-    setCurrentTarget(target: string | undefined)
+    private setCurrentTarget(target: string | undefined)
     {
         this.setCurrentTargetWithoutEvent(target);
         this._onDidChangeTreeData.fire();
     }
 
-    public setTargets(targets: readonly string[]): void {
+    private setTargets(targets: readonly string[]): void {
         this.nodeMap.clear();
         this.root = buildTargetTree(targets, this.nodeMap);
         this.refresh();
@@ -189,15 +197,27 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
     public async getChildren(element?: TargetNode): Promise<TargetNode[]> {
         if (!this.targetLoaded) {
-            const projectInfo = await this.services.get('projectInfo').getProjectDescription();
-            if (!projectInfo || !projectInfo.targets) {
-                this.targetLoaded = true;
-                return [];
+            const settings = this.services.get('settings');
+            if (!settings.get(Setting.isValhallaProject)) {
+                this.setTargets([]);
+                this.isValhallaProject = false;
             }
-
-            const targets = projectInfo.targets;
-            this.setTargets(Object.keys(targets));
+            else {
+                this.isValhallaProject = true;
+                const projectInfo = await this.services.get('projectInfo').getProjectDescription();
+                const targets = projectInfo?.targets ?? [];
+                this.setTargets(Object.keys(targets));
+            }
             this.targetLoaded = true;
+        }
+
+        if (!this.isValhallaProject) {
+            return [
+                {
+                    kind: "notValhalla",
+                    label: "Current workspace is not a Valhalla project",
+                }
+            ];
         }
 
         if (!element) {

@@ -23,6 +23,7 @@ export interface BuildCommandOptions
 export enum BuildKind
 {
     build,
+    buildAll,
     buildEmpty,
     clean,
     deepClean

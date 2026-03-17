@@ -6,7 +6,6 @@ import { ValhallaCppToolsProviderService } from './services/impl/ValhallaCppTool
 import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './components/utils';
 import { ServiceContainer } from './services/ServiceContainer';
 import { VirtualDocumentProvider } from './services/impl/VirtualDocumentProviderService';
-import { AppServices } from './services/AppServices';
 import { BuilderService } from './services/impl/BuilderService';
 import { SettingsService } from './services/impl/SettingsService';
 import { StatusService } from './services/impl/StatusService';
@@ -19,6 +18,7 @@ import { ProjectInfoService } from './services/impl/ProjectInfoService';
 import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
 import { Completion } from './components/promise';
 import { ArgsFileService } from './services/impl/ArgsFileService';
+import { AppServiceContainer } from './services/AppServices';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -401,7 +401,7 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-	const services = new ServiceContainer<AppServices>();
+	const services: AppServiceContainer = new ServiceContainer();
 	const buildOutputChannel = vscode.window.createOutputChannel('Valhalla Build');
 	const logOutputChannel = vscode.window.createOutputChannel('Valhalla', {log: true});
 

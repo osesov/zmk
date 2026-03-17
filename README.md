@@ -396,13 +396,29 @@ Each example includes:
 - **Check build output**: Ensure the build completed successfully
 - **Verify metadata files**: Check for `project.json` in the build directory
 
+### Include file not found
+
+Many components refers to the bundle's include, rather than use in-tree include.
+For example SDL2 is used like that.
+
+During minimal rebuild, bundles are not downloaded, which cause #include errors
+for such components. Use reasonably wide target to download all. Good examples
+might be:
+
+- `:default` - this is full Valhalla rebuild, including unit tests
+- `:valhalla` - build everything except unit tests
+- `:generate_symbols` - build all the components and do not package them. Use
+  with caution - might be not applicable to all targets. Although works fine for
+  the legacy.
+
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release history.
 
 ## Contributing
 
-Interested in contributing to ZMK? See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture documentation, and contribution guidelines.
+Interested in contributing to ZMK? See [CONTRIBUTING.md](CONTRIBUTING.md) for
+development setup, architecture documentation, and contribution guidelines.
 
 ## License
 

@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import type * as cpptools from "vscode-cpptools";
 import { ISourceFileConfigurationItemTreeProvider } from "../ISourceFileConfigurationItemTreeProvider";
-import { AppServices } from "../AppServices";
-import { ServiceContainer } from "../ServiceContainer";
+import { AppServiceContainer } from "../AppServices";
 import { Setting } from "../ISettingsService";
 import path from "path";
 import { Context, zmkCommand } from "../../components/constants";
@@ -75,9 +74,21 @@ export class IncludeNode extends ConfigNode
 {
     public readonly children: IncludeNode[] = [];
 
-    constructor(public readonly path: string, fullPath: string)
+    constructor(public readonly path: string, public fullPath: string, public fsPath: string)
     {
         super({ text: path, tooltip: fullPath }, vscode.TreeItemCollapsibleState.None);
+        this.contextValue = "include";
+    }
+}
+
+export class NonValhallaProjectNode extends ConfigNode
+{
+    constructor()
+    {
+        super({ text: "Current workspace is not a Valhalla project", tooltip: "Current workspace is not a Valhalla project" }, vscode.TreeItemCollapsibleState.None);
+
+        this.contextValue = "notValhalla";
+        this.iconPath = new vscode.ThemeIcon('warning');
     }
 }
 
@@ -88,6 +99,9 @@ function optimizeTree(node: IncludeNode[]): IncludeNode[]
         while (n.children.length === 1) {
             const child = n.children[0];
             n.label += path.sep + child.label;
+            n.fullPath += path.sep + child.path;
+            n.tooltip += path.sep + child.path;
+            n.fsPath = child.fsPath;
             n.children.splice(0, 1, ...child.children);
             n.collapsibleState = child.collapsibleState;
         }
@@ -99,6 +113,9 @@ function optimizeTree(node: IncludeNode[]): IncludeNode[]
         while (n.children.length === 1) {
             const child = n.children[0];
             n.label += path.sep + child.label;
+            n.fullPath += path.sep + child.path;
+            n.tooltip += path.sep + child.path;
+            n.fsPath = child.fsPath;
             n.children.splice(0, 1, ...child.children);
             n.collapsibleState = child.collapsibleState;
         }
@@ -115,10 +132,12 @@ export class SourceFileConfigurationItemTreeProvider
 
     private config?: cpptools.SourceFileConfiguration | null | undefined;
     private viewMode: "tree" | "list" = "tree";
+    private isValhallaProject = false;
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(private services: AppServiceContainer)
     {
         const context = services.get('context');
+        const settings = services.get('settings');
         const cppToolsProvider = this.services.get('cppToolsProvider');
 
         vscode.window.createTreeView("cppSourceConfig", {
@@ -137,6 +156,14 @@ export class SourceFileConfigurationItemTreeProvider
             cppToolsProvider.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
         }
 
+        this.isValhallaProject = settings.get(Setting.isValhallaProject);
+        settings.onChange(e => {
+            if (e.affects(Setting.isValhallaProject)) {
+                this.isValhallaProject = settings.get(Setting.isValhallaProject);
+                this.refresh();
+            }
+        });
+
         this.setViewMode("tree");
 
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeTreeView, () => {
@@ -146,9 +173,27 @@ export class SourceFileConfigurationItemTreeProvider
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeListView, () => {
             this.setViewMode("list");
         }));
+
+        context.subscriptions.push(
+            vscode.commands.registerCommand(zmkCommand.revealIncludeInExplorer, async (node: IncludeNode) => {
+                if (node) {
+                    const uri = vscode.Uri.file(node.fsPath);
+                    await vscode.commands.executeCommand('workbench.view.explorer');
+                    vscode.commands.executeCommand('revealInExplorer', uri);
+                }
+            })
+        );
+        context.subscriptions.push(
+            vscode.commands.registerCommand(zmkCommand.revealIncludeInOS, (node: IncludeNode) => {
+                if (node) {
+                    const uri = vscode.Uri.file(node.fsPath);
+                    vscode.commands.executeCommand('revealFileInOS', uri);
+                }
+            })
+        );
     }
 
-    setConfiguration(cfg: cpptools.SourceFileConfiguration | null | undefined) {
+    private setConfiguration(cfg: cpptools.SourceFileConfiguration | null | undefined) {
         this.config = cfg;
         this.refresh();
     }
@@ -162,6 +207,12 @@ export class SourceFileConfigurationItemTreeProvider
     }
 
     getChildren(element?: ConfigNode): Thenable<ConfigNode[]> {
+
+        if (!this.isValhallaProject) {
+            return Promise.resolve([
+                new NonValhallaProjectNode()
+            ]);
+        }
 
         if (!this.config)
             return Promise.resolve([]);
@@ -205,7 +256,7 @@ export class SourceFileConfigurationItemTreeProvider
 
                                 if (!nodes.has(subPath)) {
                                     const nodePath = parts.slice(0, i + 1).join(path.sep);
-                                    const node = new IncludeNode(parts[i], nodePath);
+                                    const node = new IncludeNode(parts[i], nodePath, valhallaDir ? path.join(valhallaDir, nodePath) : nodePath);
                                     nodes.set(subPath, node);
                                     if (i > 0) {
                                         const parentSubPath = parts.slice(0, i).join(path.sep);
@@ -223,6 +274,7 @@ export class SourceFileConfigurationItemTreeProvider
                         }
 
                         return Promise.resolve(optimizeTree(topLevelNodes));
+                        return Promise.resolve(topLevelNodes);
                     }
 
                     else {
@@ -230,7 +282,7 @@ export class SourceFileConfigurationItemTreeProvider
                         .sort((a, b) => a.localeCompare(b))
                         .map(p => {
                             const relativePath = valhallaDir ? path.relative(valhallaDir, p) : p;
-                            return new ConfigNode({text:relativePath, tooltip: p}, vscode.TreeItemCollapsibleState.None);
+                            return new IncludeNode(relativePath, p, p);
                         }));
                     }
                 }

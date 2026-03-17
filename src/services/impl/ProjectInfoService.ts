@@ -1,8 +1,7 @@
 import * as vscode from "vscode";
 import { ProjectInfo, ProjectJsonFile } from "../../components/ProjectInfo";
 import { IProjectInfoService } from "../IProjectInfoService";
-import { ServiceContainer } from "../ServiceContainer";
-import { AppServices } from "../AppServices";
+import { AppServiceContainer } from "../AppServices";
 import { Setting } from "../ISettingsService";
 
 export class ProjectInfoService implements IProjectInfoService
@@ -12,7 +11,7 @@ export class ProjectInfoService implements IProjectInfoService
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(private services: AppServiceContainer)
     {
         const settings = services.get('settings');
         const initialBuild = services.get('initialBuild');

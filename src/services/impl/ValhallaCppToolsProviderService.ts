@@ -3,8 +3,7 @@ import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
 import { ProjectInfo } from '../../components/ProjectInfo';
 import { CompileCommands } from '../../components/CompileCommands';
-import { ServiceContainer } from '../ServiceContainer';
-import { AppServices } from '../AppServices';
+import { AppServiceContainer } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
 import { IBuilderService } from '../IBuilderService';
@@ -24,7 +23,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private sourceFileConfiguration = new vscode.EventEmitter<void>();
     public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfiguration.event;
 
-    static async create(services: ServiceContainer<AppServices>): Promise<ValhallaCppToolsProviderService | null> {
+    static async create(services: AppServiceContainer): Promise<ValhallaCppToolsProviderService | null> {
         const settings = services.get('settings')
 
         if (settings.get(Setting.disableCppToolsIntegration)) {
@@ -42,7 +41,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         return provider;
     }
 
-    public constructor(private services: ServiceContainer<AppServices>, cppToolsApi: cpptools.CppToolsApi) {
+    public constructor(private services: AppServiceContainer, cppToolsApi: cpptools.CppToolsApi) {
         const settings: ISettingsService = services.get('settings');
         const context: vscode.ExtensionContext = services.get('context');
 
@@ -89,8 +88,17 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     public readonly name = 'Valhalla';
     public readonly extensionId: string;
 
-    async canProvideConfiguration(uri: vscode.Uri, token?: vscode.CancellationToken): Promise<boolean> {
-        // TODO: provide configuration withing valhalla only
+    private isValhallaProject(): boolean
+    {
+        const valhallaDir = this.settings.get(Setting.valhallaDir);
+        return valhallaDir !== null;
+    }
+
+    async canProvideConfiguration(uri: vscode.Uri, token?: vscode.CancellationToken): Promise<boolean>
+    {
+        if (!this.isValhallaProject()) {
+            return false;
+        }
         const hasConfig = (await this.getSourceFileConfiguration(uri)) !== null;
         if (!hasConfig) {
             this.logOutputChannel.error(`No configuration found for ${uri.fsPath}.`);
@@ -113,23 +121,29 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         return Promise.resolve(result);
     }
 
-    canProvideBrowseConfiguration(token?: vscode.CancellationToken): Thenable<boolean>
+    async canProvideBrowseConfiguration(token?: vscode.CancellationToken): Promise<boolean>
     {
+        if (!this.isValhallaProject()) {
+            return false;
+        }
         // essentially we can provide per-workspace browse configuration (provideFolderBrowseConfiguration),
         // but that requires some refactoring, since all the components currently assume a single workspace folder.
-        return Promise.resolve(true);
+        return true;
     }
 
     async provideBrowseConfiguration(token?: vscode.CancellationToken): Promise<cpptools.WorkspaceBrowseConfiguration | null> {
         return await this.getBrowseConfiguration();
     }
 
-    canProvideBrowseConfigurationsPerFolder(token?: vscode.CancellationToken): Thenable<boolean> {
-        return Promise.resolve(false);
+    async canProvideBrowseConfigurationsPerFolder(token?: vscode.CancellationToken): Promise<boolean> {
+        if (!this.isValhallaProject()) {
+            return false;
+        }
+        return false;
     }
 
     async provideFolderBrowseConfiguration(uri: vscode.Uri, token?: vscode.CancellationToken): Promise<cpptools.WorkspaceBrowseConfiguration | null> {
-        return Promise.resolve(null);
+        return null;
     }
 
     dispose() {

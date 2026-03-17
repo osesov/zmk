@@ -1,5 +1,102 @@
 import * as vscode from 'vscode';
 
+export enum SettingSource {
+    configuration = 'configuration',
+    environment = 'environment',
+    calculated = 'calculated',
+    workspaceState = 'workspaceState',
+}
+
+export interface ValhallaProject {
+    name: string;
+    uri: vscode.Uri;
+    workspaceFolders: vscode.Uri[];
+}
+
+type BaseSettingDecl<
+    K extends string,
+    S extends SettingSource,
+    T,
+> = Readonly<{
+    key: K;
+    source: S;
+    defaultValue: T;
+}>;
+
+export type ConfigurationSettingDecl<K extends string, T> =
+    BaseSettingDecl<K, SettingSource.configuration, T> & Readonly<{
+        configurationKey: string;
+    }>;
+
+export type EnvironmentSettingDecl<K extends string, T> =
+    BaseSettingDecl<K, SettingSource.environment, T> & Readonly<{
+        envKey: string;
+    }>;
+
+export type CalculatedSettingDecl<K extends string, T> =
+    BaseSettingDecl<K, SettingSource.calculated, T>;
+
+export type WorkspaceStateSettingDecl<K extends string, T> =
+    BaseSettingDecl<K, SettingSource.workspaceState, T> & Readonly<{
+        workspaceStateKey: string;
+    }>;
+
+export type AnySettingDecl =
+    | ConfigurationSettingDecl<string, any>
+    | EnvironmentSettingDecl<string, any>
+    | CalculatedSettingDecl<string, any>
+    | WorkspaceStateSettingDecl<string, any>;
+
+function configuration<K extends string, T>(
+    key: K,
+    configurationKey: string,
+    defaultValue: T,
+): ConfigurationSettingDecl<K, T> {
+    return {
+        key,
+        source: SettingSource.configuration,
+        configurationKey,
+        defaultValue,
+    };
+}
+
+function environment<K extends string, T>(
+    key: K,
+    envKey: string,
+    defaultValue: T,
+): EnvironmentSettingDecl<K, T> {
+    return {
+        key,
+        source: SettingSource.environment,
+        envKey,
+        defaultValue,
+    };
+}
+
+function calculated<K extends string, T>(
+    key: K,
+    defaultValue: T,
+): CalculatedSettingDecl<K, T> {
+    return {
+        key,
+        source: SettingSource.calculated,
+        defaultValue,
+    };
+}
+
+function workspaceState<K extends string, T>(
+    key: K,
+    workspaceStateKey: string,
+    defaultValue: T,
+): WorkspaceStateSettingDecl<K, T> {
+    return {
+        key,
+        source: SettingSource.workspaceState,
+        workspaceStateKey,
+        defaultValue,
+    };
+}
+
 export type JsonValue = null | boolean | string | number | JsonArray | JsonObject
 export type JsonObject = { [k: string]: JsonValue}
 export type JsonArray = JsonValue[]
@@ -15,83 +112,76 @@ export interface Toolchain
     env: JsonObject | undefined
 }
 
-export interface Setting
-{
-    // calculated settings
-    valhallaDir: string | undefined;
-    outputDir: string | undefined;
-    valhallaFolder: vscode.Uri | undefined;
-    workspaceFolder: vscode.Uri | undefined;
-    workspaceFolders: vscode.Uri[] | undefined;
+export type Environment = Record<string, string | undefined>;
 
-    // configuration settings
-    config: string;
-    target: string | undefined;
-    gnbFlags: string[];
-    gnFlags: string[];
+export const Setting = {
+    // workspace state
+    activeProject: workspaceState('activeProject', 'activeProject', undefined as string | undefined),
 
-    env: JsonObject | undefined;
-    includeDirs: string[] | undefined;
-    defines: JsonObject | undefined;
+    // calculated
+    isValhallaProject: calculated('isValhallaProject', false),
+    valhallaDir: calculated('valhallaDir', undefined as string | undefined),
+    valhallaFolder: calculated('valhallaFolder', undefined as vscode.Uri | undefined),
+    workspaceFolders: calculated('workspaceFolders', undefined as vscode.Uri[] | undefined),
+    outputDir: calculated('outputDir', undefined as string | undefined),
+    valhallaProjects: calculated('valhallaProjects', [] as ValhallaProject[]),
 
-    disableCppToolsIntegration: boolean;
-    cppStandard: string | undefined; // C++ standard, used for CppTools configuration
-    compiler: string[] | undefined; // intellisense compiler path, used for CppTools configuration
-    intelliSenseMode: string | undefined; // intellisense mode, used for CppTools configuration
-    toolchain: Toolchain[] | undefined; // toolchain items, used for CppTools configuration
-}
+    // configuration
+    config: configuration('config', 'zmk.config', ''),
+    target: configuration('target', 'zmk.target', undefined as string | undefined),
+    gnbFlags: configuration('gnbFlags', 'zmk.gnbFlags', [] as string[]),
+    gnFlags: configuration('gnFlags', 'zmk.gnFlags', [] as string[]),
 
-export enum SettingSource
-{
-    calculated,
-    environment,
-    configuration,
-}
+    env: configuration('env', 'zmk.env', undefined as Environment | undefined),
+    includeDirs: configuration('includeDirs', 'zmk.includeDirs', undefined as string[] | undefined),
+    defines: configuration('defines', 'zmk.defines', undefined as string[] | undefined),
 
-export type SettingName = keyof Setting;
-export type SettingType<K extends SettingName> = Setting[K];
-export type SettingDecl<K extends SettingName> = { key: string /*K*/; defaultValue: SettingType<K>, source: SettingSource };
+    disableCppToolsIntegration: configuration('disableCppToolsIntegration', 'zmk.disableCppToolsIntegration', false),
+    cppStandard: configuration('cppStandard', 'zmk.cppStandard', undefined as string | undefined),
+    compiler: configuration('compiler', 'zmk.compiler', undefined as string[] | undefined),
+    intelliSenseMode: configuration('intelliSenseMode', 'zmk.intelliSenseMode', undefined as string | undefined),
+    toolchain: configuration('toolchain', 'zmk.toolchain', undefined as Toolchain[] | undefined),
 
-export const Setting: { [K in SettingName]: SettingDecl<K> } =
-{
-    valhallaDir: { key: 'valhallaDir', defaultValue: undefined, source: SettingSource.calculated },
-    valhallaFolder: { key: 'valhallaFolder', defaultValue: undefined, source: SettingSource.calculated },
-    workspaceFolder: { key: 'workspaceFolder', defaultValue: undefined, source: SettingSource.calculated },
-    workspaceFolders: { key: 'workspaceFolders', defaultValue: undefined, source: SettingSource.calculated },
-    outputDir: { key: 'outputDir', defaultValue: undefined, source: SettingSource.calculated },
-
-    config: { key: 'config', defaultValue: '', source: SettingSource.configuration },
-    target: { key: 'target', defaultValue: undefined, source: SettingSource.configuration },
-    gnbFlags: { key: 'gnbFlags', defaultValue: [], source: SettingSource.configuration },
-    gnFlags: { key: 'gnFlags', defaultValue: [], source: SettingSource.configuration },
-
-    // extra build information
-    env: { key: 'env', defaultValue: undefined, source: SettingSource.configuration },
-    includeDirs: { key: 'includeDirs', defaultValue: undefined, source: SettingSource.configuration},
-    defines: { key: 'defines', defaultValue: undefined, source: SettingSource.configuration},
-
-    // CppTools configuration
-    disableCppToolsIntegration: { key: 'disableCppToolsIntegration', defaultValue: false, source: SettingSource.configuration },
-    cppStandard: { key: 'cppStandard', defaultValue: undefined, source: SettingSource.configuration },
-    compiler: { key: 'compiler', defaultValue: undefined, source: SettingSource.configuration },
-    intelliSenseMode: { key: 'intelliSenseMode', defaultValue: undefined, source: SettingSource.configuration },
-    toolchain: { key: 'toolchain', defaultValue: undefined, source: SettingSource.configuration }
+    // environment
+    path: environment('path', 'PATH', undefined as string | undefined),
+    pythonPath: environment('pythonPath', 'PYTHONPATH', undefined as string | undefined),
 } as const;
 
-export type SettingKey = keyof typeof Setting;
-export const SettingSection = 'zmk';
+export type SettingMap = typeof Setting;
+export type SettingName = keyof SettingMap;
 
-export interface SettingChangeEvent
-{
-    affects(setting: SettingDecl<any>): boolean;
+export type ValueOf<S extends AnySettingDecl> = S['defaultValue'];
+
+export type ConfigurationSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.configuration }>;
+export type EnvironmentSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.environment }>;
+export type CalculatedSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.calculated }>;
+export type WorkspaceStateSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.workspaceState }>;
+
+export interface SettingChangeEvent {
+    readonly changed: ReadonlySet<SettingName>;
+    affects<S extends AnySettingDecl>(setting: S): boolean;
 }
 
-export interface ISettingsService
-{
-    onChange: vscode.Event<SettingChangeEvent>;
+export interface ISettingsService extends vscode.Disposable {
+    readonly onChange: vscode.Event<SettingChangeEvent>;
 
-    get<K extends SettingName>(setting: SettingDecl<K>): SettingType<K>;
-    getOrDefault<K extends SettingName>(setting: SettingDecl<K>, defaultValue?: SettingType<K>): SettingType<K>;
-    update<K extends SettingName>(setting: SettingDecl<K>, value: SettingType<K>): Thenable<void>;
-    update<K extends SettingName>(setting: SettingDecl<K>, value: SettingType<K>, isGlobal: boolean): Thenable<void>;
+    get<S extends AnySettingDecl>(setting: S): ValueOf<S>;
+
+    getOrDefault<S extends AnySettingDecl>(
+        setting: S,
+        defaultValue: NonNullable<ValueOf<S>>,
+    ): NonNullable<ValueOf<S>>;
+
+    update<S extends ConfigurationSetting>(
+        setting: S,
+        value: ValueOf<S>,
+        target?: vscode.ConfigurationTarget | boolean | null,
+    ): Thenable<void>;
+
+    updateWorkspaceState<S extends WorkspaceStateSetting>(
+        setting: S,
+        value: ValueOf<S>,
+    ): Thenable<void>;
+
+    refresh(): Promise<void>;
 }

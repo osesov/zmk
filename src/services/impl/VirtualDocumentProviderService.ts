@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { ServiceContainer } from '../ServiceContainer';
-import { AppServices } from '../AppServices';
+import { AppServiceContainer } from '../AppServices';
 import { IVirtualDocumentProvider } from '../IVirtualDocumentProvider';
 
 const documentSchema = 'valhalla';
@@ -12,7 +11,7 @@ export class VirtualDocumentProvider implements vscode.TextDocumentContentProvid
 
     private documentContentMap = new Map<string, string>();
 
-    constructor(services: ServiceContainer<AppServices>)
+    constructor(services: AppServiceContainer)
     {
         vscode.workspace.registerTextDocumentContentProvider(documentSchema, this);
     }
