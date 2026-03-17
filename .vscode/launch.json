@@ -13,8 +13,9 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				// "/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
-				// "${workspaceFolder}/.."
-				"/home/osesov/zodiac/valhalla"
+				"${workspaceFolder}/../valhalla"
+				// "/home/osesov/zodiac/valhalla".
+				// "/home/osesov/zodiac/third-party/uriparser",
 			],
 			"outFiles": [
 				"${workspaceFolder}/dist/**/*.js"
