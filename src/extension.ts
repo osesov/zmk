@@ -19,6 +19,7 @@ import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceF
 import { Completion } from './components/promise';
 import { ArgsFileService } from './services/impl/ArgsFileService';
 import { AppServiceContainer } from './services/AppServices';
+import { ArgsTreeProvider } from './services/impl/ArgsTreeProvider';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -427,6 +428,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('configTree', new ConfigTreeProvider(services))
 		.registerInstance('targetTree', new TargetTreeProvider(services))
 		.registerInstance('sourceFileConfigurationTree', new SourceFileConfigurationItemTreeProvider(services))
+		.registerInstance('argsTree', new ArgsTreeProvider(services))
 		;
 
 	const commands = [

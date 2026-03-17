@@ -17,6 +17,9 @@ export class ArgsMap
     public get<T>(name: string): T | undefined {
         return this.values.get(name) as T | undefined;
     }
+    public getAll(): ReadonlyMap<string, ArgValue> {
+        return this.values;
+    }
 }
 
 export function parseArgs(text: string): ArgsMap

@@ -329,6 +329,10 @@
 					"name": "Targets"
 				},
 				{
+					"id": "argsView",
+					"name": "Args"
+				},
+				{
 					"id": "cppSourceConfig",
 					"name": "Source File Info"
 				}
