@@ -15,6 +15,7 @@ import { IArgsFileService } from './IArgsFileService';
 import { ServiceContainer } from './ServiceContainer';
 import { IArgsTreeProvider } from './IArgsTreeProvider';
 import { ICompileCommandsService } from './ICompileCommandsService';
+import { IReviewService } from './IReviewService';
 
 export type AppServices =
 {
@@ -41,6 +42,7 @@ export type AppServices =
     targetTree: ITargetTreeProvider;
     sourceFileConfigurationTree: ISourceFileConfigurationItemTreeProvider;
     argsTree: IArgsTreeProvider;
+    review: IReviewService;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;

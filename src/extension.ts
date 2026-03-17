@@ -21,196 +21,11 @@ import { ArgsFileService } from './services/impl/ArgsFileService';
 import { AppServiceContainer } from './services/AppServices';
 import { ArgsTreeProvider } from './services/impl/ArgsTreeProvider';
 import { CompileCommandsService } from './services/impl/CompileCommandsService';
+import { ReviewService } from './services/impl/ReviewService';
+import { getBuildDirAndCreate, getCurrentFile, getNfsDir, getNinjaTarget, getOrDefault, getRootDir, getTargetConfig, updateCurrentEnvironment } from './components/oldies';
+import { zmkUpdateBundlesInclude } from './components/CCxxPropertiesFile';
 
 const zmkDocumentScheme = 'zmkdoc';
-
-
-function getOrDefault(setting: string, defValue : ((setting ?: string) => string) | string ): string {
-	const configuration = vscode.workspace.getConfiguration();
-	const config = configuration.get(setting);
-	let value : string | undefined = undefined;
-
-	if (config !== undefined && config !== null && config !== "") {
-		value = <string>config;
-	} else if (typeof(defValue) === 'function') {
-		value = defValue(setting);
-	} else {
-		value = defValue;
-	}
-
-	console.log( `get: ${setting} -> ${value}` );
-	return value;
-}
-
-function getTargetConfig(): string {
-	return getOrDefault("zmk.config", "zodiac-pc_linux-zebra-dev");
-}
-
-function getNinjaTarget(): string {
-	return getOrDefault("zmk.target", "");
-}
-
-function getRootDir(): string {
-	return getOrDefault("zmk.rootDir", findProjectRootInWorkspace);
-}
-
-function getBuildDir(): string {
-	return getOrDefault("zmk.buildDir", () => path.resolve(getRootDir(), `out.${getTargetConfig()}`));
-}
-
-function getBuildDirAndCreate(): string {
-	const dir = getBuildDir();
-	fs.mkdirSync(dir, {recursive: true})
-	return dir
-}
-
-function getBundleDir(): string {
-	return getOrDefault("zmk.bundleDir", () => {
-		return path.resolve(getBuildDir(), "linux", "bundles");
-	});
-}
-
-function getNfsDir(): string {
-	return getOrDefault("zmk.nfsDir", () => {
-		return path.resolve(getBuildDir(), "linux/build_nfs_image/home/zodiac");
-	});
-}
-
-function getCurrentFile(): string {
-	const editor = vscode.window.activeTextEditor;
-	if (editor === undefined) {
-		return "";
-	}
-
-	const currentFile = editor.document.fileName;
-
-	const currentFileRelative = path.relative( getBuildDir(), currentFile);
-	return currentFileRelative;
-}
-
-//
-// function exports zmk settings to environment, since cpptools has no support for ${command:extension.xxx}
-// instead in c_cpp_properties use %{env:xxx}
-//
-function updateCurrentEnvironment()
-{
-	const values : { [key:string]: () => string } = {
-		'zmk.config': getTargetConfig,
-		'zmk.target': getNinjaTarget,
-		'zmk.rootDir': getRootDir,
-		'zmk.buildDir': getBuildDir,
-		'zmk.nfsDir': getNfsDir,
-		'zmk.bundleDir': getBundleDir,
-	};
-
-	let item;
-	if (!hasWorkspace()) {
-		Object.keys(values)
-		.forEach( item => delete process.env[item]);
-		return;
-	}
-
-	for (item in values) {
-		const value = values[item]();
-		if (!value) {
-			delete process.env[item];
-		}
-		else
-		{
-			process.env[item] = value;
-		}
-	}
-}
-
-// update c_cpp_properties.json file
-
-function zmkUpdateBundlesInclude() {
-	const workspaceRoot = getWorkspaceRoot();
-	if (workspaceRoot === undefined) {
-		throw Error("no workspaceRoot");
-	}
-
-	const configuration = vscode.workspace.getConfiguration();
-	const skipBundles : Array<string> = configuration.get("zmk.excludeBundles") || [];
-	const configFileName  = path.resolve(workspaceRoot, ".vscode", "c_cpp_properties.json");
-
-	if (!fs.existsSync(configFileName)) {
-		return;
-	}
-
-	const fileData = fs.readFileSync(configFileName, 'utf8');
-	const configData = JSON.parse(fileData);
-
-	const bundleDir = getBundleDir();
-
-	if (!fs.existsSync(bundleDir)) {
-		throw new Error(`Bundle path not found: ${bundleDir}`);
-	}
-
-	const includes = fs.readdirSync(bundleDir, { withFileTypes: true })
-		.filter(item => item.isDirectory())
-		.filter(item => !!skipBundles.indexOf(item.name))
-		.filter(item => {
-			const includeDir = path.resolve(bundleDir, item.name, "include");
-			return fs.existsSync(includeDir) && fs.statSync(includeDir).isDirectory();
-		})
-		.map( item =>
-			path.join("${env:zmk.bundleDir}", item.name, "include" ))
-		;
-
-	if (configData && Array.isArray(configData.configurations)) {
-
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		configData.configurations.forEach((config : any, index : number) => {
-			const includePath : Array<string> = config["includePath"];
-			if (!includePath) {
-				return;
-			}
-
-			const otherIncludes = includePath.filter((item) =>
-				!item.startsWith("${env:zmk.bundleDir}")
-			);
-
-			const newIncludePath = otherIncludes.concat(includes);
-			console.log(newIncludePath);
-
-			configData.configurations[index]["includePath"] = newIncludePath;
-		});
-
-		const newConfigData = JSON.stringify(configData, null, 4);
-
-		const okButton = "Ok";
-		const showConfigButton = "Show new config";
-		const cancelButton = "Cancel";
-
-		vscode.window
-		.showWarningMessage("Override 'c_cpp_properties.json' file? This would lose comments if any.", okButton, showConfigButton, cancelButton)
-		.then( (outcome) => {
-			console.log(outcome);
-
-			switch(outcome) {
-				case okButton:
-					const oldFileName = configFileName + ".old";
-					if (!fs.existsSync(oldFileName)) {
-						fs.renameSync(configFileName, oldFileName);
-					}
-					fs.writeFileSync(configFileName, newConfigData, 'utf8');
-					break;
-				case showConfigButton:
-					const uri = vscode.Uri.parse(zmkDocumentScheme + ":Virtual document: c_cpp_properties.json?" + newConfigData);
-					vscode.workspace.openTextDocument(uri)
-					.then( (doc) =>
-						vscode.window.showTextDocument(doc),
-					(error) =>
-						console.log(error)
-					);
-					break;
-
-			}
-		});
-	}
-
-}
 
 type Comment = { begin:string, end:string, prefix: string };
 
@@ -431,6 +246,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('targetTree', new TargetTreeProvider(services))
 		.registerInstance('sourceFileConfigurationTree', new SourceFileConfigurationItemTreeProvider(services))
 		.registerInstance('argsTree', new ArgsTreeProvider(services))
+		.registerInstance('review', new ReviewService(services))
 		;
 
 	const commands = [
@@ -440,7 +256,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmk.getBuildDir', command: getBuildDirAndCreate },
 		{ label: 'zmk.getNfsDir', command: getNfsDir },
 		{ label: 'zmk.getCurrentFile', command: getCurrentFile },
-		{ label: 'zmk.updateBundlesInclude', command: zmkUpdateBundlesInclude }
+		{ label: 'zmk.updateBundlesInclude', command: () => zmkUpdateBundlesInclude(services) }
 	];
 
 	const textCommands = [
@@ -491,7 +307,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	updateCurrentEnvironment();
 
 	// vscode.workspace.onDidOpenTextDocument( (e) => checkCopyrightHeader(e) );
-
 }
 
 // this method is called when your extension is deactivated

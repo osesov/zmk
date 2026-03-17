@@ -19,6 +19,9 @@ export namespace zmkCommand
     export const selectValhallaProject = "zmk.selectValhallaProject";
     export const revealIncludeInExplorer = "zmk.revealIncludeInExplorer";
     export const revealIncludeInOS = "zmk.revealIncludeInOS";
+
+    export const reviewApply = "zmk.review.apply";
+    export const reviewKeepOriginal = "zmk.review.keepOriginal";
 }
 
 export namespace Context

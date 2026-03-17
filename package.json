@@ -89,6 +89,16 @@
 				"command": "zmk.revealIncludeInOS",
 				"title": "Open Containing folder",
 				"icon": "$(file-directory)"
+			},
+			{
+				"command": "zmk.review.apply",
+				"title": "Apply Reviewed Changes",
+				"icon": "$(check)"
+			},
+			{
+				"command": "zmk.review.keepOriginal",
+				"title": "Keep Original",
+				"icon": "$(close)"
 			}
 		],
 		"configuration": {
@@ -344,6 +354,18 @@
 			]
 		},
 		"menus": {
+			"editor/title": [
+				{
+					"command": "zmk.review.apply",
+					"when": "resourceScheme == zmk-review",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.review.keepOriginal",
+					"when": "resourceScheme == zmk-review",
+					"group": "navigation"
+				}
+			],
 			"view/title": [
 				{
 					"command": "zmk.refreshConfigTree",

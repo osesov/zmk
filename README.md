@@ -23,10 +23,12 @@ ZMK (Zodiac Make) streamlines Valhalla development workflows in VS Code with:
 ## Getting Started
 
 1. **Open your Valhalla workspace** in VS Code
-2. **Select a build configuration** from the "Configurations" view in the sidebar
-3. **Wait for initial build** - The extension automatically runs a minimal build to set up IntelliSense
-4. **Select a build target** (optional) from the "Targets" view
-5. **Start coding** with full IntelliSense support!
+2. **Select C++ Tools Configuration provider** from the command pallette.
+   `Ctrl+Shift+P`/`C/C++: Change Configuration Provider...` and select `Valhalla` provider.
+3. **Select a build configuration** from the "Configurations" view in the sidebar
+4. **Wait for initial build** - The extension automatically runs a minimal build to set up IntelliSense
+5. **Select a build target** (optional) from the "Targets" view
+6. **Start coding** with full IntelliSense support!
 
 ## Features
 
@@ -372,17 +374,28 @@ Each example includes:
 
 ### Build Fails to Start
 
-- **Check root directory**: Ensure `zmk.rootDir` points to a valid Valhalla source tree
-- **Verify configuration**: Ensure `zmk.config` matches a configuration in the `configs/` directory
-- **Check build script**: Verify that the `gnb` or `gnbc` script exists and is executable
+- **Check root directory**: Ensure `zmk.rootDir` points to a valid Valhalla
+  source tree
+- **Verify configuration**: Ensure `zmk.config` matches a configuration in the
+  `configs/` directory
+- **Check build script**: Verify that the `gnb` or `gnbc` script exists and is
+  executable
 
 ### IntelliSense Not Working
 
 - **Install C++ extension**: Ensure the VS Code C/C++ extension is installed
 - **Check integration**: Verify `zmk.disableCppToolsIntegration` is `false`
-- **Wait for build**: Ensure the initial build has completed successfully
-- **Verify compile commands**: Check that `compile_commands.json` exists in the build directory
-- **Reset database**: Try "C/C++: Reset IntelliSense Database" command from the Command Palette
+- **Wait for build**: Ensure at lease the initial build has completed
+  successfully, or better yet perform full build.
+- **Verify compile commands**: Check that `compile_commands.json` exists in the
+  build directory
+- **Reset database**: Try "C/C++: Reset IntelliSense Database" command from the
+  Command Palette
+- **Select Valhalla Configuration Provider**: "C/C++: Change Configuration
+  Provider..." and select "Valhalla".
+- **Fix conflicting files**: `.vscode/c_cpp_properties.json` settings might
+  conflict with automatic configuration provider and cause missing includes as
+  well as other intellisense issues. Try to remove it.
 
 ### Dynamic Commands Return Empty Values
 
@@ -410,6 +423,21 @@ might be:
 - `:generate_symbols` - build all the components and do not package them. Use
   with caution - might be not applicable to all targets. Although works fine for
   the legacy.
+
+### Nothing works!
+
+There are few ways of disabling the C++ Tools integration, keeping other parts alive
+
+- In Settings: set `zmk.disableCppToolsIntegration: true`
+- In C/C++ tool provider: `C/C++: Change Configuration Provider...` and select some other provider except "Valhalla"
+
+## Report issues
+
+Collect an output of
+
+- "C/C++: Log Diagnostics"
+- "OUTPUT" / "Valhalla"
+- "OUTPUT" / "Valhalla Build"
 
 ## Release Notes
 
