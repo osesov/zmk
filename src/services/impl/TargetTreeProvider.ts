@@ -3,8 +3,9 @@ import { ITargetTreeProvider } from "../ITargetTreeProvider";
 import { ParsedTarget, parseTarget } from "../../components/parseTarget";
 import { AppServiceContainer } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
-import { Setting } from "../ISettingsService";
+import { ISettingsService, Setting } from "../ISettingsService";
 import { setContext } from "../../components/utils";
+import { IProjectInfoService } from "../IProjectInfoService";
 
 interface CurrentTarget {
     selection: ParsedTarget | undefined | null
@@ -121,16 +122,18 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 {
     private readonly _onDidChangeTreeData = new vscode.EventEmitter<TargetNode | undefined | void>();
     public readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    private readonly projectInfo: IProjectInfoService;
+    private settings: ISettingsService;
     private root: TargetGroupNode = createGroup("root", undefined, undefined);
     private currentTarget: CurrentTarget = { selection: undefined }
-    private targetLoaded: boolean = false;
     private isValhallaProject: boolean = false;
     private nodeMap = new Map<string, TargetLeafNode>();
 
     constructor(private services: AppServiceContainer)
     {
         const context = services.get('context');
-        const settings = services.get('settings');
+        this.settings = services.get('settings');
+        this.projectInfo = services.get('projectInfo');
 
         context.subscriptions.push(vscode.window.registerTreeDataProvider("targetTreeView", this));
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRefreshTargetTree,
@@ -141,13 +144,13 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkSetDefaultTarget,
             async (node: TargetLeafNode) => {
-                await settings.update(Setting.target, node.fullTarget);
+                await this.settings.update(Setting.target, node.fullTarget);
             }
         ));
 
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkResetTarget,
             async () => {
-                await settings.update(Setting.target, undefined);
+                await this.settings.update(Setting.target, undefined);
             }
         ));
 
@@ -157,31 +160,53 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             },
         ));
 
-        settings.onChange( e => e.affects(Setting.target) && this.setCurrentTarget(settings.get(Setting.target)))
-        this.setCurrentTargetWithoutEvent(settings.get(Setting.target));
+        context.subscriptions.push(this.projectInfo.onChange(() => this.updateTargets(true)));
+        this.settings.onChange( e => {
+            if (e.affects(Setting.target))
+                this.updateCurrentTarget(true);
+            if (e.affects(Setting.isValhallaProject))
+                this.updateIsValhallaProject(true);
+        });
+
+        this.updateCurrentTarget(false);
+        this.updateTargets(false);
+        this.updateIsValhallaProject(false);
     }
 
-    private setCurrentTargetWithoutEvent(target: string | undefined)
+    private updateIsValhallaProject(refreshTree: boolean)
     {
-        if (this.currentTarget.selection) {
+        this.isValhallaProject = this.settings.get(Setting.isValhallaProject);
+        if (refreshTree) {
+            this.refresh();
+        }
+    }
+
+    private updateTargets(refreshTree: boolean)
+    {
+        const projectDescription = this.projectInfo.getProjectDescription();
+        const targets = projectDescription?.targets ? Object.keys(projectDescription.targets) : [];
+
+        this.nodeMap.clear();
+        this.root = buildTargetTree(targets, this.nodeMap);
+
+        if (refreshTree) {
+            this.refresh();
+        }
+    }
+
+    private updateCurrentTarget(refreshTree: boolean)
+    {
+        const target = this.settings.get(Setting.target);
+
+        if (this.currentTarget.selection && refreshTree) {
             this.refresh(this.currentTarget.selection.original);
         }
         this.currentTarget.selection = target ? parseTarget(target, true) : undefined;
-        this.refresh(this.currentTarget.selection?.original);
 
         setContext(zmkCommand.zmkTargetSelected, !!target);
-    }
-
-    private setCurrentTarget(target: string | undefined)
-    {
-        this.setCurrentTargetWithoutEvent(target);
-        this._onDidChangeTreeData.fire();
-    }
-
-    private setTargets(targets: readonly string[]): void {
-        this.nodeMap.clear();
-        this.root = buildTargetTree(targets, this.nodeMap);
-        this.refresh();
+        if (refreshTree) {
+            this.refresh(this.currentTarget.selection?.original);
+        }
     }
 
     public refresh(node?: TargetNode | string): void {
@@ -196,21 +221,6 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     }
 
     public async getChildren(element?: TargetNode): Promise<TargetNode[]> {
-        if (!this.targetLoaded) {
-            const settings = this.services.get('settings');
-            if (!settings.get(Setting.isValhallaProject)) {
-                this.setTargets([]);
-                this.isValhallaProject = false;
-            }
-            else {
-                this.isValhallaProject = true;
-                const projectInfo = await this.services.get('projectInfo').getProjectDescription();
-                const targets = projectInfo?.targets ?? [];
-                this.setTargets(Object.keys(targets));
-            }
-            this.targetLoaded = true;
-        }
-
         if (!this.isValhallaProject) {
             return [
                 {

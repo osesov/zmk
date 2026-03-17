@@ -1,7 +1,6 @@
 // Integrate with CppTools to provide IntelliSense for Valhalla
 import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
-import { ProjectInfo } from '../../components/ProjectInfo';
 import { CompileCommands } from '../../components/CompileCommands';
 import { AppServiceContainer } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
@@ -12,7 +11,6 @@ import { IProjectInfoService } from '../IProjectInfoService';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
-    private cppToolsApi: cpptools.CppToolsApi | undefined;
     private settings: ISettingsService;
     private logOutputChannel: vscode.LogOutputChannel;
     private builder: IBuilderService;
@@ -41,11 +39,10 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         return provider;
     }
 
-    public constructor(private services: AppServiceContainer, cppToolsApi: cpptools.CppToolsApi) {
+    public constructor(private services: AppServiceContainer, private cppToolsApi: cpptools.CppToolsApi) {
         const settings: ISettingsService = services.get('settings');
         const context: vscode.ExtensionContext = services.get('context');
 
-        this.cppToolsApi = cppToolsApi;
         this.extensionId = context.extension.id;
         this.settings = settings;
         this.builder = services.get('builder');
@@ -82,7 +79,12 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         context.subscriptions.push(this);
 
         cppToolsApi.registerCustomConfigurationProvider(this);
-        initialBuild.then(() => { cppToolsApi.notifyReady(this); });
+        initialBuild.then(() => {
+            cppToolsApi.notifyReady(this);
+            this.projectInfo.onChange(() => {
+                this.cppToolsApi?.didChangeCustomConfiguration(this);
+            });
+        });
     }
 
     public readonly name = 'Valhalla';
@@ -167,7 +169,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     ///////////////////////////////////////////////////////////////////
 
     private resetState() {
-        this.projectInfo.getProjectInfo().reset();
         this.compileCommands.reset();
     }
 
@@ -226,10 +227,9 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         };
     }
 
-    private async getLoadedProjectInfo(): Promise<ProjectInfo | null>
+    private getLoadedProjectInfo(): IProjectInfoService
     {
-        await this.projectInfo.getProjectDescription(); // trigger loading if not loaded yet
-        return this.projectInfo.getProjectInfo();
+        return this.projectInfo;
     }
 
     private async getFromCompileCommands(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
@@ -250,11 +250,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
         }
 
-        const valhallaFolder = this.settings.get(Setting.valhallaFolder);
-        if (!valhallaFolder) {
-            return null;
-        }
-        const target = projectJson.getSourceFileConfiguration(valhallaFolder.fsPath, uri, this.compileCommands.cpp);
+        const target = projectJson.getSourceFileConfiguration(uri, this.compileCommands.cpp);
         return target ?? null;
     }
 
@@ -314,12 +310,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
         }
 
-        const valhallaFolder = this.settings.get(Setting.valhallaFolder);
-        if (!valhallaFolder) {
-            return null;
-        }
-
-        const browseConfig = projectInfo.getBrowseConfiguration(this.settings);
+        const browseConfig = projectInfo.getBrowseConfiguration();
         if (!browseConfig) {
             return null;
         }
