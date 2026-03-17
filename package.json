@@ -41,6 +41,11 @@
 				"icon": "$(star-empty)"
 			},
 			{
+				"command": "zmk.openConfig",
+				"title": "Open Configuration File",
+				"icon": "$(file-code)"
+			},
+			{
 				"command": "zmk.refreshConfigTree",
 				"title": "ZMK: Refresh Configurations",
 				"icon": "$(refresh)"
@@ -377,6 +382,12 @@
 					"when": "view == configTreeView && viewItem == config",
 					"group": "navigation"
 				},
+				{
+					"command": "zmk.openConfig",
+					"when": "view == configTreeView && (viewItem == config || viewItem == defaultConfig)",
+					"group": "navigation"
+				},
+
 				{
 					"command": "zmk.buildTarget",
 					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",

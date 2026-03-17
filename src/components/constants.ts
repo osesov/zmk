@@ -5,6 +5,7 @@ export namespace zmkCommand
     export const setTarget = 'zmk.setTarget';
     export const zmkRefreshConfigTree = "zmk.refreshConfigTree";
     export const zmkSetDefaultConfig = "zmk.setDefaultConfig";
+    export const zmkOpenConfig = "zmk.openConfig";
 
     export const zmkRefreshTargetTree = "zmk.refreshTargetTree";
     export const zmkBuildTarget = "zmk.buildTarget";

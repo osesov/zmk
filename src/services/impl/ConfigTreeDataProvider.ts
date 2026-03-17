@@ -160,6 +160,22 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
             }
         ));
 
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkOpenConfig,
+            async (configNode: ModelNode) => {
+                if (configNode.kind === "config") {
+                    const configName = configNode.fullName;
+
+                    const configPath = await this.services.get('builder').getConfigPath(configName);
+                    if (configPath) {
+                        const doc = await vscode.workspace.openTextDocument(configPath);
+                        await vscode.window.showTextDocument(doc);
+                    } else {
+                        vscode.window.showErrorMessage(`Could not find path for config ${configName}`);
+                    }
+                }
+            }
+        ));
+
         settings.onChange( e => {
             if (e.affects(Setting.config) || e.affects(Setting.isValhallaProject)) {
                 this.setCurrentConfig(settings.get(Setting.config));

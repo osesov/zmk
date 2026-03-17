@@ -360,4 +360,16 @@ export class BuilderService implements IBuilderService
             return [];
         }
     }
+
+    getConfigPath(configName: string): Promise<string | null> {
+        const configsDir = this.getConfigsDir();
+        if (!configsDir) {
+            return Promise.resolve(null);
+        }
+
+        const configPath = path.join(configsDir, `${configName}.yaml`);
+        return fs.promises.access(configPath, fs.constants.R_OK)
+            .then(() => configPath)
+            .catch(() => null);
+    }
 }

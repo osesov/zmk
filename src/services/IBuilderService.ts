@@ -40,6 +40,7 @@ export interface IBuilderService
     buildDefaultTarget(): Promise<void>;
     buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
 
+    getConfigPath(configName: string): Promise<string | null>;
     listConfigs(): Promise<string[]>;
     toolchainSelector(): Promise<string | null>;
     toolchain(): Promise<Toolchain | null>;
