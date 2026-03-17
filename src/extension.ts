@@ -20,6 +20,7 @@ import { Completion } from './components/promise';
 import { ArgsFileService } from './services/impl/ArgsFileService';
 import { AppServiceContainer } from './services/AppServices';
 import { ArgsTreeProvider } from './services/impl/ArgsTreeProvider';
+import { CompileCommandsService } from './services/impl/CompileCommandsService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -417,10 +418,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('initialBuild', initialBuild.promise)
 		.registerInstance('settings', new SettingsService(services))
 		.registerInstance('argsFile', new ArgsFileService(services))
+		.registerInstance('projectInfo', new ProjectInfoService(services))
+		.registerInstance('compileCommands', new CompileCommandsService(services))
 		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
 		.registerInstance('builder', new BuilderService(services))
 		.registerInstance('buildStatus', new BuildStatusService(services, buildComplete, initialBuild))
-		.registerInstance('projectInfo', new ProjectInfoService(services))
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
 		.registerInstance('tasks', new ValhallaTaskProvider(services))
 		.registerInstance('status', new StatusService(services))

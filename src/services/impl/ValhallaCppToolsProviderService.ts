@@ -1,13 +1,13 @@
 // Integrate with CppTools to provide IntelliSense for Valhalla
 import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
-import { CompileCommands } from '../../components/CompileCommands';
 import { AppServiceContainer } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
 import { IBuilderService } from '../IBuilderService';
 import { CompilerStandard, IntelliSenseMode, MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
 import { IProjectInfoService } from '../IProjectInfoService';
+import { ICompileCommandsService } from '../ICompileCommandsService';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
@@ -15,7 +15,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private logOutputChannel: vscode.LogOutputChannel;
     private builder: IBuilderService;
     private projectInfo: IProjectInfoService;
-    private compileCommands = new CompileCommands();
+    private compileCommands: ICompileCommandsService;
 
     private readonly providedConfigurations = new Map<string, MutableSourceFileConfiguration>();
     private sourceFileConfiguration = new vscode.EventEmitter<void>();
@@ -47,22 +47,8 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         this.settings = settings;
         this.builder = services.get('builder');
         this.projectInfo = services.get('projectInfo');
+        this.compileCommands = services.get('compileCommands');
         this.logOutputChannel = services.get('logOutputChannel');
-
-        this.resetState();
-
-        settings.onChange(event => {
-            if (event.affects(Setting.config)
-                || event.affects(Setting.target)
-                || event.affects(Setting.gnbFlags)
-                || event.affects(Setting.gnFlags)
-                || event.affects(Setting.workspaceFolders)
-            ) {
-                this.logOutputChannel.info('Configuration changed. Invalidating caches...');
-                this.resetState();
-                // cppToolsApi.didChangeCustomConfiguration(this);
-            }
-        });
 
         const buildCompleteEvent = services.get('buildComplete');
         const initialBuild = services.get('initialBuild');
@@ -82,6 +68,9 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         initialBuild.then(() => {
             cppToolsApi.notifyReady(this);
             this.projectInfo.onChange(() => {
+                this.cppToolsApi?.didChangeCustomConfiguration(this);
+            });
+            this.compileCommands.onChange(() => {
                 this.cppToolsApi?.didChangeCustomConfiguration(this);
             });
         });
@@ -167,54 +156,11 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     }
 
     ///////////////////////////////////////////////////////////////////
-
-    private resetState() {
-        this.compileCommands.reset();
-    }
-
-    private getOutputDir(): string | null
-    {
-        const settings = this.services.get('settings');
-        return settings.get(Setting.outputDir) ?? null;
-    }
-
-    private async getCompileCommands(): Promise<CompileCommands | null> {
-        const outputDir = this.getOutputDir();
-        if (!outputDir)
-            return null;
-
-        await this.builder.buildDefaultTargetIfNeeded(
-            () => this.resetState()
-        );
-
-        if (!await this.compileCommands.load(outputDir))
-            return null;
-
-        return this.compileCommands;
-    }
-
-    // private getSystemIncludes()
-    // {
-    //     // const valhallaDir = findProjectRootInWorkspace();
-    //     const outputDir = this.getOutputDir();
-    //     const includeDir = path.join(outputDir, 'system_includes', 'include');
-    //     const dirs: string[] = [];
-
-    //     for (const entry of fs.readdirSync(includeDir, { withFileTypes: true })) {
-    //         if (entry.isDirectory()) {
-    //             console.log(`Found system include directory: ${entry.name}`);
-    //             dirs.push(path.join(includeDir, entry.name));
-    //         }
-    //     }
-
-    //     return dirs;
-    // }
-
     private async getSourceFileConfiguration(uri: vscode.Uri): Promise<cpptools.SourceFileConfigurationItem | null> {
 
-        let entry = await this.getFromCompileCommands(uri);
+        let entry = this.getFromCompileCommands(uri);
         if (!entry)
-            entry = await this.getFromProjectInfo(uri);
+            entry = this.getFromProjectInfo(uri);
 
         if (!entry)
             return null;
@@ -227,30 +173,14 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         };
     }
 
-    private getLoadedProjectInfo(): IProjectInfoService
+    private getFromCompileCommands(uri: vscode.Uri): MutableSourceFileConfiguration | null
     {
-        return this.projectInfo;
+        return this.compileCommands.getSourceFileConfiguration(uri);
     }
 
-    private async getFromCompileCommands(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
+    private getFromProjectInfo(uri: vscode.Uri): MutableSourceFileConfiguration | null
     {
-        const compileCommands = await this.getCompileCommands();
-        if (!compileCommands) {
-            return null;
-        }
-
-        const entry = compileCommands.getSourceFileConfiguration(uri);
-        return entry ?? null;
-    }
-
-    private async getFromProjectInfo(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | null>
-    {
-        const projectJson = await this.getLoadedProjectInfo();
-        if (!projectJson) {
-            return null;
-        }
-
-        const target = projectJson.getSourceFileConfiguration(uri, this.compileCommands.cpp);
+        const target = this.projectInfo.getSourceFileConfiguration(uri, this.compileCommands.cxxCompiler);
         return target ?? null;
     }
 
@@ -305,12 +235,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     private async getBrowseConfiguration(): Promise<cpptools.WorkspaceBrowseConfiguration | null>
     {
-        const projectInfo = await this.getLoadedProjectInfo();
-        if (!projectInfo) {
-            return null;
-        }
-
-        const browseConfig = projectInfo.getBrowseConfiguration();
+        const browseConfig = this.projectInfo.getBrowseConfiguration();
         if (!browseConfig) {
             return null;
         }
@@ -322,42 +247,4 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             compilerArgs: browseConfig.compilerArgs
         };
     }
-
-    // private async extractSystemIncludes(uri: vscode.Uri)
-    // {
-    //     const valhallaDir = findProjectRootInWorkspace();
-    //     const outputDir = this.getOutputDir();
-    //     const interact = new Interactions([...this.gnbCommand, '--shell'], { cwd: valhallaDir, shell: false }, this.buildOutputChannel);
-    //     const ee = await this.getCompileCommandForFile(uri);
-
-    //     if (!ee) {
-    //         vscode.window.showErrorMessage(`Failed to get compile command for ${uri.fsPath}. Cannot extract system includes.`);
-    //         return;
-    //     }
-
-    //     const compilerPath = ee._compilerPath;
-
-    //     await interact.start();
-
-    //     interact.sendInput(`${compilerPath} -E -x c++ - -v /dev/null\n`);
-    //     await interact.waitLine(line => line.includes('#include <...> search starts here:'), 5000)
-
-    //     const paths: string[] = [];
-
-    //     await interact.waitLine(line => {
-    //         if (line.includes('End of search list.')) {
-    //             return true;
-    //         }
-
-    //         const match = line.match(/^\s+(\/.*)$/);
-    //         if (match) {
-    //             paths.push(match[1]);
-    //         }
-
-    //         return false;
-    //     }, 5000);
-
-    //     interact.stop();
-    // }
-
 }

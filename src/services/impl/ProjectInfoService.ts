@@ -10,6 +10,7 @@ import { SourceFileConfiguration } from "vscode-cpptools";
 import { getGNPath, parseTarget } from "../../components/parseTarget";
 import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../../components/SourceFileConfiguration";
 import { build } from "../../components/constants";
+import { findProjectRoot, findProjectRootUri } from "../../components/utils";
 
 interface CacheEntry
 {
@@ -25,7 +26,7 @@ function buildLinks(projectJson: ProjectJsonFile | null, links: Map<string, Cach
         return;
     }
 
-    for (const [key, target] of Object.entries(projectJson.targets)) {
+    for (const [key, target] of Object.entries(projectJson.targets ?? {})) {
 
         const parsed = parseTarget(key, false);
         if (!parsed)
@@ -79,15 +80,15 @@ export class ProjectInfoService implements IProjectInfoService
         return this.projectJson;
     }
 
-    public getContainingFolder(uri: vscode.Uri): CacheEntry | null
+    private getContainingFolder(uri: vscode.Uri): { valhallaDir: string, target: CacheEntry } | null
     {
         // extract relative path from uri
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-        if (!workspaceFolder) {
+        const valhallaDir = findProjectRoot(uri.fsPath);
+        if (!valhallaDir) {
             return null;
         }
 
-        const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
+        const relativePath = path.relative(valhallaDir, uri.fsPath);
         const parts = relativePath.split(path.sep);
         const postUpdate: string[] = [];
 
@@ -101,7 +102,10 @@ export class ProjectInfoService implements IProjectInfoService
                     this.links.set(up, candidateTarget);
                 }
 
-                return candidateTarget;
+                return {
+                    target: candidateTarget,
+                    valhallaDir,
+                };
             }
             postUpdate.push(candidatePath);
             parts.pop();
@@ -112,18 +116,15 @@ export class ProjectInfoService implements IProjectInfoService
 
     public getSourceFileConfiguration(uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null
     {
-        const entry = this.getContainingFolder(uri);
-        const valhallaDir = this.settings.get(Setting.valhallaDir);
-        if (!entry) {
+        const candidate = this.getContainingFolder(uri);
+        if (!candidate) {
             return null;
         }
 
+        const entry = candidate.target;
+        const valhallaDir = candidate.valhallaDir;
         if (entry.cache) {
             return entry.cache;
-        }
-
-        if (!valhallaDir) {
-            return null;
         }
 
         const config: MutableSourceFileConfiguration = {

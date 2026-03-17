@@ -14,6 +14,7 @@ import { ISourceFileConfigurationItemTreeProvider } from './ISourceFileConfigura
 import { IArgsFileService } from './IArgsFileService';
 import { ServiceContainer } from './ServiceContainer';
 import { IArgsTreeProvider } from './IArgsTreeProvider';
+import { ICompileCommandsService } from './ICompileCommandsService';
 
 export type AppServices =
 {
@@ -23,13 +24,15 @@ export type AppServices =
     buildComplete: vscode.Event<boolean>; // some build has completed (maybe run by user), with success or failure
     initialBuild: Promise<boolean>; // initial valhalla build complete
 
-    argsFile: IArgsFileService;
     settings: ISettingsService;
+    argsFile: IArgsFileService;
+    projectInfo: IProjectInfoService;
+    compileCommands: ICompileCommandsService;
+
     virtualDocumentProvider: IVirtualDocumentProvider;
 
     builder: IBuilderService;
     buildStatus: IBuildStatusService;
-    projectInfo: IProjectInfoService;
     cppToolsProvider: IValhallaCppToolsProvider | null;
     status: IStatusService;
     tasks: IValhallaTaskProvider;

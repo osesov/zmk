@@ -1,3 +1,5 @@
+import * as vscode from "vscode";
+
 // GN's project.json format is created out of existing project.json file upon a
 // manual exploration, so it can be easily extended in the future if needed. For
 // now, we only parse the fields required for IntelliSense configuration, but we
@@ -51,20 +53,30 @@ interface ProjectJsonToolchain
 }
 
 export interface ProjectJsonFile {
-    build_settings: {
+    build_settings ?: {
         build_dir: string
         default_toolchain: string
         gen_input_files: string[]
         root_path: string
     },
-    targets: { [k: string]: ProjectJsonTarget};
-    toolchains: { [k: string]: ProjectJsonToolchain}
+    targets?: { [k: string]: ProjectJsonTarget};
+    toolchains?: { [k: string]: ProjectJsonToolchain}
 }
 
 
 export function parseProjectJson(text: string): ProjectJsonFile
 {
     // TODO: validate structure?
-    const projectJson = JSON.parse(text) as ProjectJsonFile;
-    return projectJson;
+    try {
+        const parsed = JSON.parse(text);
+        if (typeof parsed === 'object' && parsed !== null) {
+            return parsed as ProjectJsonFile;
+        } else {
+            vscode.window.showErrorMessage("Invalid project.json format: expected an object.");
+            return {};
+        }
+    } catch (e) {
+        vscode.window.showErrorMessage("Failed to parse project.json: " + e);
+        return {};
+    }
 }
