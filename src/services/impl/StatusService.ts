@@ -71,10 +71,12 @@ export class StatusService implements IStatusService
             return;
         const target = this.settings.get(Setting.target);
         this.currentTarget.detail = target ?? 'not set';
-        this.currentTarget.command = {
-            title: 'set target',
-            command: zmkCommand.setTarget,
-        };
+
+        // command is not implemented yet
+        // this.currentTarget.command = {
+        //     title: 'set target',
+        //     command: zmkCommand.setTarget,
+        // };
     }
 
     private updateSettings()

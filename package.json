@@ -15,7 +15,9 @@
 		"url": "https://github.com/osesov/zmk.git"
 	},
 	"activationEvents": [
-		"*"
+		"onLanguage:cpp",
+		"workspaceContains:**/BUILD.gn",
+		"workspaceContains:**/.gn"
 	],
 	"extensionKind": [
 		"workspace"
