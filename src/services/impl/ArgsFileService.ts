@@ -19,7 +19,7 @@ export class ArgsFileService implements IArgsFileService
         // const buildComplete = services.get('buildComplete')
         const settings = services.get('settings');
 
-        const resetArgsFile = async () => {
+        const resetFile = async () => {
             const outputDir = settings.get(Setting.outputDir);
             this.fileWatcher.setBaseDir(outputDir);
 
@@ -28,13 +28,13 @@ export class ArgsFileService implements IArgsFileService
             this._onChange.fire();
         }
 
-        settings.onChange(() => resetArgsFile());
+        settings.onChange(() => resetFile());
         // initialBuild.then(() => resetArgsFile());
         // buildComplete(() => resetArgsFile());
-        vscode.workspace.onDidChangeWorkspaceFolders(() => resetArgsFile());
-        this.fileWatcher.onChange(() => resetArgsFile());
+        // vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());
+        this.fileWatcher.onChange(() => resetFile());
 
-        resetArgsFile();
+        resetFile();
     }
 
     public getArgs(): ArgsMap | null

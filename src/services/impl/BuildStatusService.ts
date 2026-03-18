@@ -36,10 +36,7 @@ export class BuildStatusService implements IBuildStatusService
         const settings = this.services.get('settings');
 
         const outputDir = settings.get(Setting.outputDir);
-        if (!outputDir)
-            return Promise.resolve();
-
-        if (fs.existsSync(outputDir))
+        if (outputDir && fs.existsSync(outputDir))
             return Promise.resolve();
 
         const buildNowButton = 'Build Now';

@@ -7,6 +7,7 @@ import * as vscode from "vscode";
 import { AppServiceContainer } from "../services/AppServices"
 import { getWorkspaceRoot } from "./utils"
 import { getBundleDir } from "./oldies";
+import { Setting } from "../services/ISettingsService";
 
 interface CCxxPropertiesConfiguration
 {
@@ -27,6 +28,11 @@ interface CCXXPropertiesFile
 
 export function zmkUpdateBundlesInclude(services: AppServiceContainer)
 {
+    const isValhallaProject = services.get('settings').get(Setting.isValhallaProject);
+    if (!isValhallaProject) {
+        vscode.window.showWarningMessage('Current workspace is not a Valhalla project.');
+        return;
+    }
     const workspaceRoot = getWorkspaceRoot();
     if (workspaceRoot === undefined) {
         throw Error("no workspaceRoot");

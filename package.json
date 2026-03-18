@@ -17,7 +17,8 @@
 	"activationEvents": [
 		"onLanguage:cpp",
 		"workspaceContains:**/BUILD.gn",
-		"workspaceContains:**/.gn"
+		"workspaceContains:**/.gn",
+		"onTaskType:gnb"
 	],
 	"extensionKind": [
 		"workspace"
@@ -218,7 +219,7 @@
 						"properties": {
 							"pattern": {
 								"type": "string",
-								"description": "Pattern to match compiler name. 'cross_os[-cross_cpu[-cross_abi]]'"
+								"description": "Pattern to match compiler name. 'cross_cpu[-cross_os[-cross_abi]]'"
 							},
 							"compiler": {
 								"type": "array",
@@ -276,6 +277,14 @@
 				}
 			}
 		},
+		"problemMatchers": [
+			{
+				"name": "gnb",
+				"base": "$gcc",
+				"owner": "gnb",
+				"fileLocation": ["relative", "${command:zmk.getBuildDir}"]
+			}
+		],
 		"taskDefinitions": [
 			{
 				"type": "gnb",
@@ -283,6 +292,19 @@
 					"label": {
 						"type": "string",
 						"description": "Task label"
+					},
+					"command": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"title": "command part"
+						},
+						"description": "Command to execute instead of gnb (for debugging)"
+					},
+					"mode": {
+						"type": "string",
+						"enum": ["build", "clean", "deep-clean", "build-all", "build-minimal"],
+						"description": "Build mode"
 					},
 					"config": {
 						"type": "string",

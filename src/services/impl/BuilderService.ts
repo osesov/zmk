@@ -2,15 +2,15 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
-import { BuildCommand, BuildCommandOptions, BuildKind, IBuilderService } from "../IBuilderService";
+import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
-import { assertNever, isDevContainerHost } from '../../components/utils';
+import { expectNever, isDevContainerHost } from '../../components/utils';
 import { JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
 import { Completion } from '../../components/promise';
 import { AsyncCache } from '../../components/LazyCache';
 
-const defaultBuildTarget = 'empty';
+const defaultBuildTarget = ':empty';
 
 export class BuilderService implements IBuilderService
 {
@@ -81,7 +81,7 @@ export class BuilderService implements IBuilderService
 
         outputChannel.clear();
 
-        const buildCommand = await this.getBuildCommand({target: target});
+        const buildCommand = await this.getBuildCommand({target: target}, BuildMode.build);
         if (!buildCommand) {
             vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
             return;
@@ -193,13 +193,11 @@ export class BuilderService implements IBuilderService
     private async toolchainSelectorInternal()
     {
         const argsFile = this.services.get('argsFile');
-        const args = await argsFile.getArgs();
-        if (!args)
-            return {};
+        const args = argsFile.getArgs();
 
-        const crossOS = args.get<string>('cross_os');
-        const crossCPU = args.get<string>('cross_cpu');
-        const crossABI = args.get<string>('cross_abi');
+        const crossOS = args?.get<string>('cross_os') || 'none';
+        const crossCPU = args?.get<string>('cross_cpu') || 'none';
+        const crossABI = args?.get<string>('cross_abi') || 'none';
 
         return {crossOS, crossCPU, crossABI};
     }
@@ -207,23 +205,12 @@ export class BuilderService implements IBuilderService
     public async toolchainSelector(): Promise<string | null>
     {
         const {crossOS, crossCPU, crossABI} = await this.toolchainSelectorInternal();
-        let result = '';
-
-        if (crossOS) {
-            result += crossOS;
-            if (crossCPU) {
-                result += `-${crossCPU}`;
-                if (crossABI) {
-                    result += `-${crossABI}`;
-                }
-            }
-        }
-
-        if (result.length === 0) {
+        const parts = [crossCPU, crossOS, crossABI].filter(part => !!part);
+        if (parts.length === 0) {
             return null;
         }
 
-        return result;
+        return parts.join('-');
     }
 
     private async selectToolchain(): Promise<Toolchain | null>
@@ -242,7 +229,7 @@ export class BuilderService implements IBuilderService
                 continue;
 
             const parts = pattern.split('-');
-            const [os, cpu, abi] = parts;
+            const [cpu, os, abi] = parts;
             const matchOS = os === crossOS || os === '*' || os === undefined;
             const matchCPU = cpu === crossCPU || cpu === '*' || cpu === undefined;
             const matchABI = abi === crossABI || abi === '*' || abi === undefined;
@@ -255,7 +242,7 @@ export class BuilderService implements IBuilderService
         return null;
     }
 
-    public async getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildKind): Promise<BuildCommand | null>
+    public async getBuildCommand(options ?: BuildCommandOptions, buildMode?: BuildMode): Promise<BuildCommand | null>
     {
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
@@ -264,6 +251,8 @@ export class BuilderService implements IBuilderService
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
         const gnFlags = options?.gnFlags ?? settings.getOrDefault(Setting.gnFlags, []);
         const configEnv = options?.env ?? settings.getOrDefault(Setting.env, {});
+
+        buildMode = options?.mode ?? buildMode ?? BuildMode.build;
 
         if (!valhallaDir || !valhallaConfig) {
             return null;
@@ -290,44 +279,42 @@ export class BuilderService implements IBuilderService
             return result;
         }
 
-        const getActualTarget = (buildKind ?: BuildKind): string | undefined => {
+        const getActualTarget = (buildKind : BuildMode): string | undefined => {
             switch(buildKind) {
-                case undefined:
-                case BuildKind.build:
+                default:
+                    expectNever(buildKind);
+                case BuildMode.build:
+                case BuildMode.clean:
+                case BuildMode.deepClean:
                     return target;
 
-                case BuildKind.clean:
-                case BuildKind.deepClean:
-                    return undefined;
-
-                case BuildKind.buildAll:
+                case BuildMode.buildAll:
                     return ":default";
 
-                case BuildKind.buildEmpty:
+                case BuildMode.buildEmpty:
                     return ":empty";
-
-                default: assertNever(buildKind);
             }
         }
 
-        const prepareCommand = (buildKind: BuildKind | undefined, actualTarget: string[]) => {
+        const prepareCommand = (buildKind: BuildMode, actualTarget: string[]) => {
+            const command = options?.command ?? this.gnbCommand;
+
             switch(buildKind) {
-            case BuildKind.build:
-            case BuildKind.buildAll:
-            case undefined:
-                return [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
-
-            case BuildKind.buildEmpty:
-                return [...this.gnbCommand, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
-
-            case BuildKind.clean:
-                return [...this.gnbCommand, valhallaConfig, '--clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
-
-            case BuildKind.deepClean:
-                return [...this.gnbCommand, valhallaConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
-
             default:
-                assertNever(buildKind);
+                expectNever(buildKind);
+            case BuildMode.build:
+            case BuildMode.buildAll:
+                return [...command, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildMode.buildEmpty:
+                return [...command, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildMode.clean:
+                return [...command, valhallaConfig, '--clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildMode.deepClean:
+                return [...command, valhallaConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
             }
         }
 
@@ -335,12 +322,12 @@ export class BuilderService implements IBuilderService
             target = target.substring(2);
         }
 
-        const actualTarget = getActualTarget(buildKind);
-        const command = prepareCommand(buildKind, actualTarget ? [actualTarget] : []);
+        const actualTarget = getActualTarget(buildMode);
+        const command = prepareCommand(buildMode, actualTarget ? [actualTarget] : []);
         const env = makeEnvironment(process.env, configEnv, options?.env, toolchain?.env);
         const cwd = valhallaDir.fsPath;
 
-        return { command, cwd, env, actualTarget };
+        return { command, cwd, env, actualTarget, actualBuildMode: buildMode };
     }
 
     async listConfigs(): Promise<string[]>

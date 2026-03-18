@@ -41,6 +41,10 @@ export class UIService implements IUIService
     private async setConfigCommand(): Promise<void>
     {
         const settings = this.services.get('settings');
+        if (!settings.get(Setting.isValhallaProject)) {
+            vscode.window.showErrorMessage('Current workspace is not a Valhalla project.');
+            return;
+        }
         const builder = this.services.get('builder');
         const configs = await builder.listConfigs();
 
@@ -88,7 +92,6 @@ export class UIService implements IUIService
         const workspaceFolders = this.settings.get(Setting.valhallaProjects);
 
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            vscode.window.showErrorMessage('No Valhalla projects found in workspace. Please open a workspace with a Valhalla project for the extension to work.');
             return;
         }
 

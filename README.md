@@ -219,7 +219,7 @@ You can configure toolchain-specific settings using pattern matching in your wor
 }
 ```
 
-**Pattern matching:** Patterns match against the compiler name format `cross_os[-cross_cpu[-cross_abi]]`. Use `*` as a wildcard for any component.
+**Pattern matching:** Patterns match against the compiler name format `cross_cpu[-cross_os[-cross_abi]]`. Use `*` as a wildcard for any component.
 
 #### Option 2: DevContainer Setup
 

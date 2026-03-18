@@ -2,18 +2,13 @@ import * as vscode from 'vscode';
 import { AppServiceContainer } from '../services/AppServices';
 import { Setting } from '../services/ISettingsService';
 import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
-import { BuildKind, IBuilderService } from '../services/IBuilderService';
+import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../services/IBuilderService';
 import { assertNever } from './utils';
 
 export const gnbTaskType = 'gnb';
-interface ValhallaTaskDefinition extends vscode.TaskDefinition {
+interface ValhallaTaskDefinition extends vscode.TaskDefinition, BuildCommandOptions {
     type: typeof gnbTaskType;
     label: string;
-    config ?: string;
-    target ?: string;
-    gnbFlags ?: string[];
-    gnFlags ?: string[];
-    env: { [k: string]: string | undefined | null}
 }
 
 export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskProvider
@@ -32,6 +27,8 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         const taskDefinition: ValhallaTaskDefinition = {
             type: gnbTaskType,
             label: '',
+            command: undefined,
+            mode: undefined,
             config: settings.get(Setting.config),
             target: settings.get(Setting.target),
             gnbFlags: settings.get(Setting.gnbFlags),
@@ -42,37 +39,57 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         const multipleWorkspaceFolders = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1) ?? false;
 
         for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
-            await this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildKind.build, taskDefinition, multipleWorkspaceFolders);
-            await this.createBuildCommand(tasks, workspaceFolder, 'Build All', builder, BuildKind.buildAll, taskDefinition, multipleWorkspaceFolders);
-            await this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildKind.clean, taskDefinition, multipleWorkspaceFolders);
-            await this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildKind.deepClean, taskDefinition, multipleWorkspaceFolders);
-            await this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildKind.buildEmpty, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildMode.build, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Build All', builder, BuildMode.buildAll, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildMode.clean, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildMode.deepClean, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildMode.buildEmpty, taskDefinition, multipleWorkspaceFolders);
         }
         return tasks;
     }
 
-    public async resolveTask(task: vscode.Task, token: vscode.CancellationToken): Promise<vscode.Task> {
-        if (task.definition.type === gnbTaskType) {
-            const builder = this.services.get('builder');
-            const taskDefinition = task.definition as ValhallaTaskDefinition;
-            const buildCommand = await builder.getBuildCommand(taskDefinition);
-
-            if (!buildCommand || buildCommand.command.length === 0) {
-                return task;
-            }
-
-            if (!task.execution) {
-                task.execution = new vscode.ProcessExecution(buildCommand.command[0], buildCommand.command.slice(1), {
-                    cwd: buildCommand.cwd,
-                    env: buildCommand.env
-                });
-            }
-
-            if (!task.group) {
-                task.group = vscode.TaskGroup.Build;
-            }
+    public async resolveTask(task: vscode.Task, token: vscode.CancellationToken): Promise<vscode.Task | null> {
+        const logOutputChannel = this.services.get('logOutputChannel');
+        logOutputChannel.info(`Resolving task: ${task.name} ${JSON.stringify(task.definition)}`);
+        if (task.definition.type !== gnbTaskType) {
+            return null;
         }
-        return task;
+
+        const builder = this.services.get('builder');
+        const taskDefinition = task.definition as ValhallaTaskDefinition;
+        const buildCommand = await builder.getBuildCommand(taskDefinition);
+
+        if (!buildCommand || buildCommand.command.length === 0) {
+            logOutputChannel.error(`Cannot resolve task ${task.name}: no build command available.`);
+            return null;
+        }
+
+        logOutputChannel.info(`Creating resolved task ${task.name}: ${buildCommand.command.join(' ')}`);
+
+        // Create a NEW task with the original definition preserved
+        const execution = new vscode.ProcessExecution(
+            buildCommand.command[0],
+            buildCommand.command.slice(1),
+            {
+                cwd: buildCommand.cwd,
+                env: buildCommand.env
+            }
+        );
+
+        const resolvedTask = new vscode.Task(
+            taskDefinition,  // Preserve original task definition
+            task.scope ?? vscode.TaskScope.Workspace,
+            task.name,
+            gnbTaskType,
+            execution,
+            task.problemMatchers ?? []
+        );
+
+        resolvedTask.group = task.group ?? vscode.TaskGroup.Build;
+        resolvedTask.detail = task.detail;
+
+        logOutputChannel.info(`Task ${task.name} resolved successfully.`);
+        return resolvedTask;
     }
 
     private async createBuildCommand(
@@ -80,11 +97,32 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         workspaceFolder: vscode.WorkspaceFolder,
         title: string,
         builder: IBuilderService,
-        buildKind: BuildKind,
+        buildKind: BuildMode,
         taskDefinitionTemplate: ValhallaTaskDefinition,
         multipleWorkspaceFolders: boolean
     )
     {
+        const getDetails = (buildCommand: BuildCommand): string => {
+            const actualTarget = buildCommand.actualTarget ?? "[not specified]";
+            switch (buildCommand.actualBuildMode) {
+                case BuildMode.build:
+                    return `Build user target ${actualTarget}`;
+
+                case BuildMode.buildAll:
+                    return `Build all components. Using target ${actualTarget}`;
+
+                case BuildMode.buildEmpty:
+                    return `Build minimal. Using target ${actualTarget}`;
+
+                case BuildMode.clean:
+                    return `Clean and Build using target ${actualTarget}`;
+
+                case BuildMode.deepClean:
+                    return `Deep clean and Build using target ${actualTarget}`;
+            }
+            return `Build using target ${actualTarget}`;
+        }
+
         const buildCommand = await builder.getBuildCommand(taskDefinitionTemplate, buildKind);
 
         if (!buildCommand || buildCommand.command.length == 0)
@@ -103,32 +141,32 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             new vscode.ProcessExecution(buildCommand.command[0], buildCommand.command.slice(1), {
                 cwd: buildCommand.cwd,
                 env: buildCommand.env
-            })
+            }),
+            [ "$gnb" ]
         );
-        switch (buildKind) {
+        switch (buildCommand.actualBuildMode) {
         case undefined:
-        case BuildKind.build:
-        case BuildKind.buildEmpty:
-        case BuildKind.buildAll:
+        case BuildMode.build:
+        case BuildMode.buildEmpty:
+        case BuildMode.buildAll:
             task.group = vscode.TaskGroup.Build;
             break;
 
-        case BuildKind.clean:
+        case BuildMode.clean:
             task.group = vscode.TaskGroup.Clean;
             break;
 
-        case BuildKind.deepClean:
+        case BuildMode.deepClean:
             task.group = vscode.TaskGroup.Rebuild;
             break;
 
-        default: assertNever(buildKind);
+        default: assertNever(buildCommand.actualBuildMode);
         }
 
         task.presentationOptions = {
             clear: true
         }
-        task.problemMatchers = [];
-        task.detail = `Target: ${buildCommand.actualTarget ?? "not set"}`;
+        task.detail = getDetails(buildCommand);
         tasks.push(task);
     }
 }

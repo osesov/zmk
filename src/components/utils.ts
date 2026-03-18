@@ -192,6 +192,10 @@ export function assertNever(x: never): never {
     throw new Error("Didn't expect to get here");
 }
 
+export function expectNever(x: never): void {
+    callDebugger("Unexpected object: " + x);
+}
+
 
 export async function setContext(name: string, value: string | boolean | number)
 {

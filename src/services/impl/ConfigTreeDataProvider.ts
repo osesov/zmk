@@ -199,7 +199,7 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
         this._onDidChangeTreeData.fire();
     }
 
-    refresh(): void {
+    private refresh(): void {
         this.configs = undefined;
         this._onDidChangeTreeData.fire();
     }
