@@ -159,10 +159,10 @@ export class SourceFileConfigurationItemTreeProvider
         });
 
         if (cppToolsProvider) {
-            const loadCurrentConfig = () => {
+            const loadCurrentConfig = async () => {
                 const uri = vscode.window.activeTextEditor?.document.uri;
-                const config = uri && cppToolsProvider.getProvidedConfiguration(uri);
-                const compileCommand = uri && compileCommands.getSourceFileConfiguration(uri);
+                const config = uri ? await cppToolsProvider.getSourceFileConfiguration(uri) : null;
+                const compileCommand = uri ? await compileCommands.getSourceFileConfiguration(uri) : null;
                 this.setConfiguration(config, compileCommand);
             }
 
@@ -323,6 +323,7 @@ export class SourceFileConfigurationItemTreeProvider
             case "defines":
                 return Promise.resolve(
                     (this.config.defines ?? [])
+                        .sort((a, b) => a.localeCompare(b))
                         .map(d => new ConfigNode('text', {text: d}))
                 );
 

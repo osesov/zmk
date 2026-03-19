@@ -5,18 +5,24 @@ import { IBuildStatusService } from "../IBuildStatusService";
 import { AppServiceContainer } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
-import { Setting } from '../ISettingsService';
+import { ISettingsService, Setting } from '../ISettingsService';
+import { IBuilderService } from '../IBuilderService';
 
 export class BuildStatusService implements IBuildStatusService
 {
+    private readonly builder: IBuilderService;
+    private readonly settings: ISettingsService;
+
     public constructor(
         private services: AppServiceContainer,
         private _onBuildComplete: vscode.EventEmitter<boolean>,
         private _onInitialBuildComplete: Completion<boolean>
     )
     {
-        const builder = services.get('builder');
-        builder.onBuildFinished((success) => this._onBuildComplete.fire(success));
+        this.builder = services.get('builder');
+        this.settings = services.get('settings');
+
+        this.builder.onBuildFinished((success) => this._onBuildComplete.fire(success));
 
         vscode.tasks.onDidEndTaskProcess( e => {
             if (e.execution.task.definition.type === gnbTaskType) {
@@ -28,23 +34,34 @@ export class BuildStatusService implements IBuildStatusService
         .then(() => this._onInitialBuildComplete.complete(true))
         .catch(() => this._onInitialBuildComplete.complete(false))
         ;
+
+        this.settings.onChange(async e => {
+            if (e.affects(Setting.outputDir)) {
+                await this.checkOutputDirExists();
+            }
+        });
     }
 
     private async checkOutputDirExists(): Promise<void>
     {
-        const builder = this.services.get('builder');
-        const settings = this.services.get('settings');
+        try {
+// return Promise.resolve();
+            const builder = this.builder;
+            const settings = this.settings;
 
-        const outputDir = settings.get(Setting.outputDir);
-        if (outputDir && fs.existsSync(outputDir))
-            return Promise.resolve();
+            const outputDir = settings.get(Setting.outputDir);
+            if (outputDir && fs.existsSync(outputDir))
+                return Promise.resolve();
 
-        const buildNowButton = 'Build Now';
-        const skipButton = 'Skip';
-        const answer = await vscode.window.showWarningMessage(`Output directory ${outputDir} does not exist.`, buildNowButton, skipButton);
-        ;
-        if (answer === buildNowButton) {
-            await builder.buildDefaultTarget();
+            const buildNowButton = 'Build Now';
+            const skipButton = 'Skip';
+            const answer = await vscode.window.showWarningMessage(`Output directory ${outputDir} does not exist.`, buildNowButton, skipButton);
+            ;
+            if (answer === buildNowButton) {
+                await builder.buildDefaultTarget();
+            }
+        } catch (err) {
+            vscode.window.showErrorMessage(`Error checking output directory: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 }

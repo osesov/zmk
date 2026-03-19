@@ -17,7 +17,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     private projectInfo: IProjectInfoService;
     private compileCommands: ICompileCommandsService;
 
-    private readonly providedConfigurations = new Map<string, MutableSourceFileConfiguration>();
     private sourceFileConfiguration = new vscode.EventEmitter<void>();
     public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfiguration.event;
 
@@ -90,7 +89,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         if (!this.isValhallaProject()) {
             return false;
         }
-        const hasConfig = (await this.getSourceFileConfiguration(uri)) !== null;
+        const hasConfig = !!(await this.getSourceFileConfiguration(uri));
         if (!hasConfig) {
             this.logOutputChannel.error(`No configuration found for ${uri.fsPath}.`);
         }
@@ -105,8 +104,10 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             this.logOutputChannel.info(`Provide configuration for ${uri.fsPath}`);
             const config = await this.getSourceFileConfiguration(uri);
             if (config) {
-                result.push(config);
-                this.setProvidedConfig(uri, config);
+                result.push({
+                    uri: uri,
+                    configuration: config,
+                });
             }
         }
         return Promise.resolve(result);
@@ -142,21 +143,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     }
 
     ///////////////////////////////////////////////////////////////////
-
-    public getProvidedConfiguration(uri: vscode.Uri): MutableSourceFileConfiguration | null
-    {
-        const config = this.providedConfigurations.get(uri.toString());
-        return config ?? null;
-    }
-
-    private setProvidedConfig(uri: vscode.Uri, config: cpptools.SourceFileConfigurationItem)
-    {
-        this.providedConfigurations.set(uri.toString(), config.configuration);
-        this.sourceFileConfiguration.fire();
-    }
-
-    ///////////////////////////////////////////////////////////////////
-    private async getSourceFileConfiguration(uri: vscode.Uri): Promise<cpptools.SourceFileConfigurationItem | null> {
+    public async getSourceFileConfiguration(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | undefined | null> {
 
         let entry = this.getFromCompileCommands(uri);
         if (!entry)
@@ -166,11 +153,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
 
         entry = await this.enrich(entry);
-
-        return {
-            uri,
-            configuration: entry
-        };
+        return entry;
     }
 
     private getFromCompileCommands(uri: vscode.Uri): MutableSourceFileConfiguration | null

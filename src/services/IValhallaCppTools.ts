@@ -4,5 +4,5 @@ import { MutableSourceFileConfiguration } from "../components/SourceFileConfigur
 export interface IValhallaCppToolsProvider
 {
     onDidChangeSourceFileConfiguration: vscode.Event<void>;
-    getProvidedConfiguration(uri: vscode.Uri): MutableSourceFileConfiguration | null;
+    getSourceFileConfiguration(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | undefined | null>;
 }
