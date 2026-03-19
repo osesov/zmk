@@ -16,6 +16,7 @@ import {
 } from '../ISettingsService';
 import { AppServiceContainer } from '../AppServices';
 import { findProjectRootUri } from '../../components/utils';
+import { IAsyncServiceInit } from '../IAsyncServiceInit';
 
 type SettingsSnapshot = {
     [K in keyof SettingMap]: SettingMap[K]['defaultValue'];
@@ -75,7 +76,7 @@ function deepEqual(a: unknown, b: unknown): boolean {
     return false;
 }
 
-export class SettingsService implements ISettingsService {
+export class SettingsService implements ISettingsService, IAsyncServiceInit {
     private readonly _context: vscode.ExtensionContext;
     private readonly _onChangeEmitter = new vscode.EventEmitter<SettingChangeEvent>();
     public readonly onChange = this._onChangeEmitter.event;
@@ -84,6 +85,8 @@ export class SettingsService implements ISettingsService {
     private _snapshot: SettingsSnapshot;
     private _environment = new Map<string, string>();
 
+    public readonly ready: Promise<void>;
+
     public constructor(services: AppServiceContainer) {
         this._context = services.get('context');
 
@@ -91,6 +94,8 @@ export class SettingsService implements ISettingsService {
         vscode.workspace.onDidChangeConfiguration(() => this.recomputeAndEmit(), this, this._disposables);
 
         this._snapshot = this.createInitialSnapshot();
+        this.ready = this.computeSnapshot()
+        .then(settings => {this._snapshot = settings});
     }
 
     public dispose(): void {

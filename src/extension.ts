@@ -24,6 +24,7 @@ import { CompileCommandsService } from './services/impl/CompileCommandsService';
 import { ReviewService } from './services/impl/ReviewService';
 import { getBuildDirAndCreate, getCurrentFile, getNfsDir, getNinjaTarget, getOrDefault, getRootDir, getTargetConfig, updateCurrentEnvironment } from './components/oldies';
 import { zmkUpdateBundlesInclude } from './components/CCxxPropertiesFile';
+import { awaitReady } from './services/IAsyncServiceInit';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -231,7 +232,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('logOutputChannel', logOutputChannel)
 		.registerInstance('buildComplete', buildComplete.event)
 		.registerInstance('initialBuild', initialBuild.promise)
-		.registerInstance('settings', new SettingsService(services))
+		.registerInstance('settings', await awaitReady(new SettingsService(services)))
 		.registerInstance('argsFile', new ArgsFileService(services))
 		.registerInstance('projectInfo', new ProjectInfoService(services))
 		.registerInstance('compileCommands', new CompileCommandsService(services))
