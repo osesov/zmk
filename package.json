@@ -102,6 +102,16 @@
 				"command": "zmk.review.keepOriginal",
 				"title": "Keep Original",
 				"icon": "$(close)"
+			},
+			{
+				"command": "zmk.cppSource.copyText",
+				"title": "Copy as text",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "zmk.cppSource.copyJson",
+				"title": "Copy as json",
+				"icon": "$(copy)"
 			}
 		],
 		"configuration": {
@@ -474,8 +484,17 @@
 					"command": "zmk.revealIncludeInOS",
 					"when": "view == cppSourceConfig && viewItem == include",
 					"group": "navigation"
+				},
+				{
+					"command": "zmk.cppSource.copyText",
+					"when": "view == cppSourceConfig",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.cppSource.copyJson",
+					"when": "view == cppSourceConfig",
+					"group": "navigation"
 				}
-
 			]
 		}
 	},

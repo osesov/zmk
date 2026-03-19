@@ -1,14 +1,18 @@
 import * as vscode from "vscode";
 import type * as cpptools from "vscode-cpptools";
+import shell from 'shell-quote';
+
 import { ISourceFileConfigurationItemTreeProvider } from "../ISourceFileConfigurationItemTreeProvider";
 import { AppServiceContainer } from "../AppServices";
-import { Setting } from "../ISettingsService";
+import { JsonValue, Setting } from "../ISettingsService";
 import path from "path";
 import { Context, zmkCommand } from "../../components/constants";
-import { setContext } from "../../components/utils";
+import { setContext, writeTextToClipboard } from "../../components/utils";
+import { SourceFileConfigurationEx } from "../ICompileCommandsService";
 
 type NodeType =
     | "compiler"
+    | "compileCommand"
     | "includes"
     | "include"
     | "defines"
@@ -17,10 +21,12 @@ type NodeType =
     | "path"
     | "mode"
     | "standard"
+    | "text"
     ;
 
 const ICONS: Record<NodeType, vscode.ThemeIcon | undefined> = {
     compiler: new vscode.ThemeIcon("gear"),
+    compileCommand: new vscode.ThemeIcon("play"),
     includes: new vscode.ThemeIcon("folder-library"),
     include: new vscode.ThemeIcon("folder-library"),
     defines: new vscode.ThemeIcon("symbol-constant"),
@@ -31,10 +37,12 @@ const ICONS: Record<NodeType, vscode.ThemeIcon | undefined> = {
     path: new vscode.ThemeIcon("file-code"),
     mode: new vscode.ThemeIcon("settings-gear"),
     standard: new vscode.ThemeIcon("settings-gear"),
+    text: undefined,
 } as const;
 
-const TITLE: Record<NodeType, string> = {
+const TITLE: Record<NodeType, string | undefined> = {
     compiler: "Compiler",
+    compileCommand: "Compile Command",
     includes: "Includes",
     include: "Include",
     defines: "Defines",
@@ -43,6 +51,7 @@ const TITLE: Record<NodeType, string> = {
     path: "Path",
     mode: "Mode",
     standard: "Standard",
+    text: undefined,
 };
 
 interface PlainString
@@ -52,21 +61,24 @@ interface PlainString
     description?: string
 }
 
-export class ConfigNode extends vscode.TreeItem {
-    constructor(
-        public readonly nodeType: NodeType | PlainString,
-        public collapsibleState: vscode.TreeItemCollapsibleState,
-        public readonly value?: string,
-    ) {
-        const isPredefined = typeof nodeType === "string";
-        const label = isPredefined ? TITLE[nodeType] : nodeType.text;
-        super(label, collapsibleState);
+function isCollapsibleState(value: any): value is vscode.TreeItemCollapsibleState {
+    return Object.values(vscode.TreeItemCollapsibleState).includes(value);
+}
 
-        this.description = value ? value
-        : isPredefined ? undefined
-        : nodeType.description;
-        this.iconPath = isPredefined ? ICONS[nodeType] : undefined
-        this.tooltip = isPredefined ? value : nodeType.tooltip;
+export class ConfigNode extends vscode.TreeItem {
+
+    constructor(public readonly nodeType: NodeType,
+        public readonly value: {
+            collapsibleState?: vscode.TreeItemCollapsibleState,
+            text?: string,
+            tooltip?: string,
+            description?: string
+        })
+    {
+        super(value.text ?? TITLE[nodeType] ?? '', value.collapsibleState ?? vscode.TreeItemCollapsibleState.None);
+        this.iconPath = ICONS[nodeType];
+        this.tooltip = value.tooltip;
+        this.description = value.description;
     }
 }
 
@@ -76,7 +88,7 @@ export class IncludeNode extends ConfigNode
 
     constructor(public readonly path: string, public fullPath: string, public fsPath: string)
     {
-        super({ text: path, tooltip: fullPath }, vscode.TreeItemCollapsibleState.None);
+        super('text', { text: path, tooltip: fullPath });
         this.contextValue = "include";
     }
 }
@@ -85,7 +97,7 @@ export class NonValhallaProjectNode extends ConfigNode
 {
     constructor()
     {
-        super({ text: "Current workspace is not a Valhalla project", tooltip: "Current workspace is not a Valhalla project" }, vscode.TreeItemCollapsibleState.None);
+        super('text', { text: "Current workspace is not a Valhalla project", tooltip: "Current workspace is not a Valhalla project" });
 
         this.contextValue = "notValhalla";
         this.iconPath = new vscode.ThemeIcon('warning');
@@ -130,7 +142,8 @@ export class SourceFileConfigurationItemTreeProvider
     private _onDidChangeTreeData = new vscode.EventEmitter<void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    private config?: cpptools.SourceFileConfiguration | null | undefined;
+    private config: cpptools.SourceFileConfiguration | null | undefined;
+    private compileCommand: SourceFileConfigurationEx | null | undefined;
     private viewMode: "tree" | "list" = "tree";
     private isValhallaProject = false;
 
@@ -139,6 +152,7 @@ export class SourceFileConfigurationItemTreeProvider
         const context = services.get('context');
         const settings = services.get('settings');
         const cppToolsProvider = this.services.get('cppToolsProvider');
+        const compileCommands = this.services.get('compileCommands');
 
         vscode.window.createTreeView("cppSourceConfig", {
             treeDataProvider: this
@@ -148,7 +162,8 @@ export class SourceFileConfigurationItemTreeProvider
             const loadCurrentConfig = () => {
                 const uri = vscode.window.activeTextEditor?.document.uri;
                 const config = uri && cppToolsProvider.getProvidedConfiguration(uri);
-                this.setConfiguration(config);
+                const compileCommand = uri && compileCommands.getSourceFileConfiguration(uri);
+                this.setConfiguration(config, compileCommand);
             }
 
             loadCurrentConfig();
@@ -166,35 +181,49 @@ export class SourceFileConfigurationItemTreeProvider
 
         this.setViewMode("tree");
 
-        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeTreeView, () => {
-            this.setViewMode("tree");
-        }));
-
-        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.toggleIncludeListView, () => {
-            this.setViewMode("list");
-        }));
-
         context.subscriptions.push(
+            vscode.commands.registerCommand(zmkCommand.toggleIncludeTreeView, () => {
+                this.setViewMode("tree");
+            }),
+
+            vscode.commands.registerCommand(zmkCommand.toggleIncludeListView, () => {
+                this.setViewMode("list");
+            }),
+
             vscode.commands.registerCommand(zmkCommand.revealIncludeInExplorer, async (node: IncludeNode) => {
                 if (node) {
                     const uri = vscode.Uri.file(node.fsPath);
                     await vscode.commands.executeCommand('workbench.view.explorer');
                     vscode.commands.executeCommand('revealInExplorer', uri);
                 }
-            })
-        );
-        context.subscriptions.push(
+            }),
+
             vscode.commands.registerCommand(zmkCommand.revealIncludeInOS, (node: IncludeNode) => {
                 if (node) {
                     const uri = vscode.Uri.file(node.fsPath);
                     vscode.commands.executeCommand('revealFileInOS', uri);
                 }
+            }),
+
+            vscode.commands.registerCommand(zmkCommand.copyText, async (node: ConfigNode) => {
+                await writeTextToClipboard(this.copyText(node));
+            }),
+
+            vscode.commands.registerCommand(zmkCommand.copyJson, async (node: ConfigNode) => {
+                const value = this.copyJson(node);
+                if (value !== undefined) {
+                    const json = JSON.stringify(value, null, 4);
+                    await writeTextToClipboard(json);
+                }
+                else
+                    await writeTextToClipboard('');
             })
-        );
+        )
     }
 
-    private setConfiguration(cfg: cpptools.SourceFileConfiguration | null | undefined) {
+    private setConfiguration(cfg: cpptools.SourceFileConfiguration | null | undefined, compileCommand: SourceFileConfigurationEx | null | undefined) {
         this.config = cfg;
+        this.compileCommand = compileCommand;
         this.refresh();
     }
 
@@ -219,25 +248,29 @@ export class SourceFileConfigurationItemTreeProvider
 
         if (!element)
             return Promise.resolve([
-                new ConfigNode("compiler", vscode.TreeItemCollapsibleState.Collapsed),
-                new ConfigNode("includes", vscode.TreeItemCollapsibleState.Collapsed),
-                new ConfigNode("defines", vscode.TreeItemCollapsibleState.Collapsed),
-                new ConfigNode("intellisense", vscode.TreeItemCollapsibleState.Collapsed)
+                new ConfigNode("compiler", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed}),
+                new ConfigNode("compileCommand", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed}),
+                new ConfigNode("includes", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed}),
+                new ConfigNode("defines", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed}),
+                new ConfigNode("intellisense", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed})
             ]);
 
         switch (element.nodeType) {
 
             case "compiler":
                 return Promise.resolve([
-                    new ConfigNode("path", vscode.TreeItemCollapsibleState.None, this.config.compilerPath ?? "not set"),
-                    new ConfigNode("args", vscode.TreeItemCollapsibleState.Collapsed)
+                    new ConfigNode("path", {collapsibleState: vscode.TreeItemCollapsibleState.None, text: this.config.compilerPath ?? "not set"}),
+                    new ConfigNode("args", {collapsibleState: vscode.TreeItemCollapsibleState.Collapsed})
                 ]);
 
             case "args":
                 return Promise.resolve(
                     (this.config.compilerArgs ?? [])
-                        .map(a => new ConfigNode({text: a}, vscode.TreeItemCollapsibleState.None))
+                        .map(a => new ConfigNode('text', {text: a}))
                 );
+
+            case "compileCommand":
+                return Promise.resolve(this.compileCommand?._command.map( arg => new ConfigNode('text', {text: arg})) ?? []);
 
             case "includes":
                 {
@@ -290,13 +323,13 @@ export class SourceFileConfigurationItemTreeProvider
             case "defines":
                 return Promise.resolve(
                     (this.config.defines ?? [])
-                        .map(d => new ConfigNode({text:d}, vscode.TreeItemCollapsibleState.None))
+                        .map(d => new ConfigNode('text', {text: d}))
                 );
 
             case "intellisense":
                 return Promise.resolve([
-                    new ConfigNode("mode", vscode.TreeItemCollapsibleState.None, this.config.intelliSenseMode),
-                    new ConfigNode("standard", vscode.TreeItemCollapsibleState.None, this.config.standard)
+                    new ConfigNode("mode", { text: this.config.intelliSenseMode }),
+                    new ConfigNode("standard", { text: this.config.standard })
                 ]);
 
             default:
@@ -314,5 +347,92 @@ export class SourceFileConfigurationItemTreeProvider
         this.viewMode = mode;
         setContext(Context.includeViewMode, mode);
         this.refresh();
+    }
+
+    private copyText(node: ConfigNode): string | null | undefined
+    {
+        if (!this.config)
+            return null;
+
+        switch (node.nodeType) {
+            case 'compiler':
+                return shell.quote([this.config.compilerPath, ...this.config.compilerArgs ?? [] ].filter( e => e !== undefined));
+
+            case 'compileCommand':
+                return shell.quote(this.compileCommand?._command ?? []);
+
+            case 'includes':
+                return this.config.includePath.join('\n');
+
+            case 'include':
+                if (!(node instanceof IncludeNode))
+                    return null;
+
+                return node.fsPath;
+
+            case 'defines':
+                return this.config.defines.join('\n');
+
+            case 'standard':
+                return this.config.standard;
+            case 'intellisense':
+            case 'mode':
+                return this.config.intelliSenseMode;
+
+            case 'path':
+                return this.config.compilerPath;
+
+            case 'args':
+                return shell.quote(this.config.compilerArgs ?? []);
+
+            default:
+                return node.value?.text;
+        }
+    }
+
+    private copyJson(node: ConfigNode): JsonValue | undefined
+    {
+        if (!this.config)
+            return undefined;
+
+        switch (node.nodeType) {
+            case 'compiler':
+                return [this.config.compilerPath, ...this.config.compilerArgs ?? [] ].filter( e => e !== undefined);
+
+            case 'compileCommand':
+                return this.compileCommand?._command ?? [];
+
+            case 'includes':
+                return this.config.includePath;
+
+            case 'include':
+                if (!(node instanceof IncludeNode))
+                    return undefined;
+
+                return node.fsPath;
+
+            case 'defines':
+                return this.config.defines;
+
+            case 'intellisense':
+                return {
+                    mode: this.config.intelliSenseMode ?? null,
+                    standard: this.config.standard ?? null
+                };
+
+            case 'standard':
+                return this.config.standard;
+            case 'mode':
+                return this.config.intelliSenseMode;
+
+            case 'path':
+                return this.config.compilerPath;
+
+            case 'args':
+                return this.config.compilerArgs ?? [];
+
+            default:
+                return node.value?.text;
+        }
     }
 }

@@ -205,3 +205,11 @@ export async function setContext(name: string, value: string | boolean | number)
             (e) => {vscode.window.showErrorMessage(`Failed to set context for ${name}: ${e}`)}
         );
 }
+
+export async function writeTextToClipboard(str: string | undefined | null): Promise<void>
+{
+    if (str === null || str === undefined)
+        str = '';
+
+    await vscode.env.clipboard.writeText(str);
+}

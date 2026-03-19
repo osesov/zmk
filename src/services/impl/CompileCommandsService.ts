@@ -7,15 +7,10 @@ import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { Setting } from "../ISettingsService";
 import { FileWatcher } from "../../components/FileWatcher";
-import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../../components/SourceFileConfiguration";
 import { build } from "../../components/constants";
 import { CompileCommandEntry, CompileCommandsFile, parseCompileCommands } from "../../components/CompileCommands";
-import { ICompileCommandsService } from "../ICompileCommandsService";
+import { ICompileCommandsService, SourceFileConfigurationEx } from "../ICompileCommandsService";
 import { isDevContainerHost, Mutable } from "../../components/utils";
-
-interface SourceFileConfigurationEx extends MutableSourceFileConfiguration {
-    _compilerPath: string
-}
 
 interface CompileCommandCacheEntry {
     source: CompileCommandEntry;
@@ -47,6 +42,15 @@ function buildCache(compileCommands: CompileCommandsFile | null, cache: CompileC
     }
 
     return cxxCompiler;
+}
+
+function normalizeArg(arg: shell.ParseEntry): string {
+    if (typeof arg === 'string')
+        return arg;
+    else if ('comment' in arg)
+        return arg.comment;
+    else
+        return arg.op;
 }
 
 export class CompileCommandsService implements ICompileCommandsService
@@ -89,6 +93,15 @@ export class CompileCommandsService implements ICompileCommandsService
     private parseCompileCommand(command: string): SourceFileConfigurationEx {
         // naive gcc flags parsing
         const words = shell.parse(command);
+
+        const findCommandWord = () => {
+            for (const word of words)
+                if (typeof word === 'string')
+                    return word;
+
+            return undefined;
+        }
+
         const result: Mutable<SourceFileConfigurationEx> = {
             includePath: [],
             defines: [],
@@ -96,10 +109,11 @@ export class CompileCommandsService implements ICompileCommandsService
             intelliSenseMode: build.defaultIntelliSenseMode,
 
             forcedInclude: undefined,
-            compilerPath: isDevContainerHost() ? words[0] as string : undefined,
+            compilerPath: isDevContainerHost() ? findCommandWord(): undefined,
             compilerArgs: undefined,
             compilerFragments: undefined,
-            _compilerPath: words[0] as string // TODO: not safe?
+            _compilerPath: isDevContainerHost() ? findCommandWord(): undefined,
+            _command: words.map(normalizeArg),
         };
 
         for (const word of words) {
@@ -122,7 +136,7 @@ export class CompileCommandsService implements ICompileCommandsService
         return result;
     }
 
-    public getSourceFileConfiguration(uri: vscode.Uri): MutableSourceFileConfiguration | null {
+    public getSourceFileConfiguration(uri: vscode.Uri): SourceFileConfigurationEx | null {
         const filePath = uri.fsPath;
 
         if (this.cache.size === 0)
