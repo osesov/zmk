@@ -2,15 +2,15 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
-import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from "../IBuilderService";
+import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService, NeedBuildResult } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
-import { expectNever, isDevContainerHost } from '../../components/utils';
+import { expectNever, isBuildDirValid, isDevContainerHost } from '../../components/utils';
 import { JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
-import { Completion } from '../../components/promise';
 import { AsyncCache } from '../../components/LazyCache';
 
 const defaultBuildTarget = ':empty';
+const allBuildTarget = ':valhalla_sysroot'; // from BUILD.gn
 
 export class BuilderService implements IBuilderService
 {
@@ -24,17 +24,12 @@ export class BuilderService implements IBuilderService
 
     private readonly _toolchain = new AsyncCache<Toolchain | null>(() => this.selectToolchain());
 
-    // TODO: is this correct? User can start more than a single build at any time.
-    // We probably need to maintain own build only?
-
-    private _buildCompletable: Completion<void> | null = null;
-
     constructor(private services: ServiceContainer <AppServices>)
     {
         if (isDevContainerHost())
-            this.gnbCommand = ["./gnbc"];
+            this.gnbCommand = ["../gnbc"];
         else
-            this.gnbCommand = ["./gnb"];
+            this.gnbCommand = ["../gnb"];
 
         const initialBuild = services.get('initialBuild');
         const buildComplete = services.get('buildComplete');
@@ -69,14 +64,8 @@ export class BuilderService implements IBuilderService
         return settings.get(Setting.outputDir) ?? null;
      }
 
-    async buildTarget(target: string | undefined): Promise<void>
+    async buildTarget(target: string | undefined): Promise<boolean>
     {
-        const currentBuild = this._buildCompletable;
-        if (currentBuild) {
-            await currentBuild.promise;
-            return;
-        }
-
         const outputChannel = this.services.get('buildOutputChannel');
 
         outputChannel.clear();
@@ -84,7 +73,7 @@ export class BuilderService implements IBuilderService
         const buildCommand = await this.getBuildCommand({target: target}, BuildMode.build);
         if (!buildCommand) {
             vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
-            return;
+            return false;
         }
 
         outputChannel.appendLine(`Running command: ${buildCommand.command.join(' ')}`);
@@ -96,11 +85,9 @@ export class BuilderService implements IBuilderService
             title: `Building Valhalla (${target ?? 'default target'})...`,
             cancellable: true
         }, (progress, token) => {
-
-            this._buildCompletable = new Completion<void>('build');
             this._onBuildStarted.fire();
 
-            return new Promise<void>((resolve, reject) => {
+            return new Promise<boolean>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';
                 const proc = child_process.spawn(buildCommand.command[0], buildCommand.command.slice(1), {
                     cwd: buildCommand.cwd,
@@ -134,11 +121,12 @@ export class BuilderService implements IBuilderService
                 proc.on('exit', (code, signal) => {
                     if (code === 0) {
                         outputChannel.appendLine('Build completed successfully.');
-                        resolve();
+                        resolve(true);
                     } else {
                         outputChannel.appendLine(`Build failed with exit code ${code} and signal ${signal}.`);
                         outputChannel.show(true);
-                        reject(new Error(`Build failed with exit code ${code} and signal ${signal}.`));
+                        resolve(false);
+
                     }
                 });
 
@@ -152,42 +140,55 @@ export class BuilderService implements IBuilderService
                 proc.stderr.on('data', logger('STDERR'));
                 proc.stdout.on('data', logger('STDOUT'));
             })
-            .then(() => {
-                this._onBuildFinished.fire(true);
+            .then((status) => {
+                this._onBuildFinished.fire(status);
+                return status;
             })
             .catch(() => {
                 this._onBuildFinished.fire(false);
-            })
-            .finally(() => {
-                this._buildCompletable?.complete();
-                this._buildCompletable = null;
+                return false;
             });
         });
     }
 
-    public async buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>
+    public async needBuild(): Promise<NeedBuildResult>
     {
         const outputDir = this.getOutputDir();
-
         if (!outputDir) {
+            return NeedBuildResult.configIncomplete;
+        }
+
+        const isValid = await isBuildDirValid(outputDir);
+        return isValid ? NeedBuildResult.no : NeedBuildResult.yes;
+    }
+
+    public async buildDefaultTargetIfNeeded(): Promise<boolean>
+    {
+        const needBuildResult = await this.needBuild();
+        if (needBuildResult === NeedBuildResult.no) {
+            return true;
+        }
+        if (needBuildResult === NeedBuildResult.configIncomplete) {
+            vscode.window.showWarningMessage('Build configuration is incomplete. Check "zmk.config" setting.');
             return false;
         }
 
-        if (!fs.existsSync(outputDir)) {
-            beforeRebuild?.();
-            await this.buildTarget(defaultBuildTarget);
-
-            if (!fs.existsSync(outputDir)) {
-                vscode.window.showErrorMessage(`Failed to build Valhalla. Output directory ${outputDir} does not exist.`);
-                return false;
-            }
+        const success = await this.buildTarget(defaultBuildTarget);
+        if (success && (await this.needBuild() !== NeedBuildResult.no)) {
+            vscode.window.showErrorMessage(`Failed to build Valhalla.`);
+            return false;
         }
-        return true;
+        return success;
     }
 
-    public async buildDefaultTarget(): Promise<void>
+    public async buildDefaultTarget(): Promise<boolean>
     {
-        await this.buildTarget(defaultBuildTarget);
+        return await this.buildTarget(defaultBuildTarget);
+    }
+
+    public async buildAllTarget(): Promise<boolean>
+    {
+        return await this.buildTarget(allBuildTarget);
     }
 
     private async toolchainSelectorInternal()
@@ -246,6 +247,7 @@ export class BuilderService implements IBuilderService
     {
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
+        const buildDir = this.getOutputDir();
         const valhallaConfig = options?.config ?? settings.get(Setting.config);
         let target = options?.target ?? settings.get(Setting.target);
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
@@ -254,7 +256,7 @@ export class BuilderService implements IBuilderService
 
         buildMode = options?.mode ?? buildMode ?? BuildMode.build;
 
-        if (!valhallaDir || !valhallaConfig) {
+        if (!valhallaDir || !valhallaConfig || !buildDir) {
             return null;
         }
 
@@ -288,6 +290,9 @@ export class BuilderService implements IBuilderService
                 case BuildMode.deepClean:
                     return target;
 
+                case BuildMode.buildCurrentFile:
+                    return "${command:zmk.getCurrentFile}^";
+
                 case BuildMode.buildAll:
                     return ":default";
 
@@ -304,6 +309,7 @@ export class BuilderService implements IBuilderService
                 expectNever(buildKind);
             case BuildMode.build:
             case BuildMode.buildAll:
+            case BuildMode.buildCurrentFile:
                 return [...command, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
 
             case BuildMode.buildEmpty:
@@ -314,7 +320,6 @@ export class BuilderService implements IBuilderService
 
             case BuildMode.deepClean:
                 return [...command, valhallaConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
-
             }
         }
 
@@ -325,7 +330,7 @@ export class BuilderService implements IBuilderService
         const actualTarget = getActualTarget(buildMode);
         const command = prepareCommand(buildMode, actualTarget ? [actualTarget] : []);
         const env = makeEnvironment(process.env, configEnv, options?.env, toolchain?.env);
-        const cwd = valhallaDir.fsPath;
+        const cwd = buildDir;
 
         return { command, cwd, env, actualTarget, actualBuildMode: buildMode };
     }

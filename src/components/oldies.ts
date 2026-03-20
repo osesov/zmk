@@ -62,8 +62,7 @@ export function getCurrentFile(): string {
     }
 
     const currentFile = editor.document.fileName;
-
-    const currentFileRelative = path.relative( getBuildDir(), currentFile);
+    const currentFileRelative = path.relative(getBuildDir(), currentFile);
     return currentFileRelative;
 }
 

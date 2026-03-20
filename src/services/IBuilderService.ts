@@ -15,6 +15,7 @@ export interface BuildCommand
 export enum BuildMode
 {
     build = "build",
+    buildCurrentFile = "build-current-file",
     buildAll = "build-all",
     buildEmpty = "build-minimal",
     clean = "clean",
@@ -32,6 +33,12 @@ export interface BuildCommandOptions
     env ?: { [k: string]: string | null | undefined } | undefined
 }
 
+export enum NeedBuildResult
+{
+    no,
+    yes,
+    configIncomplete
+}
 
 export interface IBuilderService
 {
@@ -40,13 +47,14 @@ export interface IBuilderService
 
     getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildMode): Promise<BuildCommand | null>;
 
-    buildTarget(target: string | undefined): Promise<void>;
-    buildDefaultTarget(): Promise<void>;
-    buildDefaultTargetIfNeeded(beforeRebuild?: () => void): Promise<boolean>;
+    needBuild(): Promise<NeedBuildResult>;
+    buildTarget(target: string | undefined): Promise<boolean>;
+    buildDefaultTarget(): Promise<boolean>;
+    buildAllTarget(): Promise<boolean>;
+    buildDefaultTargetIfNeeded(): Promise<boolean>;
 
     getConfigPath(configName: string): Promise<string | null>;
     listConfigs(): Promise<string[]>;
     toolchainSelector(): Promise<string | null>;
     toolchain(): Promise<Toolchain | null>;
-    // args(): ArgsFile | null;
 }

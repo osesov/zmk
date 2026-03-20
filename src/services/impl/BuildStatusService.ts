@@ -6,7 +6,8 @@ import { AppServiceContainer } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
-import { IBuilderService } from '../IBuilderService';
+import { IBuilderService, NeedBuildResult } from '../IBuilderService';
+import { expectNever } from '../../components/utils';
 
 export class BuildStatusService implements IBuildStatusService
 {
@@ -30,38 +31,57 @@ export class BuildStatusService implements IBuildStatusService
             }
         });
 
-        Promise.resolve().then(() => this.checkOutputDirExists())
-        .then(() => this._onInitialBuildComplete.complete(true))
+        Promise.resolve().then(() => this.buildIfNecessary())
+        .then((status) => this._onInitialBuildComplete.complete(status))
         .catch(() => this._onInitialBuildComplete.complete(false))
         ;
 
         this.settings.onChange(async e => {
             if (e.affects(Setting.outputDir)) {
-                await this.checkOutputDirExists();
+                await this.buildIfNecessary();
             }
         });
     }
 
-    private async checkOutputDirExists(): Promise<void>
+    private async buildIfNecessary(): Promise<boolean>
     {
         try {
 // return Promise.resolve();
             const builder = this.builder;
-            const settings = this.settings;
+            const needBuildResult = await builder.needBuild();
 
-            const outputDir = settings.get(Setting.outputDir);
-            if (outputDir && fs.existsSync(outputDir))
-                return Promise.resolve();
+            switch (needBuildResult) {
+                case NeedBuildResult.no:
+                    return true;
 
-            const buildNowButton = 'Build Now';
-            const skipButton = 'Skip';
-            const answer = await vscode.window.showWarningMessage(`Output directory ${outputDir} does not exist.`, buildNowButton, skipButton);
-            ;
-            if (answer === buildNowButton) {
-                await builder.buildDefaultTarget();
+                case NeedBuildResult.configIncomplete:
+                    vscode.window.showWarningMessage('Build configuration is incomplete. Check "zmk.config" setting.');
+                    return false;
+
+                case NeedBuildResult.yes:
+                    const buildMinButton = 'Build Minimal';
+                    const buildAllButton = 'Build All';
+                    const skipButton = 'Skip';
+                    const answer = await vscode.window.showWarningMessage(`Output directory does not exist. Build is required.`, buildMinButton, buildAllButton, skipButton);
+                    ;
+                    if (answer === buildMinButton) {
+                        return await builder.buildDefaultTarget();
+                    }
+                    if (answer === buildAllButton) {
+                        return await builder.buildAllTarget();
+                    }
+
+                    return false;
+
+                default:
+                    expectNever(needBuildResult);
+                    vscode.window.showErrorMessage('Unexpected result from build check.');
+                    return false;
             }
+
         } catch (err) {
             vscode.window.showErrorMessage(`Error checking output directory: ${err instanceof Error ? err.message : String(err)}`);
+            return false;
         }
     }
 }

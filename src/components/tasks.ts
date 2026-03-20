@@ -41,6 +41,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         for (const workspaceFolder of vscode.workspace.workspaceFolders ?? []) {
             await this.createBuildCommand(tasks, workspaceFolder, 'Build', builder, BuildMode.build, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Build All', builder, BuildMode.buildAll, taskDefinition, multipleWorkspaceFolders);
+            await this.createBuildCommand(tasks, workspaceFolder, 'Build Current File', builder, BuildMode.buildCurrentFile, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Clean build', builder, BuildMode.clean, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Deep clean build', builder, BuildMode.deepClean, taskDefinition, multipleWorkspaceFolders);
             await this.createBuildCommand(tasks, workspaceFolder, 'Minimal build', builder, BuildMode.buildEmpty, taskDefinition, multipleWorkspaceFolders);
@@ -149,6 +150,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         case BuildMode.build:
         case BuildMode.buildEmpty:
         case BuildMode.buildAll:
+        case BuildMode.buildCurrentFile:
             task.group = vscode.TaskGroup.Build;
             break;
 
@@ -160,7 +162,8 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             task.group = vscode.TaskGroup.Rebuild;
             break;
 
-        default: assertNever(buildCommand.actualBuildMode);
+        default:
+            assertNever(buildCommand.actualBuildMode);
         }
 
         task.presentationOptions = {

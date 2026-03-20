@@ -213,3 +213,16 @@ export async function writeTextToClipboard(str: string | undefined | null): Prom
 
     await vscode.env.clipboard.writeText(str);
 }
+
+export async function isBuildDirValid(buildDir: string): Promise<boolean>
+{
+    const files = ["compile_commands.json", "project.json", "args.gn"];
+    for (const file of files) {
+        const filePath = path.join(buildDir, file);
+        if (!exists(filePath)) {
+            return false;
+        }
+    }
+
+    return true;
+}

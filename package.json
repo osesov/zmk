@@ -289,10 +289,11 @@
 		},
 		"problemMatchers": [
 			{
-				"name": "gnb",
+				"name": "gnb-gcc",
+				"source": "gnb",
 				"base": "$gcc",
 				"owner": "gnb",
-				"fileLocation": ["relative", "${command:zmk.getBuildDir}"]
+				"fileLocation": ["autoDetect", "${command:zmk.getBuildDir}"]
 			}
 		],
 		"taskDefinitions": [
@@ -313,7 +314,7 @@
 					},
 					"mode": {
 						"type": "string",
-						"enum": ["build", "clean", "deep-clean", "build-all", "build-minimal"],
+						"enum": ["build", "clean", "deep-clean", "build-all", "build-minimal", "build-current-file"],
 						"description": "Build mode"
 					},
 					"config": {
