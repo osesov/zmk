@@ -226,3 +226,21 @@ export async function isBuildDirValid(buildDir: string): Promise<boolean>
 
     return true;
 }
+
+export function withoutException<T>(promise: Promise<T>): Promise<{ result: T | null, error: Error | null }>;
+export function withoutException<T>(func: () => T, result: T): T;
+export function withoutException<T>(functionOrPromise: (() => T) | Promise<T>, result?: T): T | Promise<{ result: T | null, error: Error | null }>
+{
+    if (functionOrPromise instanceof Promise) {
+        return functionOrPromise.then(
+            result => ({ result, error: null }),
+            error => ({ result: null, error }),
+        );
+    } else {
+        try {
+            return functionOrPromise();
+        } catch (error) {
+            return result!;
+        }
+    }
+}

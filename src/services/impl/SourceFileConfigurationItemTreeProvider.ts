@@ -175,8 +175,8 @@ export class SourceFileConfigurationItemTreeProvider
         settings.onChange(e => {
             if (e.affects(Setting.isValhallaProject)) {
                 this.isValhallaProject = settings.get(Setting.isValhallaProject);
-                this.refresh();
             }
+            this.refresh();
         });
 
         this.setViewMode("tree");

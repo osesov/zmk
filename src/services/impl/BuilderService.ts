@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService, NeedBuildResult } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
-import { expectNever, isBuildDirValid, isDevContainerHost } from '../../components/utils';
+import { expectNever, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
 import { JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
 import { AsyncCache } from '../../components/LazyCache';
@@ -89,6 +89,8 @@ export class BuilderService implements IBuilderService
 
             return new Promise<boolean>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';
+
+                withoutException<void>(() => fs.mkdirSync(buildCommand.cwd, { recursive: true }), undefined);
                 const proc = child_process.spawn(buildCommand.command[0], buildCommand.command.slice(1), {
                     cwd: buildCommand.cwd,
                     env: buildCommand.env,

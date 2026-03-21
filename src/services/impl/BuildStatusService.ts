@@ -63,7 +63,7 @@ export class BuildStatusService implements IBuildStatusService
                     const buildAllButton = 'Build All';
                     const skipButton = 'Skip';
                     const answer = await vscode.window.showWarningMessage(`Output directory does not exist. Build is required.`, buildMinButton, buildAllButton, skipButton);
-                    ;
+
                     if (answer === buildMinButton) {
                         return await builder.buildDefaultTarget();
                     }
