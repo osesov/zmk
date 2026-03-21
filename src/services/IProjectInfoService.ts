@@ -11,4 +11,5 @@ export interface IProjectInfoService
     // has 'ccache', and the tool itself is has no path
     getSourceFileConfiguration(uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null;
     getBrowseConfiguration(): MutableWorkspaceBrowseConfiguration | null;
+    getDependenciesForSourceFile(uri: vscode.Uri): string[] | null;
 }

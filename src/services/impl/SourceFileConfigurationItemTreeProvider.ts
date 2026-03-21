@@ -151,24 +151,24 @@ export class SourceFileConfigurationItemTreeProvider
     {
         const context = services.get('context');
         const settings = services.get('settings');
-        const cppToolsProvider = this.services.get('cppToolsProvider');
+        const sourceFileInfo = this.services.get('sourceFileInfo');
         const compileCommands = this.services.get('compileCommands');
 
         vscode.window.createTreeView("cppSourceConfig", {
             treeDataProvider: this
         });
 
-        if (cppToolsProvider) {
+        if (sourceFileInfo) {
             const loadCurrentConfig = async () => {
                 const uri = vscode.window.activeTextEditor?.document.uri;
-                const config = uri ? await cppToolsProvider.getSourceFileConfiguration(uri) : null;
+                const config = uri ? await sourceFileInfo.getSourceFileConfiguration(uri) : null;
                 const compileCommand = uri ? await compileCommands.getSourceFileConfiguration(uri) : null;
                 this.setConfiguration(config, compileCommand);
             }
 
             loadCurrentConfig();
             context.subscriptions.push( vscode.window.onDidChangeActiveTextEditor(() => loadCurrentConfig()));
-            cppToolsProvider.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
+            sourceFileInfo.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
         }
 
         this.isValhallaProject = settings.get(Setting.isValhallaProject);

@@ -12,6 +12,7 @@ export interface ICompileCommandsService
 
     cxxCompiler: string | null;
     getSourceFileConfiguration(uri: vscode.Uri): SourceFileConfigurationEx | null;
+    isFileListed(uri: vscode.Uri): boolean;
 
     // TODO: build browse configuration out of compile_commands.json?
     // we have source paths there and extract include paths from compiler invocation, so it should be possible

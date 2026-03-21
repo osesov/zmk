@@ -10,7 +10,6 @@ import { SourceFileConfiguration } from "vscode-cpptools";
 import { getGNPath, parseTarget } from "../../components/parseTarget";
 import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../../components/SourceFileConfiguration";
 import { build } from "../../components/constants";
-import { findProjectRoot, findProjectRootUri } from "../../components/utils";
 
 interface CacheEntry
 {
@@ -18,13 +17,25 @@ interface CacheEntry
     cache: SourceFileConfiguration | undefined;
 }
 
-function buildLinks(projectJson: ProjectJsonFile | null, links: Map<string, CacheEntry>): void
+function buildLinks(
+    projectJson: ProjectJsonFile | null,
+    links: Map<string, CacheEntry>,
+    partOf: Map<string, string[]>,
+): void
 {
     links.clear();
+    partOf.clear();
 
     if (!projectJson) {
         return;
     }
+
+    const addPartOf = (source: string, output: string) => {
+        if (!partOf.has(source)) {
+            partOf.set(source, []);
+        }
+        partOf.get(source)!.push(output);
+    };
 
     for (const [key, target] of Object.entries(projectJson.targets ?? {})) {
 
@@ -38,6 +49,21 @@ function buildLinks(projectJson: ProjectJsonFile | null, links: Map<string, Cach
             links.set(path, { targets: [], cache: undefined });
         }
         links.get(path)!.targets.push(target);
+
+        // deps
+        for (const dep of target.deps ?? []) {
+            addPartOf(dep, key);
+        }
+
+        const sourceOutputs = target.source_outputs;
+        if (sourceOutputs) {
+            for (const [source, outputs] of Object.entries(sourceOutputs)) {
+                for (const output of outputs) {
+                    addPartOf(source, output);
+                    addPartOf(output, key);
+                }
+            }
+        }
     }
 }
 
@@ -48,6 +74,7 @@ export class ProjectInfoService implements IProjectInfoService
     private fileWatcher = new FileWatcher("project.json");
     private projectJson: ProjectJsonFile | null = null;
     private links: Map<string, CacheEntry> = new Map();
+    private partOf: Map<string, string[]> = new Map();
 
     private _onChange = new vscode.EventEmitter<void>();
 
@@ -63,7 +90,7 @@ export class ProjectInfoService implements IProjectInfoService
 
             const content = await this.fileWatcher.getContentAsync()
             this.projectJson = content ? parseProjectJson(content) : null;
-            buildLinks(this.projectJson, this.links);
+            buildLinks(this.projectJson, this.links, this.partOf);
 
             this._onChange.fire();
         }
@@ -83,7 +110,7 @@ export class ProjectInfoService implements IProjectInfoService
     private getContainingFolder(uri: vscode.Uri): { valhallaDir: string, target: CacheEntry } | null
     {
         // extract relative path from uri
-        const valhallaDir = findProjectRoot(uri.fsPath);
+        const valhallaDir = this.settings.get(Setting.valhallaDir);
         if (!valhallaDir) {
             return null;
         }
@@ -220,4 +247,42 @@ export class ProjectInfoService implements IProjectInfoService
 
         return browseConfig;
     }
+
+    getDependenciesForSourceFile(uri: vscode.Uri): string[] | null
+    {
+        const result: string[] = [];
+        const valhallaDir = this.settings.get(Setting.valhallaDir);
+        if (!valhallaDir) {
+            return null;
+        }
+
+        const relativePath = path.relative(valhallaDir, uri.fsPath);
+        const ninjaTarget = "//" + relativePath.replace(/\\/g, '/');
+
+        const queue = [ninjaTarget];
+        const visited = new Set<string>();
+
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (visited.has(current)) {
+                continue;
+            }
+            visited.add(current);
+            result.push(current);
+
+            const parts = this.partOf.get(current);
+            if (!parts) {
+                continue;
+            }
+
+            for (const part of parts) {
+                if (!visited.has(part)) {
+                    queue.push(part);
+                }
+            }
+        }
+
+        return result.length > 0 ? result : null;
+    }
+
 }

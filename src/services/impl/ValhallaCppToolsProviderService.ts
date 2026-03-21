@@ -4,21 +4,13 @@ import * as cpptools from 'vscode-cpptools';
 import { AppServiceContainer } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
-import { IBuilderService } from '../IBuilderService';
-import { CompilerStandard, IntelliSenseMode, MutableSourceFileConfiguration } from '../../components/SourceFileConfiguration';
-import { IProjectInfoService } from '../IProjectInfoService';
-import { ICompileCommandsService } from '../ICompileCommandsService';
+import { ISourceFileConfigurationService } from '../ISourceFileConfigurationService';
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
     private settings: ISettingsService;
     private logOutputChannel: vscode.LogOutputChannel;
-    private builder: IBuilderService;
-    private projectInfo: IProjectInfoService;
-    private compileCommands: ICompileCommandsService;
-
-    private sourceFileConfiguration = new vscode.EventEmitter<void>();
-    public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfiguration.event;
+    private sourceFileInfo: ISourceFileConfigurationService;
 
     static async create(services: AppServiceContainer): Promise<ValhallaCppToolsProviderService | null> {
         const settings = services.get('settings')
@@ -44,9 +36,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
         this.extensionId = context.extension.id;
         this.settings = settings;
-        this.builder = services.get('builder');
-        this.projectInfo = services.get('projectInfo');
-        this.compileCommands = services.get('compileCommands');
+        this.sourceFileInfo = services.get('sourceFileInfo');
         this.logOutputChannel = services.get('logOutputChannel');
 
         const buildCompleteEvent = services.get('buildComplete');
@@ -66,10 +56,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         cppToolsApi.registerCustomConfigurationProvider(this);
         initialBuild.then(() => {
             cppToolsApi.notifyReady(this);
-            this.projectInfo.onChange(() => {
-                this.cppToolsApi?.didChangeCustomConfiguration(this);
-            });
-            this.compileCommands.onChange(() => {
+            this.sourceFileInfo.onDidChangeSourceFileConfiguration(() => {
                 this.cppToolsApi?.didChangeCustomConfiguration(this);
             });
         });
@@ -89,7 +76,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         if (!this.isValhallaProject()) {
             return false;
         }
-        const hasConfig = !!(await this.getSourceFileConfiguration(uri));
+        const hasConfig = !!(await this.sourceFileInfo.getSourceFileConfiguration(uri));
         if (!hasConfig) {
             this.logOutputChannel.error(`No configuration found for ${uri.fsPath}.`);
         }
@@ -102,7 +89,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
         for (const uri of uris) {
             this.logOutputChannel.info(`Provide configuration for ${uri.fsPath}`);
-            const config = await this.getSourceFileConfiguration(uri);
+            const config = await this.sourceFileInfo.getSourceFileConfiguration(uri);
             if (config) {
                 result.push({
                     uri: uri,
@@ -124,7 +111,7 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
     }
 
     async provideBrowseConfiguration(token?: vscode.CancellationToken): Promise<cpptools.WorkspaceBrowseConfiguration | null> {
-        return await this.getBrowseConfiguration();
+        return await this.sourceFileInfo.getBrowseConfiguration();
     }
 
     async canProvideBrowseConfigurationsPerFolder(token?: vscode.CancellationToken): Promise<boolean> {
@@ -140,94 +127,5 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
 
     dispose() {
         // throw new Error('Method not implemented.');
-    }
-
-    ///////////////////////////////////////////////////////////////////
-    public async getSourceFileConfiguration(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | undefined | null> {
-
-        let entry = this.getFromCompileCommands(uri);
-        if (!entry)
-            entry = this.getFromProjectInfo(uri);
-
-        if (!entry)
-            return null;
-
-        entry = await this.enrich(entry);
-        return entry;
-    }
-
-    private getFromCompileCommands(uri: vscode.Uri): MutableSourceFileConfiguration | null
-    {
-        return this.compileCommands.getSourceFileConfiguration(uri);
-    }
-
-    private getFromProjectInfo(uri: vscode.Uri): MutableSourceFileConfiguration | null
-    {
-        const target = this.projectInfo.getSourceFileConfiguration(uri, this.compileCommands.cxxCompiler);
-        return target ?? null;
-    }
-
-    private async enrich(info: MutableSourceFileConfiguration): Promise<MutableSourceFileConfiguration>
-    {
-        const compilerArgs = this.settings.get(Setting.compiler);
-        const intelliSenseMode = this.settings.get(Setting.intelliSenseMode);
-        const result = Object.assign({}, info);
-
-        const includeDirs = this.settings.get(Setting.includeDirs)
-        if (includeDirs && includeDirs.length > 0)
-            result.includePath = [...includeDirs, ...result.includePath]
-        const defines = this.settings.get(Setting.defines);
-        if (defines)
-            result.defines = [...Object.entries(defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
-
-        if (compilerArgs && compilerArgs.length > 0 && !result.compilerPath) {
-            result.compilerPath = compilerArgs[0];
-            result.compilerArgs = compilerArgs.slice(1);
-        }
-
-        if (intelliSenseMode && !result.intelliSenseMode) {
-            result.intelliSenseMode = intelliSenseMode as IntelliSenseMode;
-        }
-
-        const toolchain = await this.builder.toolchain()
-        if (toolchain) {
-            if (!result.compilerPath && toolchain.compiler && toolchain.compiler.length > 0) {
-                result.compilerPath = toolchain.compiler[0];
-                result.compilerArgs = toolchain.compiler.slice(1);
-            }
-
-            if (toolchain.intelliSenseMode && !result.intelliSenseMode) {
-                result.intelliSenseMode = toolchain.intelliSenseMode as IntelliSenseMode;
-            }
-
-            if (toolchain.cppStandard && !result.standard) {
-                result.standard = toolchain.cppStandard as CompilerStandard;
-            }
-
-            if (toolchain.includeDirs && toolchain.includeDirs.length > 0) {
-                result.includePath = [...toolchain.includeDirs, ...result.includePath];
-            }
-
-            if (toolchain.defines) {
-                result.defines = [...Object.entries(toolchain.defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
-            }
-        }
-
-        return result;
-    }
-
-    private async getBrowseConfiguration(): Promise<cpptools.WorkspaceBrowseConfiguration | null>
-    {
-        const browseConfig = this.projectInfo.getBrowseConfiguration();
-        if (!browseConfig) {
-            return null;
-        }
-
-        return {
-            browsePath: browseConfig.browsePath,
-            standard: browseConfig.standard,
-            compilerPath: browseConfig.compilerPath,
-            compilerArgs: browseConfig.compilerArgs
-        };
     }
 }

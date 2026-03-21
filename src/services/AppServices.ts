@@ -16,6 +16,8 @@ import { ServiceContainer } from './ServiceContainer';
 import { IArgsTreeProvider } from './IArgsTreeProvider';
 import { ICompileCommandsService } from './ICompileCommandsService';
 import { IReviewService } from './IReviewService';
+import { ISourceFileConfigurationService } from './ISourceFileConfigurationService';
+import { IFileDecorationProvider } from './IFileDecorationProvider';
 
 export type AppServices =
 {
@@ -34,6 +36,7 @@ export type AppServices =
 
     builder: IBuilderService;
     buildStatus: IBuildStatusService;
+    sourceFileInfo: ISourceFileConfigurationService;
     cppToolsProvider: IValhallaCppToolsProvider | null;
     status: IStatusService;
     tasks: IValhallaTaskProvider;
@@ -43,6 +46,7 @@ export type AppServices =
     sourceFileConfigurationTree: ISourceFileConfigurationItemTreeProvider;
     argsTree: IArgsTreeProvider;
     review: IReviewService;
+    fileDecorations: IFileDecorationProvider;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;

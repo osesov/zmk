@@ -132,6 +132,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         const taskDefinition = Object.assign({}, taskDefinitionTemplate);
 
         taskDefinition.label = multipleWorkspaceFolders ? `${workspaceFolder.name}: ${title}` : title;
+        taskDefinition.mode = buildKind;
 
         // build command
         const task = new vscode.Task(

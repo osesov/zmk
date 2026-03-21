@@ -14,6 +14,7 @@ export interface ProjectJsonTarget {
     externs: { [k: string]: unknown }  | undefined; // ???
     outputs: string[] | undefined;
     sources: string[] | undefined;
+    source_outputs: { [k: string]: string[] } | undefined;
     public: string | undefined;
     public_configs: string[] | undefined;
     script: string | undefined;

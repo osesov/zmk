@@ -136,6 +136,11 @@ export class CompileCommandsService implements ICompileCommandsService
         return result;
     }
 
+    public isFileListed(uri: vscode.Uri): boolean
+    {
+        return this.cache.has(path.normalize(uri.fsPath));
+    }
+
     public getSourceFileConfiguration(uri: vscode.Uri): SourceFileConfigurationEx | null {
         const filePath = uri.fsPath;
 

@@ -25,6 +25,8 @@ import { ReviewService } from './services/impl/ReviewService';
 import { getBuildDirAndCreate, getCurrentFile, getNfsDir, getNinjaTarget, getOrDefault, getRootDir, getTargetConfig, updateCurrentEnvironment } from './components/oldies';
 import { zmkUpdateBundlesInclude } from './components/CCxxPropertiesFile';
 import { awaitReady } from './services/IAsyncServiceInit';
+import { SourceFileConfigurationService } from './services/impl/SourceFileConfigurationService';
+import { FileDecorationProvider } from './services/impl/FileDecorationProvider';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -218,6 +220,36 @@ function checkCopyrightHeader(document: vscode.TextDocument)
 		});
 }
 
+async function getDependency(services: AppServiceContainer): Promise<string>
+{
+	const uri = vscode.window.activeTextEditor?.document.uri;
+	if (!uri) {
+		return "";
+	}
+
+	const sourceFileInfo = services.get('sourceFileInfo');
+	const targets = sourceFileInfo.getDependenciesForSourceFile(uri);
+
+	if (!targets || targets.length === 0) {
+		return "";
+	}
+
+	if (targets.length === 1) {
+		return targets[0];
+	}
+
+	return vscode.window.showQuickPick(targets, {placeHolder: "Multiple targets for current file, select one"})
+		.then( target => {
+			if (target) {
+				vscode.window.showInformationMessage(`Selected target: ${target}`);
+				return target;
+			}
+			else {
+				return "";
+			}
+		});
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	const services: AppServiceContainer = new ServiceContainer();
 	const buildOutputChannel = vscode.window.createOutputChannel('Valhalla Build');
@@ -239,6 +271,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
 		.registerInstance('builder', new BuilderService(services))
 		.registerInstance('buildStatus', new BuildStatusService(services, buildComplete, initialBuild))
+		.registerInstance('sourceFileInfo', new SourceFileConfigurationService(services))
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
 		.registerInstance('tasks', new ValhallaTaskProvider(services))
 		.registerInstance('status', new StatusService(services))
@@ -248,6 +281,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('sourceFileConfigurationTree', new SourceFileConfigurationItemTreeProvider(services))
 		.registerInstance('argsTree', new ArgsTreeProvider(services))
 		.registerInstance('review', new ReviewService(services))
+		// .registerInstance('fileDecorations', new FileDecorationProvider(services))
 		;
 
 	const commands = [
@@ -257,6 +291,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		{ label: 'zmk.getBuildDir', command: getBuildDirAndCreate },
 		{ label: 'zmk.getNfsDir', command: getNfsDir },
 		{ label: 'zmk.getCurrentFile', command: getCurrentFile },
+		{ label: 'zmk.getCurrentFileTarget', command: () => getDependency(services) },
 		{ label: 'zmk.updateBundlesInclude', command: () => zmkUpdateBundlesInclude(services) }
 	];
 
