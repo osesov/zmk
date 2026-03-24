@@ -8,6 +8,7 @@ import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IBuilderService, NeedBuildResult } from '../IBuilderService';
 import { expectNever } from '../../components/utils';
+import { zmkCommand } from '../../components/constants';
 
 export class BuildStatusService implements IBuildStatusService
 {
@@ -46,37 +47,50 @@ export class BuildStatusService implements IBuildStatusService
     private async buildIfNecessary(): Promise<boolean>
     {
         try {
-// return Promise.resolve();
-            const builder = this.builder;
-            const needBuildResult = await builder.needBuild();
+            while (true) {
+                const builder = this.builder;
+                const needBuildResult = await builder.needBuild();
+                const configureButton = 'Configure';
+                const buildMinButton = 'Build Minimal';
+                const buildAllButton = 'Build All';
 
-            switch (needBuildResult) {
-                case NeedBuildResult.no:
-                    return true;
+                switch (needBuildResult) {
+                    case NeedBuildResult.no:
+                        return true;
 
-                case NeedBuildResult.configIncomplete:
-                    vscode.window.showWarningMessage('Build configuration is incomplete. Check "zmk.config" setting.');
-                    return false;
+                    case NeedBuildResult.configIncomplete:
+                        const result = await vscode.window.showWarningMessage('Build configuration is incomplete. Set "zmk.config".', configureButton);
+                        if (result === configureButton) {
+                            await vscode.commands.executeCommand(zmkCommand.setConfig);
+                            continue;
 
-                case NeedBuildResult.yes:
-                    const buildMinButton = 'Build Minimal';
-                    const buildAllButton = 'Build All';
-                    const skipButton = 'Skip';
-                    const answer = await vscode.window.showWarningMessage(`Output directory does not exist. Build is required.`, buildMinButton, buildAllButton, skipButton);
+                        }
+                        return false;
 
-                    if (answer === buildMinButton) {
-                        return await builder.buildDefaultTarget();
-                    }
-                    if (answer === buildAllButton) {
-                        return await builder.buildAllTarget();
-                    }
+                    case NeedBuildResult.yes:
+                        const config = this.settings.get(Setting.config);
+                        const answer = await vscode.window.showWarningMessage(`Output directory for '${config}' does not exist. Build is required.`,
+                            configureButton, buildMinButton, buildAllButton);
 
-                    return false;
+                        switch (answer) {
+                            case configureButton:
+                                await vscode.commands.executeCommand(zmkCommand.setConfig);
+                                continue;
 
-                default:
-                    expectNever(needBuildResult);
-                    vscode.window.showErrorMessage('Unexpected result from build check.');
-                    return false;
+                            case buildMinButton:
+                                return await builder.buildDefaultTarget();
+
+                            case buildAllButton:
+                                return await builder.buildAllTarget();
+                        }
+
+                        return false;
+
+                    default:
+                        expectNever(needBuildResult);
+                        vscode.window.showErrorMessage('Unexpected result from build check.');
+                        return false;
+                }
             }
 
         } catch (err) {

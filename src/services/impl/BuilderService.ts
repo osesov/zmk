@@ -5,7 +5,7 @@ import { AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService, NeedBuildResult } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
 import { expectNever, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
-import { JsonValue, Setting, Toolchain } from '../ISettingsService';
+import { ISettingsService, JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
 import { AsyncCache } from '../../components/LazyCache';
 
@@ -23,9 +23,12 @@ export class BuilderService implements IBuilderService
     public readonly onBuildFinished = this._onBuildFinished.event;
 
     private readonly _toolchain = new AsyncCache<Toolchain | null>(() => this.selectToolchain());
+    private readonly settings: ISettingsService;
 
     constructor(private services: ServiceContainer <AppServices>)
     {
+        this.settings = services.get('settings');
+
         if (isDevContainerHost())
             this.gnbCommand = ["../gnbc"];
         else
@@ -41,7 +44,7 @@ export class BuilderService implements IBuilderService
 
         initialBuild.finally(() => resetState());
         buildComplete(() => resetState());
-        this.services.get('settings').onChange(() => resetState());
+        this.settings.onChange(() => resetState());
     }
 
     async toolchain(): Promise<Toolchain | null> {
@@ -50,8 +53,7 @@ export class BuilderService implements IBuilderService
 
     public getConfigsDir(): string | null
     {
-        const settings = this.services.get('settings');
-        const valhallaDir = settings.get(Setting.valhallaFolder);
+        const valhallaDir = this.settings.get(Setting.valhallaFolder);
         if (!valhallaDir)
             return null;
 
@@ -60,8 +62,7 @@ export class BuilderService implements IBuilderService
 
     public getOutputDir(): string | null
     {
-        const settings = this.services.get('settings');
-        return settings.get(Setting.outputDir) ?? null;
+        return this.settings.get(Setting.outputDir) ?? null;
      }
 
     async buildTarget(target: string | undefined): Promise<boolean>
@@ -155,6 +156,11 @@ export class BuilderService implements IBuilderService
 
     public async needBuild(): Promise<NeedBuildResult>
     {
+        const isValhallaProject = this.settings.get(Setting.isValhallaProject);
+        if (!isValhallaProject) {
+            return NeedBuildResult.no;
+        }
+
         const outputDir = this.getOutputDir();
         if (!outputDir) {
             return NeedBuildResult.configIncomplete;
