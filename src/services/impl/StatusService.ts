@@ -27,6 +27,7 @@ export class StatusService implements IStatusService
     {
         const initialBuild = services.get('initialBuild');
         const buildComplete = services.get('buildComplete');
+        const argsFile = services.get('argsFile');
         this.settings = services.get('settings');
         this.builder = services.get('builder');
 
@@ -41,6 +42,7 @@ export class StatusService implements IStatusService
 
         initialBuild.finally(() => this.updateToolchain());
         buildComplete(() => this.updateToolchain());
+        argsFile.onChange(() => this.updateToolchain());
 
         this.updateSettings();
     }
