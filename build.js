@@ -1,4 +1,20 @@
 const esbuild = require('esbuild');
+const package = require('./package.json');
+const child_process = require('child_process');
+
+if (process.argv.includes('--prepublish')) {
+  console.log(`Checking if version ${package.version} already exists as a remote git tag...`);
+  child_process.execSync('git fetch --tags origin --prune', { stdio: 'inherit' });
+  const output = child_process.execSync(`git ls-remote origin refs/tags/${package.version}`, { stdio: ['ignore', 'pipe', 'inherit'] });
+
+  if (output.toString().trim()) {
+    console.error(`Version ${package.version} already exists as a git tag. Please remove the existing tag before publishing.`);
+    process.exit(1);
+  }
+
+  console.log(`Version ${package.version} is available for publishing.`);
+  return;
+}
 
 esbuild.build({
   entryPoints: ['src/extension.ts'],

@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "2.0.1",
+	"version": "2.1.0",
 	"engines": {
 		"vscode": "^1.111.0"
 	},
@@ -514,6 +514,7 @@
 		"watch": "tsc -watch -p ./",
 		"test": "npm run compile && vscode-test",
 		"package": "npm i && npm run compile && vsce package",
+		"prepublish": "node build.js --prepublish",
 		"lint": "eslint ."
 	},
 	"devDependencies": {
