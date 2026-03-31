@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { parseProjectJson, ProjectJsonFile, ProjectJsonTarget } from "../../components/ProjectInfo";
+import { parseProjectJson, ProjectJsonFile, ProjectJsonLinkUnit, ProjectJsonTarget } from "../../components/ProjectInfo";
 import { IProjectInfoService } from "../IProjectInfoService";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
@@ -67,6 +67,58 @@ function buildLinks(
     }
 }
 
+function buildSourceToTargetMap(
+    projectJson: ProjectJsonFile | null,
+    sourceToTargetCache: Map<string, string[]>,
+): void
+{
+    sourceToTargetCache.clear();
+
+    if (!projectJson) {
+        return;
+    }
+
+    for (const [key, target] of Object.entries(projectJson.targets ?? {})) {
+        const sources = target.sources;
+        if (!sources || !Array.isArray(sources)) {
+            continue;
+        }
+
+        for (const source of sources) {
+            if (!sourceToTargetCache.has(source)) {
+                sourceToTargetCache.set(source, []);
+            }
+            sourceToTargetCache.get(source)!.push(key);
+        }
+    }
+}
+
+function buildDepToTargetMap(
+    projectJson: ProjectJsonFile | null,
+    depToTargetCache: Map<string, string[]>,
+): void
+{
+    depToTargetCache.clear();
+
+    if (!projectJson) {
+        return;
+    }
+
+    for (const [key, target] of Object.entries(projectJson.targets ?? {})) {
+        const deps = target.deps;
+        if (!deps || !Array.isArray(deps)) {
+            continue;
+        }
+
+        for (const dep of deps) {
+            if (!depToTargetCache.has(dep)) {
+                depToTargetCache.set(dep, []);
+            }
+            depToTargetCache.get(dep)!.push(key);
+        }
+    }
+}
+
 export class ProjectInfoService implements IProjectInfoService
 {
 
@@ -75,6 +127,8 @@ export class ProjectInfoService implements IProjectInfoService
     private projectJson: ProjectJsonFile | null = null;
     private links: Map<string, CacheEntry> = new Map();
     private partOf: Map<string, string[]> = new Map();
+    private sourceToTargetCache: Map<string, string[]> = new Map();
+    private depToTargetCache: Map<string, string[]> = new Map();
 
     private _onChange = new vscode.EventEmitter<void>();
 
@@ -91,6 +145,9 @@ export class ProjectInfoService implements IProjectInfoService
             const content = await this.fileWatcher.getContentAsync()
             this.projectJson = content ? parseProjectJson(content) : null;
             buildLinks(this.projectJson, this.links, this.partOf);
+
+            buildSourceToTargetMap(this.projectJson, this.sourceToTargetCache);
+            buildDepToTargetMap(this.projectJson, this.depToTargetCache);
 
             this._onChange.fire();
         }
@@ -285,4 +342,76 @@ export class ProjectInfoService implements IProjectInfoService
         return result.length > 0 ? result : null;
     }
 
+    getLinkUnits(): ProjectJsonLinkUnit[]
+    {
+        const targets = this.projectJson?.targets;
+        if (!targets || typeof targets !== 'object') {
+            return [];
+        }
+
+        const result: ProjectJsonLinkUnit[] = [];
+        for (const [name, target] of Object.entries(targets)) {
+            if (target.type !== 'shared_library'
+                && target.type !== 'static_library'
+                && target.type !== 'executable') {
+                continue;
+            }
+
+            result.push({
+                target: name,
+                type: target.type,
+            });
+        }
+
+        result.sort((a, b) => a.target.localeCompare(b.target));
+        return result;
+    }
+
+    getLinkUnitsForFile(uri: vscode.Uri): ProjectJsonLinkUnit[] | null
+    {
+        const valhallaDir = this.settings.get(Setting.valhallaDir);
+        if (!valhallaDir) {
+            return null;
+        }
+
+        const relativePath = path.relative(valhallaDir, uri.fsPath);
+        const ninjaTarget = "//" + relativePath.replace(/\\/g, '/');
+
+        // 1st: find file among 'source_outputs'
+        // if this is a source_set, then find the source_set name
+        // in the 'deps' of the link units
+        // continue until we find the link unit or exhaust the graph
+
+        const candidates = [...this.sourceToTargetCache.get(ninjaTarget) || []];
+        const result: ProjectJsonLinkUnit[] = [];
+        const allTargets = this.projectJson?.targets;
+        if (!allTargets || typeof allTargets !== 'object' || !candidates || candidates.length === 0) {
+            return null;
+        }
+
+        // second step: for each target, find link units that depend on it (directly or indirectly)
+        while (candidates.length > 0) {
+            const target = candidates.shift()!;
+            const targetInfo = allTargets[target];
+            if (!targetInfo) {
+                continue;
+            }
+
+            if (targetInfo.type === 'shared_library'
+                || targetInfo.type === 'static_library'
+                || targetInfo.type === 'executable') {
+                result.push({
+                    target,
+                    type: targetInfo.type,
+                });
+                continue;
+            }
+
+            if (targetInfo.type === 'source_set') {
+                candidates.push(...this.depToTargetCache.get(target) || []);
+            }
+        }
+
+        return result.length > 0 ? result : null;
+    }
 }

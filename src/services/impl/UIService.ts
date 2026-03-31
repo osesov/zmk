@@ -29,6 +29,10 @@ export class UIService implements IUIService
             vscode.commands.registerCommand(zmkCommand.selectValhallaProject, async () => this.selectValhallaProject())
         );
 
+        context.subscriptions.push(
+            vscode.commands.registerCommand(zmkCommand.selectAndBuildTarget, async () => this.selectAndBuildTarget())
+        );
+
         this.settings.onChange(e => {
             if (e.affects(Setting.workspaceFolders)) {
                 this.workspaceFoldersChanged();
@@ -126,5 +130,64 @@ export class UIService implements IUIService
         if (selection) {
             await this.settings.updateWorkspaceState(Setting.activeProject, selection.uri.fsPath);
         }
+    }
+
+    private async selectAndBuildTarget(): Promise<void>
+    {
+        const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+
+        if (!valhallaFolder)
+            return;
+
+        const projectInfo = this.services.get('projectInfo');
+        const linkUnits = projectInfo.getLinkUnits();
+        const currentFile = await this.getCurrentFile(valhallaFolder);
+        const fileLinkUnits = currentFile ? projectInfo.getLinkUnitsForFile(currentFile) : null;
+
+        // prepare quick pick items
+        const tasks: vscode.QuickPickItem[] = [];
+        if (fileLinkUnits && fileLinkUnits.length > 0) {
+            tasks.push({ label: '--- Targets related to current file ---', kind: vscode.QuickPickItemKind.Separator });
+            for (const linkUnit of fileLinkUnits) {
+                tasks.push({ label: linkUnit.target, description: linkUnit.type });
+            }
+        }
+
+        let haveOtherTargets = false;
+        for (const linkUnit of linkUnits) {
+            if (fileLinkUnits && fileLinkUnits.find(u => u.target === linkUnit.target))
+                continue;
+
+            if (!haveOtherTargets) {
+                tasks.push({ label: '--- Other targets ---', kind: vscode.QuickPickItemKind.Separator });
+                haveOtherTargets = true;
+            }
+
+            tasks.push({ label: linkUnit.target, description: linkUnit.type });
+        }
+
+        await vscode.window.showQuickPick(tasks, { placeHolder: 'Select a target to build' })
+        .then(async selection => {
+            if (selection) {
+                const targetName = selection.label;
+                const builder = this.services.get('builder');
+                await builder.buildTarget(targetName);
+            }
+        });
+    }
+
+    private async getCurrentFile(valhallaFolder: vscode.Uri): Promise<vscode.Uri | null>
+    {
+        const fileUri = vscode.window.activeTextEditor?.document.uri;
+        if (!fileUri || !valhallaFolder) {
+            return null;
+        }
+
+        // should be relative to valhalla dir, if not inside return null
+        if (!fileUri.fsPath.startsWith(valhallaFolder.fsPath)) {
+            return null;
+        }
+
+        return fileUri;
     }
 }

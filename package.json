@@ -54,6 +54,10 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "zmk.selectAndBuildTarget",
+				"title": "ZMK: Build Target"
+			},
+			{
 				"command": "zmk.buildTarget",
 				"title": "Build",
 				"icon": "$(play)"

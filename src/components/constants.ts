@@ -17,6 +17,7 @@ export namespace zmkCommand
     export const toggleIncludeListView = "zmk.toggleIncludeListView";
 
     export const selectValhallaProject = "zmk.selectValhallaProject";
+    export const selectAndBuildTarget = "zmk.selectAndBuildTarget";
     export const revealIncludeInExplorer = "zmk.revealIncludeInExplorer";
     export const revealIncludeInOS = "zmk.revealIncludeInOS";
     export const copyText = "zmk.cppSource.copyText";

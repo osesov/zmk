@@ -32,6 +32,13 @@ export interface ProjectJsonTarget {
     libs: string[] | undefined;
 }
 
+export type ProjectJsonLinkUnitType = Extract<ProjectJsonTarget['type'], 'shared_library' | 'static_library' | 'executable'>;
+
+export interface ProjectJsonLinkUnit {
+    target: string;
+    type: ProjectJsonLinkUnitType;
+}
+
 interface ProjectJsonTool
 {
     command: string | undefined;

@@ -92,6 +92,7 @@ Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
 - **`zmk.setConfig`**: Select build configuration
 - **`zmk.buildTarget`**: Build selected target
+- **`zmk.selectAndBuildTarget`**: Pick target to build
 - **`zmk.setDefaultTarget`**: Set target as default
 - **`zmk.resetTarget`**: Clear default target
 - **`zmk.refreshConfigTree`**: Refresh configuration list

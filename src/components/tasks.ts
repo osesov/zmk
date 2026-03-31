@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { AppServiceContainer } from '../services/AppServices';
-import { Setting } from '../services/ISettingsService';
+import { ISettingsService, Setting } from '../services/ISettingsService';
 import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
 import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../services/IBuilderService';
 import { assertNever } from './utils';
@@ -13,15 +13,17 @@ interface ValhallaTaskDefinition extends vscode.TaskDefinition, BuildCommandOpti
 
 export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskProvider
 {
+    private readonly settings: ISettingsService;
+
     constructor(private services: AppServiceContainer)
     {
+        this.settings = services.get('settings');
         const context = services.get('context');
         context.subscriptions.push(vscode.tasks.registerTaskProvider(gnbTaskType, this));
     }
 
     public async provideTasks(token: vscode.CancellationToken): Promise<vscode.Task[]> {
 
-        const settings = this.services.get('settings');
         const builder = this.services.get('builder');
         const tasks: vscode.Task[] = [];
         const taskDefinition: ValhallaTaskDefinition = {
@@ -29,12 +31,18 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             label: '',
             command: undefined,
             mode: undefined,
-            config: settings.get(Setting.config),
-            target: settings.get(Setting.target),
-            gnbFlags: settings.get(Setting.gnbFlags),
-            gnFlags: settings.get(Setting.gnFlags),
+            config: this.settings.get(Setting.config),
+            target: this.settings.get(Setting.target),
+            gnbFlags: this.settings.get(Setting.gnbFlags),
+            gnFlags: this.settings.get(Setting.gnFlags),
             env: {},
         };
+
+        if (!this.settings.get(Setting.isValhallaProject)) {
+            return [];
+        }
+
+        const valhallaFolder = this.settings.get(Setting.valhallaFolder);
 
         const multipleWorkspaceFolders = (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1) ?? false;
 
@@ -95,12 +103,13 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
     private async createBuildCommand(
         tasks: vscode.Task[],
-        workspaceFolder: vscode.WorkspaceFolder,
+        scope: vscode.WorkspaceFolder | vscode.TaskScope,
         title: string,
         builder: IBuilderService,
         buildKind: BuildMode,
         taskDefinitionTemplate: ValhallaTaskDefinition,
-        multipleWorkspaceFolders: boolean
+        multipleWorkspaceFolders: boolean,
+        detailOverride?: string,
     )
     {
         const getDetails = (buildCommand: BuildCommand): string => {
@@ -130,14 +139,15 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
             return;
 
         const taskDefinition = Object.assign({}, taskDefinitionTemplate);
+        const workspaceFolderName = typeof scope === 'object' && 'name' in scope ? scope.name : undefined;
 
-        taskDefinition.label = multipleWorkspaceFolders ? `${workspaceFolder.name}: ${title}` : title;
+        taskDefinition.label = multipleWorkspaceFolders && workspaceFolderName ? `${workspaceFolderName}: ${title}` : title;
         taskDefinition.mode = buildKind;
 
         // build command
         const task = new vscode.Task(
             taskDefinition,
-            workspaceFolder,
+            scope,
             `${title} (${taskDefinition.config} | ${buildCommand.actualTarget ?? "not set"})`,
             gnbTaskType,
             new vscode.ProcessExecution(buildCommand.command[0], buildCommand.command.slice(1), {
@@ -170,7 +180,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
         task.presentationOptions = {
             clear: true
         }
-        task.detail = getDetails(buildCommand);
+        task.detail = detailOverride ?? getDetails(buildCommand);
         tasks.push(task);
     }
 }

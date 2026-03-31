@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ProjectJsonFile } from "../components/ProjectInfo";
+import { ProjectJsonFile, ProjectJsonLinkUnit } from "../components/ProjectInfo";
 import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../components/SourceFileConfiguration";
 
 export interface IProjectInfoService
@@ -12,4 +12,6 @@ export interface IProjectInfoService
     getSourceFileConfiguration(uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null;
     getBrowseConfiguration(): MutableWorkspaceBrowseConfiguration | null;
     getDependenciesForSourceFile(uri: vscode.Uri): string[] | null;
+    getLinkUnits(): ProjectJsonLinkUnit[];
+    getLinkUnitsForFile(uri: vscode.Uri): ProjectJsonLinkUnit[] | null
 }
