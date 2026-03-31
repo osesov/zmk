@@ -55,7 +55,7 @@
 			},
 			{
 				"command": "zmk.selectAndBuildTarget",
-				"title": "ZMK: Build Target"
+				"title": "ZMK: Build"
 			},
 			{
 				"command": "zmk.buildTarget",

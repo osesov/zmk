@@ -4,6 +4,7 @@ import { IUIService } from "../IUIService";
 import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
 import { extractPart, extractRange, groupBy, stripParts } from '../../components/utils';
+import { getCurrentFile } from '../../components/oldies';
 
 export class UIService implements IUIService
 {
@@ -88,7 +89,6 @@ export class UIService implements IUIService
             }
         })
         ;
-
     }
 
     private async workspaceFoldersChanged(): Promise<void>
@@ -134,22 +134,38 @@ export class UIService implements IUIService
 
     private async selectAndBuildTarget(): Promise<void>
     {
+        type TargetQuickPickItem = vscode.QuickPickItem & { target ?: string };
+
         const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+        const target = this.settings.get(Setting.target);
 
         if (!valhallaFolder)
             return;
 
         const projectInfo = this.services.get('projectInfo');
         const linkUnits = projectInfo.getLinkUnits();
-        const currentFile = await this.getCurrentFile(valhallaFolder);
-        const fileLinkUnits = currentFile ? projectInfo.getLinkUnitsForFile(currentFile) : null;
+        const currentFileUri = await this.getCurrentFile(valhallaFolder);
+        const fileLinkUnits = currentFileUri ? projectInfo.getLinkUnitsForFile(currentFileUri) : null;
+        const unitTests = projectInfo.getUnitTests();
+        const currentFileToBuild = getCurrentFile()
 
         // prepare quick pick items
-        const tasks: vscode.QuickPickItem[] = [];
+        const tasks: TargetQuickPickItem[] = [];
+
+        tasks.push({ label: '--- Known targets ---', kind: vscode.QuickPickItemKind.Separator });
+        tasks.push({ label: 'Build All', target: undefined });
+        if (target) {
+            tasks.push({ label: `Build ${target}`, target });
+        }
+        if (fileLinkUnits && fileLinkUnits.length > 0) {
+            tasks.push({ label: `Build Current File`, target: currentFileToBuild + '^' });
+        }
+        tasks.push({ label: 'Minimal Build', target: 'empty' });
+
         if (fileLinkUnits && fileLinkUnits.length > 0) {
             tasks.push({ label: '--- Targets related to current file ---', kind: vscode.QuickPickItemKind.Separator });
             for (const linkUnit of fileLinkUnits) {
-                tasks.push({ label: linkUnit.target, description: linkUnit.type });
+                tasks.push({ label: linkUnit.target, description: linkUnit.type, target: linkUnit.target });
             }
         }
 
@@ -163,15 +179,21 @@ export class UIService implements IUIService
                 haveOtherTargets = true;
             }
 
-            tasks.push({ label: linkUnit.target, description: linkUnit.type });
+            tasks.push({ label: linkUnit.target, description: linkUnit.type, target: linkUnit.target });
+        }
+
+        if (unitTests && unitTests.length > 0) {
+            tasks.push({ label: '--- Unit tests ---', kind: vscode.QuickPickItemKind.Separator });
+            for (const unitTest of unitTests ?? []) {
+                tasks.push({ label: unitTest, description: 'unit test', target: unitTest });
+            }
         }
 
         await vscode.window.showQuickPick(tasks, { placeHolder: 'Select a target to build' })
         .then(async selection => {
             if (selection) {
-                const targetName = selection.label;
                 const builder = this.services.get('builder');
-                await builder.buildTarget(targetName);
+                await builder.buildTarget(selection.target);
             }
         });
     }

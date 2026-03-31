@@ -14,4 +14,5 @@ export interface IProjectInfoService
     getDependenciesForSourceFile(uri: vscode.Uri): string[] | null;
     getLinkUnits(): ProjectJsonLinkUnit[];
     getLinkUnitsForFile(uri: vscode.Uri): ProjectJsonLinkUnit[] | null
+    getUnitTests(): string[] | null;
 }

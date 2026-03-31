@@ -384,6 +384,7 @@ export class ProjectInfoService implements IProjectInfoService
 
         const candidates = [...this.sourceToTargetCache.get(ninjaTarget) || []];
         const result: ProjectJsonLinkUnit[] = [];
+        const resultSet = new Set<string>();
         const allTargets = this.projectJson?.targets;
         if (!allTargets || typeof allTargets !== 'object' || !candidates || candidates.length === 0) {
             return null;
@@ -399,19 +400,43 @@ export class ProjectInfoService implements IProjectInfoService
 
             if (targetInfo.type === 'shared_library'
                 || targetInfo.type === 'static_library'
-                || targetInfo.type === 'executable') {
-                result.push({
-                    target,
-                    type: targetInfo.type,
-                });
-                continue;
+                || targetInfo.type === 'executable')
+            {
+                if (!resultSet.has(target)) {
+                    resultSet.add(target);
+                    result.push({
+                        target,
+                        type: targetInfo.type,
+                    });
+                }
             }
 
-            if (targetInfo.type === 'source_set') {
+            if (targetInfo.type === 'source_set'
+                || targetInfo.type === 'shared_library'
+                || targetInfo.type === 'static_library')
+            {
                 candidates.push(...this.depToTargetCache.get(target) || []);
             }
         }
 
+        return result.length > 0 ? result : null;
+    }
+
+    getUnitTests(): string[] | null
+    {
+        const targets = this.projectJson?.targets;
+        if (!targets || typeof targets !== 'object') {
+            return null;
+        }
+
+        const result: string[] = [];
+        for (const [name, target] of Object.entries(targets)) {
+            if (target.testonly || name.endsWith(":run_unittests")) {
+                result.push(name);
+            }
+        }
+
+        result.sort((a, b) => a.localeCompare(b));
         return result.length > 0 ? result : null;
     }
 }
