@@ -18,11 +18,13 @@ class ArgsNode extends vscode.TreeItem
     }
 }
 
-class NotValhallaArgsNode extends ArgsNode
+class NotValhallaProjectNode extends ArgsNode
 {
     constructor()
     {
-        super('Not Valhalla Args', '', '', '');
+        super('Current workspace is not a Valhalla project', '', '', '');
+        this.contextValue = "notValhalla";
+        this.iconPath = new vscode.ThemeIcon('warning');
     }
 }
 
@@ -54,7 +56,7 @@ export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArg
     {
         if (!element) {
             if ((!this.settings.get(Setting.isValhallaProject)))
-                return Promise.resolve([new NotValhallaArgsNode()]);
+                return Promise.resolve([new NotValhallaProjectNode()]);
 
             const args = this.argsFile.getArgs()?.getAll() ?? null;
 
