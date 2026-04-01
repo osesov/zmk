@@ -12,6 +12,7 @@ ZMK (Zodiac Make) streamlines Valhalla development workflows in VS Code with:
 - **Smart IntelliSense**: Automatic C++ IntelliSense configuration from your build
 - **Project Navigation**: Visual tree views for configurations, targets, and source settings
 - **Task Automation**: Pre-configured build, clean, and rebuild tasks
+- **Test Configuration**: Register valhalla unit tests in the test controller.
 - **Dynamic Configuration**: Command-based settings for use in VS Code config files
 
 ## Requirements
@@ -47,7 +48,7 @@ Build your Valhalla projects directly from VS Code:
 
 Get accurate C++ IntelliSense automatically:
 
-- **Automatic configuration** from `compile_commands.json`
+- **Automatic configuration** from `compile_commands.json`, `package.json`, `args.gn`
 - **Per-file settings**: Include paths, defines, compiler flags
 - **Custom toolchains** supported via settings
 - **Real-time updates** after each build
@@ -86,30 +87,25 @@ Create custom `gnb` tasks with full control:
 
 ## Commands
 
-### Build Commands
+### Interactive Build Commands
 
 Access these commands via the Command Palette (Ctrl+Shift+P / Cmd+Shift+P):
 
-- **`zmk.setConfig`**: Select build configuration
-- **`zmk.buildTarget`**: Build selected target
-- **`zmk.selectAndBuildTarget`**: Pick target to build
-- **`zmk.setDefaultTarget`**: Set target as default
-- **`zmk.resetTarget`**: Clear default target
-- **`zmk.refreshConfigTree`**: Refresh configuration list
-- **`zmk.refreshTargetTree`**: Refresh target list
+- **`ZMK: Set Config`(`zmk.setConfig`)**: Select build configuration
+- **`ZMK: Build`(`zmk.selectAndBuildTarget`)**: Pick target and build
+- **`ZMK: Run Test`(`zmk.selectAndRunTest`)**: Pick test and run
 
 ### Utility Commands
 
-- **`zmk.updateBundlesInclude`**: Auto-update C++ include paths with bundle directories
-- **`zmk.updateCopyright`**: Insert or update copyright header in current file
-- **`zmk.toggleIncludeListView`** / **`zmk.toggleIncludeTreeView`**: Change include path view mode
+- **`ZMK: Update bundles Include Paths`(`zmk.updateBundlesInclude`)**: Auto-update C++ include paths with bundle directories
+- **`"ZMK: Insert or update Copyright header"`(`zmk.updateCopyright`)**: Insert or update copyright header in current file
 
 ### Dynamic Configuration Commands
 
 Use these in your VS Code configuration files (tasks.json, launch.json, etc.) with `${command:...}` syntax:
 
 | Command | Returns | Example |
-|---------|---------|---------|
+| --------- | --------- | --------- |
 | `${command:zmk.getTargetConfig}` | Current config name | `zodiac-pc_linux-zebra-dev` |
 | `${command:zmk.getNinjaTarget}` | Current ninja target | `components/app:app` |
 | `${command:zmk.getRootDir}` | Root Valhalla directory | `/home/user/valhalla` |
@@ -123,7 +119,7 @@ Use these in your VS Code configuration files (tasks.json, launch.json, etc.) wi
 Configure ZMK in your workspace or user settings:
 
 | Setting | Description | Default |
-|---------|-------------|---------|
+| ------- | ----------- | ------- |
 | `zmk.rootDir` | Root Valhalla source directory | Auto-detected |
 | `zmk.buildDir` | Build output directory | `${rootDir}/out.${config}` |
 | `zmk.config` | Build configuration name | - |
@@ -132,7 +128,7 @@ Configure ZMK in your workspace or user settings:
 ### IntelliSense Settings
 
 | Setting | Description | Default |
-|---------|-------------|---------|
+| ------- | ----------- | ------- |
 | `zmk.disableCppToolsIntegration` | Disable automatic C++ IntelliSense integration | `false` |
 | `zmk.includeDirs` | Additional include directories (array) | `[]` |
 | `zmk.defines` | Additional preprocessor defines (object) | `{}` |
@@ -252,7 +248,7 @@ setup is required.
 ### Other Settings
 
 | Setting | Description | Default |
-|---------|-------------|---------|
+| ------- | ----------- | ------- |
 | `zmk.nfsDir` | Root of NFS image | `${buildDir}/linux/build_nfs_image/home/zodiac` |
 | `zmk.bundleDir` | Bundle directory location | `${buildDir}/linux/bundles` |
 | `zmk.excludeBundles` | Bundle names to exclude from includes | `[]` |
@@ -359,6 +355,7 @@ The `config-examples/` directory contains complete workspace configuration examp
 - **`zebra/`** - Zebra component development configuration
 
 Each example includes:
+
 - `c_cpp_properties.json` - C++ IntelliSense configuration
 - `launch.json` - Debug launch configurations
 - `settings.json` - Workspace settings
@@ -425,7 +422,7 @@ might be:
   with caution - might be not applicable to all targets. Although works fine for
   the legacy.
 
-### Nothing works!
+### "Nothing works!"
 
 There are few ways of disabling the C++ Tools integration, keeping other parts alive
 

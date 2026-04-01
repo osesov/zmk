@@ -4,6 +4,16 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 2.2.0
+
+- Integrate with Test Controller
+- Interactive command to tun test
+
+## 2.1.0
+
+- Interactive command to run build
+- Fix for non-valhalla workspaces
+
 ## 2.0.0
 
 Major architectural refactoring and feature enhancements.
