@@ -2,7 +2,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
-import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService, NeedBuildResult } from "../IBuilderService";
+import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
 import { expectNever, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
 import { ISettingsService, JsonValue, Setting, Toolchain } from '../ISettingsService';
@@ -19,7 +19,7 @@ export class BuilderService implements IBuilderService
     private _onBuildStarted = new vscode.EventEmitter<void>();
     public readonly onBuildStarted = this._onBuildStarted.event;
 
-    private _onBuildFinished = new vscode.EventEmitter<boolean>();
+    private _onBuildFinished = new vscode.EventEmitter<BuildResult>();
     public readonly onBuildFinished = this._onBuildFinished.event;
 
     private readonly _toolchain = new AsyncCache<Toolchain | null>(() => this.selectToolchain());
@@ -65,7 +65,7 @@ export class BuilderService implements IBuilderService
         return this.settings.get(Setting.outputDir) ?? null;
      }
 
-    async buildTarget(target: string | undefined): Promise<boolean>
+    async buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>
     {
         const outputChannel = this.services.get('buildOutputChannel');
 
@@ -74,7 +74,7 @@ export class BuilderService implements IBuilderService
         const buildCommand = await this.getBuildCommand({target: target}, BuildMode.build);
         if (!buildCommand) {
             vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
-            return false;
+            return { success: false, status: 'Valhalla folder or configuration is not set', output: [] };
         }
 
         outputChannel.appendLine(`Running command: ${buildCommand.command.join(' ')}`);
@@ -87,8 +87,9 @@ export class BuilderService implements IBuilderService
             cancellable: true
         }, (progress, token) => {
             this._onBuildStarted.fire();
+            let output: string[] = [];
 
-            return new Promise<boolean>((resolve, reject) => {
+            return new Promise<BuildResult>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';
 
                 withoutException<void>(() => fs.mkdirSync(buildCommand.cwd, { recursive: true }), undefined);
@@ -118,38 +119,45 @@ export class BuilderService implements IBuilderService
                 proc.on('error', (err) => {
                     outputChannel.appendLine(`Failed to start build process: ${err.message}`);
                     outputChannel.show(true);
-                    reject(new Error(`Failed to start build process: ${err.message}`));
+                    resolve({ success: false, status: `failed to start build process: ${err.message}`, output });
                 });
 
                 proc.on('exit', (code, signal) => {
                     if (code === 0) {
                         outputChannel.appendLine('Build completed successfully.');
-                        resolve(true);
+                        resolve({ success: true, status: 0, output });
                     } else {
                         outputChannel.appendLine(`Build failed with exit code ${code} and signal ${signal}.`);
                         outputChannel.show(true);
-                        resolve(false);
+                        resolve({ success: false, status: code ?? signal ?? 'unknown', output });
 
                     }
                 });
 
-                const logger = (prefix: string) => (data: Buffer) => {
+                const logger = (prefix: string, stdout: boolean) => (data: Buffer) => {
                     const lines = data.toString().split('\n');
                     for (const line of lines) {
                         outputChannel.appendLine(`[${prefix}] ${line.trimEnd()}`);
+                        output.push(line);
+
+                        if (stdout) {
+                            options?.onStdout?.(line);
+                        } else {
+                            options?.onStderr?.(line);
+                        }
                     }
                 };
 
-                proc.stderr.on('data', logger('STDERR'));
-                proc.stdout.on('data', logger('STDOUT'));
+                proc.stderr.on('data', logger('STDERR', false));
+                proc.stdout.on('data', logger('STDOUT', true));
             })
             .then((status) => {
                 this._onBuildFinished.fire(status);
                 return status;
             })
-            .catch(() => {
-                this._onBuildFinished.fire(false);
-                return false;
+            .catch((err) => {
+                this._onBuildFinished.fire({ success: false, status: `Build failed: ${err.message}`, output });
+                return { success: false, status: `Build failed: ${err.message}`, output };
             });
         });
     }
@@ -170,31 +178,31 @@ export class BuilderService implements IBuilderService
         return isValid ? NeedBuildResult.no : NeedBuildResult.yes;
     }
 
-    public async buildDefaultTargetIfNeeded(): Promise<boolean>
+    public async buildDefaultTargetIfNeeded(): Promise<BuildResult>
     {
         const needBuildResult = await this.needBuild();
         if (needBuildResult === NeedBuildResult.no) {
-            return true;
+            return { success: true, status: 0, output: [] };
         }
         if (needBuildResult === NeedBuildResult.configIncomplete) {
             vscode.window.showWarningMessage('Build configuration is incomplete. Check "zmk.config" setting.');
-            return false;
+            return { success: false, status: null, output: [] };
         }
 
-        const success = await this.buildTarget(defaultBuildTarget);
-        if (success && (await this.needBuild() !== NeedBuildResult.no)) {
+        const result = await this.buildTarget(defaultBuildTarget);
+        if (result.success && (await this.needBuild() !== NeedBuildResult.no)) {
             vscode.window.showErrorMessage(`Failed to build Valhalla.`);
-            return false;
+            return result;
         }
-        return success;
+        return result;
     }
 
-    public async buildDefaultTarget(): Promise<boolean>
+    public async buildDefaultTarget(): Promise<BuildResult>
     {
         return await this.buildTarget(defaultBuildTarget);
     }
 
-    public async buildAllTarget(): Promise<boolean>
+    public async buildAllTarget(): Promise<BuildResult>
     {
         return await this.buildTarget(allBuildTarget);
     }

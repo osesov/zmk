@@ -40,18 +40,31 @@ export enum NeedBuildResult
     configIncomplete
 }
 
+export interface BuildTargetOptions
+{
+    onStdout ?: (data: string) => void;
+    onStderr ?: (data: string) => void;
+}
+
+export interface BuildResult
+{
+    success: boolean;
+    status: number | string | null;
+    output: string[];
+}
+
 export interface IBuilderService
 {
     onBuildStarted: vscode.Event<void>;
-    onBuildFinished: vscode.Event<boolean>;
+    onBuildFinished: vscode.Event<BuildResult>;
 
     getBuildCommand(options ?: BuildCommandOptions, buildKind?: BuildMode): Promise<BuildCommand | null>;
 
     needBuild(): Promise<NeedBuildResult>;
-    buildTarget(target: string | undefined): Promise<boolean>;
-    buildDefaultTarget(): Promise<boolean>;
-    buildAllTarget(): Promise<boolean>;
-    buildDefaultTargetIfNeeded(): Promise<boolean>;
+    buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>;
+    buildDefaultTarget(): Promise<BuildResult>;
+    buildAllTarget(): Promise<BuildResult>;
+    buildDefaultTargetIfNeeded(): Promise<BuildResult>;
 
     getConfigPath(configName: string): Promise<string | null>;
     listConfigs(): Promise<string[]>;

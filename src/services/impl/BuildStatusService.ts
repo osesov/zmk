@@ -6,7 +6,7 @@ import { AppServiceContainer } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
-import { IBuilderService, NeedBuildResult } from '../IBuilderService';
+import { BuildResult, IBuilderService, NeedBuildResult } from '../IBuilderService';
 import { expectNever } from '../../components/utils';
 import { zmkCommand } from '../../components/constants';
 
@@ -24,7 +24,7 @@ export class BuildStatusService implements IBuildStatusService
         this.builder = services.get('builder');
         this.settings = services.get('settings');
 
-        this.builder.onBuildFinished((success) => this._onBuildComplete.fire(success));
+        this.builder.onBuildFinished((success) => this._onBuildComplete.fire(success.success));
 
         vscode.tasks.onDidEndTaskProcess( e => {
             if (e.execution.task.definition.type === gnbTaskType) {
@@ -33,7 +33,7 @@ export class BuildStatusService implements IBuildStatusService
         });
 
         Promise.resolve().then(() => this.buildIfNecessary())
-        .then((status) => this._onInitialBuildComplete.complete(status))
+        .then((status) => this._onInitialBuildComplete.complete(status.success))
         .catch(() => this._onInitialBuildComplete.complete(false))
         ;
 
@@ -44,7 +44,7 @@ export class BuildStatusService implements IBuildStatusService
         });
     }
 
-    private async buildIfNecessary(): Promise<boolean>
+    private async buildIfNecessary(): Promise<BuildResult>
     {
         try {
             while (true) {
@@ -56,7 +56,7 @@ export class BuildStatusService implements IBuildStatusService
 
                 switch (needBuildResult) {
                     case NeedBuildResult.no:
-                        return true;
+                        return { success: true, status: 0, output: [] };
 
                     case NeedBuildResult.configIncomplete:
                         const result = await vscode.window.showWarningMessage('Build configuration is incomplete. Set "zmk.config".', configureButton);
@@ -65,7 +65,7 @@ export class BuildStatusService implements IBuildStatusService
                             continue;
 
                         }
-                        return false;
+                        return { success: false, status: 'Build configuration is incomplete', output: [] };
 
                     case NeedBuildResult.yes:
                         const config = this.settings.get(Setting.config);
@@ -84,18 +84,18 @@ export class BuildStatusService implements IBuildStatusService
                                 return await builder.buildAllTarget();
                         }
 
-                        return false;
+                        return { success: false, status: 'Build cancelled by user', output: [] };
 
                     default:
                         expectNever(needBuildResult);
                         vscode.window.showErrorMessage('Unexpected result from build check.');
-                        return false;
+                        return { success: false, status: 'Unexpected result from build check', output: [] };
                 }
             }
 
         } catch (err) {
             vscode.window.showErrorMessage(`Error checking output directory: ${err instanceof Error ? err.message : String(err)}`);
-            return false;
+            return { success: false, status: `Error checking output directory: ${err instanceof Error ? err.message : String(err)}`, output: [] };
         }
     }
 }

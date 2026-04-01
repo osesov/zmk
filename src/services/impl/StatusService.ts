@@ -32,7 +32,7 @@ export class StatusService implements IStatusService
         this.builder = services.get('builder');
 
         this.builder.onBuildStarted(() => this.buildStarted());
-        this.builder.onBuildFinished((success) => this.buildCompleted(success));
+        this.builder.onBuildFinished((success) => this.buildCompleted(success.success));
 
         vscode.tasks.onDidStartTaskProcess((e) => (e.execution.task.definition.type === gnbTaskType) && this.buildStarted());
         vscode.tasks.onDidEndTaskProcess( e => (e.execution.task.definition.type === gnbTaskType) && this.buildCompleted(e.exitCode === 0));

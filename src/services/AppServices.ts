@@ -18,6 +18,7 @@ import { ICompileCommandsService } from './ICompileCommandsService';
 import { IReviewService } from './IReviewService';
 import { ISourceFileConfigurationService } from './ISourceFileConfigurationService';
 import { IFileDecorationProvider } from './IFileDecorationProvider';
+import { ITestController } from './ITestController';
 
 export type AppServices =
 {
@@ -47,6 +48,7 @@ export type AppServices =
     argsTree: IArgsTreeProvider;
     review: IReviewService;
     fileDecorations: IFileDecorationProvider;
+    testController: ITestController;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;
