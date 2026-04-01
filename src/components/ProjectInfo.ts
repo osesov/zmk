@@ -88,3 +88,25 @@ export function parseProjectJson(text: string): ProjectJsonFile
         return {};
     }
 }
+
+export class ProjectInfoManager
+{
+
+    public static getUnitTests(projectJson: ProjectJsonFile | null): string[] | null
+    {
+        const targets = projectJson?.targets;
+        if (!targets || typeof targets !== 'object') {
+            return null;
+        }
+
+        const result: string[] = [];
+        for (const [name, target] of Object.entries(targets)) {
+            if (target.testonly || name.endsWith(":run_unittests")) {
+                result.push(name);
+            }
+        }
+
+        result.sort((a, b) => a.localeCompare(b));
+        return result.length > 0 ? result : null;
+    }
+}

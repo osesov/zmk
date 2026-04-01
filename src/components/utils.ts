@@ -196,6 +196,12 @@ export function expectNever(x: never): void {
     callDebugger("Unexpected object: " + x);
 }
 
+export function expectNotNull<T>(x: T | null | undefined): asserts x is T {
+    if (x === null || x === undefined) {
+        callDebugger("Expected value to be not null or undefined, but got: " + x);
+        throw new Error("Expected value to be not null or undefined");
+    }
+}
 
 export async function setContext(name: string, value: string | boolean | number)
 {

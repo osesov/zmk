@@ -58,6 +58,10 @@
 				"title": "ZMK: Build"
 			},
 			{
+				"command": "zmk.selectAndRunTest",
+				"title": "ZMK: Run Test"
+			},
+			{
 				"command": "zmk.buildTarget",
 				"title": "Build",
 				"icon": "$(play)"
@@ -148,6 +152,19 @@
 					],
 					"default": null,
 					"description": "Ninja target to build."
+				},
+				"zmk.testConfig": {
+					"type": "string",
+					"default": null,
+					"description": "zmk config name for testing (used in test tasks)."
+				},
+				"zmk.testTarget": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"description": "ninja target to test."
 				},
 				"zmk.nfsDir": {
 					"type": [
@@ -327,7 +344,8 @@
 							"deep-clean",
 							"build-all",
 							"build-minimal",
-							"build-current-file"
+							"build-current-file",
+							"test"
 						],
 						"description": "Build mode"
 					},

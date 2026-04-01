@@ -124,6 +124,7 @@ export const Setting = {
     valhallaFolder: calculated('valhallaFolder', undefined as vscode.Uri | undefined),
     workspaceFolders: calculated('workspaceFolders', undefined as vscode.Uri[] | undefined),
     outputDir: calculated('outputDir', undefined as string | undefined),
+    testOutputDir: calculated('testOutputDir', undefined as string | undefined),
     valhallaProjects: calculated('valhallaProjects', [] as ValhallaProject[]),
 
     // configuration
@@ -131,6 +132,8 @@ export const Setting = {
     target: configuration('target', 'zmk.target', undefined as string | undefined),
     gnbFlags: configuration('gnbFlags', 'zmk.gnbFlags', [] as string[]),
     gnFlags: configuration('gnFlags', 'zmk.gnFlags', [] as string[]),
+    testConfig: configuration('testConfig', 'zmk.testConfig', null as string | null),
+    testTarget: configuration('testTarget', 'zmk.testTarget', null as string | null),
 
     env: configuration('env', 'zmk.env', undefined as Environment | undefined),
     includeDirs: configuration('includeDirs', 'zmk.includeDirs', undefined as string[] | undefined),

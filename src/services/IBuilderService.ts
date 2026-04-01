@@ -8,6 +8,7 @@ export interface BuildCommand
     env: { [key: string]: string };
 
     // actual
+    actualConfig: string;
     actualTarget: string | undefined
     actualBuildMode: BuildMode
 }
@@ -19,7 +20,9 @@ export enum BuildMode
     buildAll = "build-all",
     buildEmpty = "build-minimal",
     clean = "clean",
-    deepClean = "deep-clean"
+    deepClean = "deep-clean",
+
+    test = "test",
 }
 
 export interface BuildCommandOptions
@@ -44,6 +47,7 @@ export interface BuildTargetOptions
 {
     onStdout ?: (data: string) => void;
     onStderr ?: (data: string) => void;
+    buildMode?: BuildMode;
 }
 
 export interface BuildResult

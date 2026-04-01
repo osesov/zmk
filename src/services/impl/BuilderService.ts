@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult } from "../IBuilderService";
 import { ServiceContainer } from "../ServiceContainer";
-import { expectNever, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
+import { expectNever, expectNotNull, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
 import { ISettingsService, JsonValue, Setting, Toolchain } from '../ISettingsService';
 import path from 'path';
 import { AsyncCache } from '../../components/LazyCache';
@@ -71,7 +71,7 @@ export class BuilderService implements IBuilderService
 
         outputChannel.clear();
 
-        const buildCommand = await this.getBuildCommand({target: target}, BuildMode.build);
+        const buildCommand = await this.getBuildCommand({target: target}, options?.buildMode ?? BuildMode.build);
         if (!buildCommand) {
             vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
             return { success: false, status: 'Valhalla folder or configuration is not set', output: [] };
@@ -83,7 +83,7 @@ export class BuilderService implements IBuilderService
 
         return vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `Building Valhalla (${target ?? 'default target'})...`,
+            title: `Running Valhalla build:\n${buildCommand.actualConfig}-${buildCommand.actualTarget ?? 'default target'}...`,
             cancellable: true
         }, (progress, token) => {
             this._onBuildStarted.fire();
@@ -264,15 +264,27 @@ export class BuilderService implements IBuilderService
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
         const buildDir = this.getOutputDir();
-        const valhallaConfig = options?.config ?? settings.get(Setting.config);
-        let target = options?.target ?? settings.get(Setting.target);
+        const buildConfig = options?.config ?? settings.get(Setting.config);
+        const testConfig = options?.config ?? settings.get(Setting.testConfig);
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
         const gnFlags = options?.gnFlags ?? settings.getOrDefault(Setting.gnFlags, []);
         const configEnv = options?.env ?? settings.getOrDefault(Setting.env, {});
+        let target: string | undefined;
 
         buildMode = options?.mode ?? buildMode ?? BuildMode.build;
 
-        if (!valhallaDir || !valhallaConfig || !buildDir) {
+        if (buildMode === BuildMode.test) {
+            target = options?.target ?? settings.get(Setting.testTarget) ?? undefined;
+
+            if (testConfig === null) {
+                return null;
+            }
+        }
+        else {
+            target = options?.target ?? settings.get(Setting.target) ?? undefined;
+        }
+
+        if (!valhallaDir || !buildConfig || !buildDir) {
             return null;
         }
 
@@ -304,6 +316,7 @@ export class BuilderService implements IBuilderService
                 case BuildMode.build:
                 case BuildMode.clean:
                 case BuildMode.deepClean:
+                case BuildMode.test:
                     return target;
 
                 case BuildMode.buildCurrentFile:
@@ -317,7 +330,25 @@ export class BuilderService implements IBuilderService
             }
         }
 
-        const prepareCommand = (buildKind: BuildMode, actualTarget: string[]) => {
+        const prepareConfig = (buildKind: BuildMode): string => {
+            switch(buildKind) {
+                default:
+                    expectNever(buildKind);
+                case BuildMode.build:
+                case BuildMode.buildCurrentFile:
+                case BuildMode.buildAll:
+                case BuildMode.buildEmpty:
+                case BuildMode.clean:
+                case BuildMode.deepClean:
+                    return buildConfig;
+
+                case BuildMode.test:
+                    expectNotNull(testConfig);
+                    return testConfig;
+            }
+        }
+
+        const prepareCommand = (buildKind: BuildMode, actualConfig: string, actualTarget: string[]) => {
             const command = options?.command ?? this.gnbCommand;
 
             switch(buildKind) {
@@ -326,16 +357,20 @@ export class BuilderService implements IBuilderService
             case BuildMode.build:
             case BuildMode.buildAll:
             case BuildMode.buildCurrentFile:
-                return [...command, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+                return [...command, actualConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
 
             case BuildMode.buildEmpty:
-                return [...command, valhallaConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+                return [...command, actualConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
 
             case BuildMode.clean:
-                return [...command, valhallaConfig, '--clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+                return [...command, actualConfig, '--clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
 
             case BuildMode.deepClean:
-                return [...command, valhallaConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+                return [...command, actualConfig, '--deep-clean', ...gnbFlags, '--', ...gnFlags, ...actualTarget];
+
+            case BuildMode.test:
+                expectNotNull(testConfig);
+                return [...command, actualConfig, ...gnbFlags, '--', ...gnFlags, ...actualTarget];
             }
         }
 
@@ -343,12 +378,13 @@ export class BuilderService implements IBuilderService
             target = target.substring(2);
         }
 
+        const actualConfig = prepareConfig(buildMode);
         const actualTarget = getActualTarget(buildMode);
-        const command = prepareCommand(buildMode, actualTarget ? [actualTarget] : []);
+        const command = prepareCommand(buildMode, actualConfig, actualTarget ? [actualTarget] : []);
         const env = makeEnvironment(process.env, configEnv, options?.env, toolchain?.env);
         const cwd = buildDir;
 
-        return { command, cwd, env, actualTarget, actualBuildMode: buildMode };
+        return { command, cwd, env, actualConfig, actualTarget, actualBuildMode: buildMode };
     }
 
     async listConfigs(): Promise<string[]>

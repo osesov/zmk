@@ -5,6 +5,8 @@ import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
 import { extractPart, extractRange, groupBy, stripParts } from '../../components/utils';
 import { getCurrentFile } from '../../components/oldies';
+import { BuildMode } from '../IBuilderService';
+import { parseTarget } from '../../components/parseTarget';
 
 export class UIService implements IUIService
 {
@@ -23,15 +25,10 @@ export class UIService implements IUIService
         );
 
         context.subscriptions.push(
-            vscode.commands.registerCommand(zmkCommand.setConfig, async () => this.setConfigCommand())
-        );
-
-        context.subscriptions.push(
-            vscode.commands.registerCommand(zmkCommand.selectValhallaProject, async () => this.selectValhallaProject())
-        );
-
-        context.subscriptions.push(
-            vscode.commands.registerCommand(zmkCommand.selectAndBuildTarget, async () => this.selectAndBuildTarget())
+            vscode.commands.registerCommand(zmkCommand.setConfig, async () => this.setConfigCommand()),
+            vscode.commands.registerCommand(zmkCommand.selectValhallaProject, async () => this.selectValhallaProject()),
+            vscode.commands.registerCommand(zmkCommand.selectAndBuildTarget, async () => this.selectAndBuildTarget()),
+            vscode.commands.registerCommand(zmkCommand.selectAndRunTest, async () => this.selectAndRunTest())
         );
 
         this.settings.onChange(e => {
@@ -143,11 +140,13 @@ export class UIService implements IUIService
             return;
 
         const projectInfo = this.services.get('projectInfo');
+        const testController = this.services.get('testController');
         const linkUnits = projectInfo.getLinkUnits();
         const currentFileUri = await this.getCurrentFile(valhallaFolder);
         const fileLinkUnits = currentFileUri ? projectInfo.getLinkUnitsForFile(currentFileUri) : null;
         const unitTests = projectInfo.getUnitTests();
-        const currentFileToBuild = getCurrentFile()
+        const currentFileToBuild = getCurrentFile();
+        const allUnitTests = testController.getTests();
 
         // prepare quick pick items
         const tasks: TargetQuickPickItem[] = [];
@@ -183,9 +182,16 @@ export class UIService implements IUIService
         }
 
         if (unitTests && unitTests.length > 0) {
-            tasks.push({ label: '--- Unit tests ---', kind: vscode.QuickPickItemKind.Separator });
+            tasks.push({ label: '--- In config unit tests ---', kind: vscode.QuickPickItemKind.Separator });
             for (const unitTest of unitTests ?? []) {
                 tasks.push({ label: unitTest, description: 'unit test', target: unitTest });
+            }
+        }
+
+        if (allUnitTests && allUnitTests.length > 0) {
+            tasks.push({ label: '--- All unit tests ---', kind: vscode.QuickPickItemKind.Separator });
+            for (const test of allUnitTests) {
+                tasks.push({ label: test, description: 'unit test', target: test });
             }
         }
 
@@ -211,5 +217,44 @@ export class UIService implements IUIService
         }
 
         return fileUri;
+    }
+
+    private async selectAndRunTest(): Promise<void>
+    {
+        const testController = this.services.get('testController');
+        const tests = testController.getTests();
+
+        if (!tests || tests.length === 0) {
+            vscode.window.showInformationMessage('No tests found in the current project.');
+            return;
+        }
+
+        type TestQuickPickItem = vscode.QuickPickItem & { testId: string };
+        const items: TestQuickPickItem[] = [];
+        let folder = '';
+
+        for (const test of tests) {
+            const parsed = parseTarget(test, false);
+
+            if (!parsed) {
+                continue;
+            }
+
+            const testId = test;
+            const name = parsed.pathParts[parsed.pathParts.length - 1];
+            const path = parsed.pathParts.slice(0, -1).join('/');
+
+            const item: TestQuickPickItem = { label: path + " > " + name, testId };
+            items.push(item);
+        }
+
+        const selection = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Select a test to run',
+            canPickMany: true,
+            matchOnDescription: true,
+        });
+        if (selection) {
+            await testController.runTests(selection.map(s => s.testId));
+        }
     }
 }

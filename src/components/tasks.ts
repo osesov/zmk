@@ -3,7 +3,7 @@ import { AppServiceContainer } from '../services/AppServices';
 import { ISettingsService, Setting } from '../services/ISettingsService';
 import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
 import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../services/IBuilderService';
-import { assertNever } from './utils';
+import { assertNever, expectNever } from './utils';
 
 export const gnbTaskType = 'gnb';
 interface ValhallaTaskDefinition extends vscode.TaskDefinition, BuildCommandOptions {
@@ -129,6 +129,15 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
                 case BuildMode.deepClean:
                     return `Deep clean and Build using target ${actualTarget}`;
+
+                case BuildMode.buildCurrentFile:
+                    return `Build current file. Using target ${actualTarget}`;
+
+                case BuildMode.test:
+                    return `Run tests. Using target ${actualTarget}`;
+
+                default:
+                    expectNever(buildCommand.actualBuildMode);
             }
             return `Build using target ${actualTarget}`;
         }
@@ -171,6 +180,10 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
         case BuildMode.deepClean:
             task.group = vscode.TaskGroup.Rebuild;
+            break;
+
+        case BuildMode.test:
+            task.group = vscode.TaskGroup.Test;
             break;
 
         default:

@@ -18,6 +18,7 @@ export namespace zmkCommand
 
     export const selectValhallaProject = "zmk.selectValhallaProject";
     export const selectAndBuildTarget = "zmk.selectAndBuildTarget";
+    export const selectAndRunTest = "zmk.selectAndRunTest";
     export const revealIncludeInExplorer = "zmk.revealIncludeInExplorer";
     export const revealIncludeInOS = "zmk.revealIncludeInOS";
     export const copyText = "zmk.cppSource.copyText";

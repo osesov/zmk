@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import { parseProjectJson, ProjectJsonFile, ProjectJsonLinkUnit, ProjectJsonTarget } from "../../components/ProjectInfo";
+import { parseProjectJson, ProjectInfoManager, ProjectJsonFile, ProjectJsonLinkUnit, ProjectJsonTarget } from "../../components/ProjectInfo";
 import { IProjectInfoService } from "../IProjectInfoService";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
@@ -424,19 +424,6 @@ export class ProjectInfoService implements IProjectInfoService
 
     getUnitTests(): string[] | null
     {
-        const targets = this.projectJson?.targets;
-        if (!targets || typeof targets !== 'object') {
-            return null;
-        }
-
-        const result: string[] = [];
-        for (const [name, target] of Object.entries(targets)) {
-            if (target.testonly || name.endsWith(":run_unittests")) {
-                result.push(name);
-            }
-        }
-
-        result.sort((a, b) => a.localeCompare(b));
-        return result.length > 0 ? result : null;
+        return ProjectInfoManager.getUnitTests(this.projectJson);
     }
 }

@@ -29,6 +29,7 @@ type CalculatedDeps = {
     valhallaFolder?: vscode.Uri | undefined;
     valhallaDir?: string | undefined;
     config?: string;
+    testConfig?: string | null;
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -156,6 +157,10 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             gnbFlags: Setting.gnbFlags.defaultValue,
             gnFlags: Setting.gnFlags.defaultValue,
 
+            testConfig: Setting.testConfig.defaultValue,
+            testOutputDir: Setting.testOutputDir.defaultValue,
+            testTarget: Setting.testTarget.defaultValue,
+
             env: Setting.env.defaultValue,
             includeDirs: Setting.includeDirs.defaultValue,
             defines: Setting.defines.defaultValue,
@@ -186,7 +191,9 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
         const isValhallaProject = await this.computeCalculated(Setting.isValhallaProject, { valhallaDir });
 
         const config = this.readConfiguration(Setting.config);
+        const testConfig = this.readConfiguration(Setting.testConfig);
         const outputDir = await this.computeCalculated(Setting.outputDir, { valhallaDir, config });
+        const testOutputDir = await this.computeCalculated(Setting.testOutputDir, { valhallaDir, testConfig });
 
         return {
             activeProject,
@@ -196,10 +203,13 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             valhallaFolder,
             workspaceFolders,
             outputDir,
+            testOutputDir,
             valhallaProjects,
 
             config,
+            testConfig: testConfig,
             target: this.readConfiguration(Setting.target),
+            testTarget: this.readConfiguration(Setting.testTarget),
             gnbFlags: this.readConfiguration(Setting.gnbFlags),
             gnFlags: this.readConfiguration(Setting.gnFlags),
 
@@ -262,6 +272,14 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
                 }
 
                 return path.join(deps.valhallaDir, `out.${deps.config ?? ''}`) as unknown as ValueOf<S>;
+            }
+
+            case 'testOutputDir': {
+                if (!deps.valhallaDir) {
+                    return undefined as ValueOf<S>;
+                }
+
+                return path.join(deps.valhallaDir, `out.${deps.testConfig ?? deps.config ?? ''}`) as unknown as ValueOf<S>;
             }
 
             default:
