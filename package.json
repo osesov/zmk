@@ -530,13 +530,12 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run bundle",
+		"vscode:prepublish": "node build.js --prepublish && npm run bundle",
 		"bundle": "node build.js",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"test": "npm run compile && vscode-test",
 		"package": "npm i && npm run compile && vsce package",
-		"prepublish": "node build.js --prepublish",
 		"lint": "eslint ."
 	},
 	"devDependencies": {
