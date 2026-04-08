@@ -13,6 +13,7 @@ import {
     ValhallaProject,
     WorkspaceStateSetting,
     AnySettingDecl,
+    GlobalStateSetting,
 } from '../ISettingsService';
 import { AppServiceContainer } from '../AppServices';
 import { findProjectRootUri } from '../../components/utils';
@@ -136,6 +137,14 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
         await this.recomputeAndEmit();
     }
 
+    public async updateGlobalState<S extends GlobalStateSetting>(
+        setting: S,
+        value: ValueOf<S>,
+    ): Promise<void> {
+        await this._context.globalState.update(setting.globalStateKey, value);
+        await this.recomputeAndEmit();
+    }
+
     public async refresh(): Promise<void> {
         await this.reloadEnvironment();
         await this.recomputeAndEmit();
@@ -143,6 +152,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
 
     private createInitialSnapshot(): SettingsSnapshot {
         return {
+            lastUpdateCheck: Setting.lastUpdateCheck.defaultValue,
             activeProject: Setting.activeProject.defaultValue,
 
             isValhallaProject: Setting.isValhallaProject.defaultValue,
@@ -196,6 +206,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
         const testOutputDir = await this.computeCalculated(Setting.testOutputDir, { valhallaDir, testConfig });
 
         return {
+            lastUpdateCheck: this.readGlobalState(Setting.lastUpdateCheck),
             activeProject,
 
             isValhallaProject,
@@ -298,6 +309,11 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
 
     private readWorkspaceState<S extends WorkspaceStateSetting>(setting: S): ValueOf<S> {
         const value = this._context.workspaceState.get<ValueOf<S>>(setting.workspaceStateKey);
+        return (value ?? setting.defaultValue) as ValueOf<S>;
+    }
+
+    private readGlobalState<S extends GlobalStateSetting>(setting: S): ValueOf<S> {
+        const value = this._context.globalState.get<ValueOf<S>>(setting.globalStateKey);
         return (value ?? setting.defaultValue) as ValueOf<S>;
     }
 

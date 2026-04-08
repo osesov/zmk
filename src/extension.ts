@@ -28,6 +28,7 @@ import { awaitReady } from './services/IAsyncServiceInit';
 import { SourceFileConfigurationService } from './services/impl/SourceFileConfigurationService';
 import { FileDecorationProvider } from './services/impl/FileDecorationProvider';
 import { TestController } from './services/impl/TestController';
+import { UpdateService } from './services/impl/UpdateService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -283,6 +284,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('argsTree', new ArgsTreeProvider(services))
 		.registerInstance('review', new ReviewService(services))
 		.registerInstance('testController', new TestController(services))
+		.registerInstance('update', new UpdateService(services))
 		// .registerInstance('fileDecorations', new FileDecorationProvider(services))
 		;
 

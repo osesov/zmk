@@ -19,6 +19,7 @@ import { IReviewService } from './IReviewService';
 import { ISourceFileConfigurationService } from './ISourceFileConfigurationService';
 import { IFileDecorationProvider } from './IFileDecorationProvider';
 import { ITestController } from './ITestController';
+import { IUpdateService } from './IUpdateService';
 
 export type AppServices =
 {
@@ -49,6 +50,7 @@ export type AppServices =
     review: IReviewService;
     fileDecorations: IFileDecorationProvider;
     testController: ITestController;
+    update: IUpdateService;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;

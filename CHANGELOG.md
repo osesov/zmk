@@ -4,6 +4,10 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 2.3.0
+
+- Propose to update extension daily
+
 ## 2.2.0
 
 - Integrate with Test Controller

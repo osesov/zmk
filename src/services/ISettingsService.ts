@@ -5,6 +5,7 @@ export enum SettingSource {
     environment = 'environment',
     calculated = 'calculated',
     workspaceState = 'workspaceState',
+    globalState = 'globalState',
 }
 
 export interface ValhallaProject {
@@ -41,11 +42,17 @@ export type WorkspaceStateSettingDecl<K extends string, T> =
         workspaceStateKey: string;
     }>;
 
+export type GlobalStateSettingDecl<K extends string, T> =
+    BaseSettingDecl<K, SettingSource.globalState, T> & Readonly<{
+        globalStateKey: string;
+    }>;
+
 export type AnySettingDecl =
     | ConfigurationSettingDecl<string, any>
     | EnvironmentSettingDecl<string, any>
     | CalculatedSettingDecl<string, any>
-    | WorkspaceStateSettingDecl<string, any>;
+    | WorkspaceStateSettingDecl<string, any>
+    | GlobalStateSettingDecl<string, any>;
 
 function configuration<K extends string, T>(
     key: K,
@@ -97,6 +104,19 @@ function workspaceState<K extends string, T>(
     };
 }
 
+function globalState<K extends string, T>(
+    key: K,
+    globalStateKey: string,
+    defaultValue: T,
+): GlobalStateSettingDecl<K, T> {
+    return {
+        key,
+        source: SettingSource.globalState,
+        globalStateKey: globalStateKey,
+        defaultValue,
+    };
+}
+
 export type JsonValue = null | boolean | string | number | JsonArray | JsonObject
 export type JsonObject = { [k: string]: JsonValue}
 export type JsonArray = JsonValue[]
@@ -115,6 +135,9 @@ export interface Toolchain
 export type Environment = Record<string, string | undefined>;
 
 export const Setting = {
+    // global state
+    lastUpdateCheck: globalState('lastUpdateCheck', 'lastUpdateCheck', undefined as string | undefined),
+
     // workspace state
     activeProject: workspaceState('activeProject', 'activeProject', undefined as string | undefined),
 
@@ -159,6 +182,7 @@ export type ConfigurationSetting = Extract<SettingMap[keyof SettingMap], { sourc
 export type EnvironmentSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.environment }>;
 export type CalculatedSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.calculated }>;
 export type WorkspaceStateSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.workspaceState }>;
+export type GlobalStateSetting = Extract<SettingMap[keyof SettingMap], { source: SettingSource.globalState }>;
 
 export interface SettingChangeEvent {
     readonly changed: ReadonlySet<SettingName>;
@@ -182,6 +206,11 @@ export interface ISettingsService extends vscode.Disposable {
     ): Thenable<void>;
 
     updateWorkspaceState<S extends WorkspaceStateSetting>(
+        setting: S,
+        value: ValueOf<S>,
+    ): Thenable<void>;
+
+    updateGlobalState<S extends GlobalStateSetting>(
         setting: S,
         value: ValueOf<S>,
     ): Thenable<void>;
