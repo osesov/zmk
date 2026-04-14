@@ -166,6 +166,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             target: Setting.target.defaultValue,
             gnbFlags: Setting.gnbFlags.defaultValue,
             gnFlags: Setting.gnFlags.defaultValue,
+            browseTargets: Setting.browseTargets.defaultValue,
 
             testConfig: Setting.testConfig.defaultValue,
             testOutputDir: Setting.testOutputDir.defaultValue,
@@ -223,6 +224,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             testTarget: this.readConfiguration(Setting.testTarget),
             gnbFlags: this.readConfiguration(Setting.gnbFlags),
             gnFlags: this.readConfiguration(Setting.gnFlags),
+            browseTargets: this.readConfiguration(Setting.browseTargets),
 
             env: this.readConfiguration(Setting.env),
             includeDirs: this.readConfiguration(Setting.includeDirs),

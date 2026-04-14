@@ -9,9 +9,13 @@ export namespace zmkCommand
 
     export const zmkRefreshTargetTree = "zmk.refreshTargetTree";
     export const zmkBuildTarget = "zmk.buildTarget";
+    export const zmkOpenTarget = "zmk.openTarget";
+    export const zmkCopyTarget = "zmk.copyTarget";
     export const zmkSetDefaultTarget = "zmk.setDefaultTarget";
     export const zmkResetTarget = "zmk.resetTarget";
     export const zmkTargetSelected = "zmk.targetSelected";
+    export const zmkAddToBrowseSet = "zmk.addToBrowseSet";
+    export const zmkRemoveFromBrowseSet = "zmk.removeFromBrowseSet";
 
     export const toggleIncludeTreeView = "zmk.toggleIncludeTreeView";
     export const toggleIncludeListView = "zmk.toggleIncludeListView";

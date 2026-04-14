@@ -10,8 +10,11 @@ import { IBuilderService } from '../IBuilderService';
 
 export class SourceFileConfigurationService implements ISourceFileConfigurationService
 {
-    private sourceFileConfiguration = new vscode.EventEmitter<void>();
-    public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfiguration.event;
+    private sourceFileConfigurationChanged = new vscode.EventEmitter<void>();
+    public readonly onDidChangeSourceFileConfiguration = this.sourceFileConfigurationChanged.event;
+
+    private browseConfigurationChanged = new vscode.EventEmitter<void>();
+    public readonly onDidChangeBrowseConfiguration = this.browseConfigurationChanged.event;
 
     private settings: ISettingsService;
     private projectInfo: IProjectInfoService;
@@ -28,10 +31,18 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
 
         initialBuild.then(() => {
             this.projectInfo.onChange(() => {
-                this.sourceFileConfiguration.fire();
+                this.sourceFileConfigurationChanged.fire();
+                this.browseConfigurationChanged.fire();
             });
+
             this.compileCommands.onChange(() => {
-                this.sourceFileConfiguration.fire();
+                this.sourceFileConfigurationChanged.fire();
+            });
+
+            this.settings.onChange(event => {
+                if (event.affects(Setting.browseTargets)) {
+                    this.browseConfigurationChanged.fire();
+                }
             });
         });
     }

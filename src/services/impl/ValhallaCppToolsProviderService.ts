@@ -42,15 +42,6 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
         const buildCompleteEvent = services.get('buildComplete');
         const initialBuild = services.get('initialBuild');
 
-        buildCompleteEvent(success => {
-            if (success) {
-                this.logOutputChannel.info('Build completed successfully. Updating IntelliSense configuration...');
-            } else {
-                this.logOutputChannel.error('Build failed. IntelliSense configuration may be outdated.');
-            }
-            cppToolsApi.didChangeCustomConfiguration(this);
-        });
-
         context.subscriptions.push(this);
 
         cppToolsApi.registerCustomConfigurationProvider(this);
@@ -58,6 +49,19 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             cppToolsApi.notifyReady(this);
             this.sourceFileInfo.onDidChangeSourceFileConfiguration(() => {
                 this.cppToolsApi?.didChangeCustomConfiguration(this);
+            });
+
+            buildCompleteEvent(success => {
+                if (success) {
+                    this.logOutputChannel.info('Build completed successfully. Updating IntelliSense configuration...');
+                } else {
+                    this.logOutputChannel.error('Build failed. IntelliSense configuration may be outdated.');
+                }
+                cppToolsApi.didChangeCustomConfiguration(this);
+            });
+
+            this.sourceFileInfo.onDidChangeBrowseConfiguration(() => {
+                cppToolsApi.didChangeCustomBrowseConfiguration(this);
             });
         });
     }

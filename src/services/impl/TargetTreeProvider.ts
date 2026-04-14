@@ -4,11 +4,13 @@ import { ParsedTarget, parseTarget } from "../../components/parseTarget";
 import { AppServiceContainer } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { ISettingsService, Setting } from "../ISettingsService";
-import { setContext } from "../../components/utils";
-import { IProjectInfoService } from "../IProjectInfoService";
+import { assertNever, setContext, writeTextToClipboard } from "../../components/utils";
+import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfoService";
+import { ProjectJsonTargetSet } from "../../components/ProjectInfo";
 
 interface CurrentTarget {
     selection: ParsedTarget | undefined | null
+    browseSet: IBrowseSet | null;
 }
 
 interface TargetGroupNode {
@@ -25,6 +27,7 @@ interface TargetLeafNode {
     label: string;      // action
     fullTarget: string; // original target
     parent: TargetGroupNode | undefined;
+    targetType: string;
 }
 
 interface NotValhallaProjectNode {
@@ -74,10 +77,51 @@ export class TargetTreeItem extends vscode.TreeItem {
             this.contextValue = "targetGroup";
         } else if (node.kind === "target") {
             const isCurrent = currentTarget.selection?.original === node.fullTarget;
+            const inBrowseSet = currentTarget.browseSet?.isBrowseable(node.fullTarget) ?? BrowseableType.POTENTIALLY;
+            const contextParts = ["<target>"];
 
-            this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
-            this.contextValue = isCurrent ? "currentTarget" : "target";
-            this.description = node.fullTarget;
+            if (isCurrent) {
+                contextParts.push("<current>");
+            }
+
+            switch (inBrowseSet) {
+            case BrowseableType.EXPLICITLY:
+                contextParts.push("<browse>");
+                contextParts.push("<browseable>");
+                break;
+
+            case BrowseableType.IMPLICITLY:
+                contextParts.push("<browse-implicit>");
+                contextParts.push("<browseable>");
+                break;
+
+            case BrowseableType.POTENTIALLY:
+                contextParts.push("<browseable>");
+                break;
+
+            case BrowseableType.NON_BROWSEABLE:
+                break;
+
+            default:
+                assertNever(inBrowseSet);
+            }
+
+            if (isCurrent)
+                this.iconPath = new vscode.ThemeIcon('star-full');
+            else if (inBrowseSet === BrowseableType.EXPLICITLY)
+                this.iconPath = new vscode.ThemeIcon('diff-added');
+            else if (inBrowseSet === BrowseableType.IMPLICITLY)
+                this.iconPath = new vscode.ThemeIcon('diff-modified');
+            else
+                this.iconPath = new vscode.ThemeIcon('star-empty');
+
+            // this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
+            this.contextValue = contextParts.join(".");
+            this.description = `[${node.targetType}] ${node.fullTarget}`;
+            this.tooltip = new vscode.MarkdownString()
+            .appendMarkdown(`- **Type**: \`${node.targetType}\`\n`)
+            .appendMarkdown(`- **Target**: \`${node.fullTarget}\`\n`);
+
         } else if (node.kind === "notValhalla") {
             this.contextValue = "notValhalla";
             this.iconPath = new vscode.ThemeIcon('warning');
@@ -85,11 +129,11 @@ export class TargetTreeItem extends vscode.TreeItem {
     }
 }
 
-export function buildTargetTree(targets: readonly string[], nodeMap: Map<string, TargetLeafNode>): TargetGroupNode {
+export function buildTargetTree(targets: ProjectJsonTargetSet, nodeMap: Map<string, TargetLeafNode>): TargetGroupNode {
     const root = createGroup("root", undefined, undefined);
 
-    for (const target of targets) {
-        const parsed = parseTarget(target, false);
+    for (const [name, target] of Object.entries(targets)) {
+        const parsed = parseTarget(name, false);
         if (!parsed)
             continue;
 
@@ -110,9 +154,10 @@ export function buildTargetTree(targets: readonly string[], nodeMap: Map<string,
             label: parsed.action,
             fullTarget: parsed.original,
             parent: current,
+            targetType: target.type
         };
         current.targets.push(leafNode);
-        nodeMap.set(target, leafNode);
+        nodeMap.set(name, leafNode);
     }
 
     return root;
@@ -125,7 +170,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     private readonly projectInfo: IProjectInfoService;
     private settings: ISettingsService;
     private root: TargetGroupNode = createGroup("root", undefined, undefined);
-    private currentTarget: CurrentTarget = { selection: undefined }
+    private currentTarget: CurrentTarget = { selection: undefined, browseSet: null };
     private isValhallaProject: boolean = false;
     private nodeMap = new Map<string, TargetLeafNode>();
 
@@ -160,15 +205,62 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             },
         ));
 
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkOpenTarget,
+            async (node: TargetLeafNode) => {
+                if (!node.fullTarget)
+                    return;
+
+                const parts = parseTarget(node.fullTarget, false)
+                const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+                if (!parts || !valhallaFolder)
+                    return;
+
+                const targetFile = vscode.Uri.joinPath(valhallaFolder, ...parts.pathParts, "BUILD.gn");
+                try {
+                    const document = await vscode.workspace.openTextDocument(targetFile);
+                    await vscode.window.showTextDocument(document);
+                } catch (e) {
+                    vscode.window.showErrorMessage(`Failed to open target file: ${e instanceof Error ? e.message : String(e)}`);
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkCopyTarget,
+            async (node: TargetLeafNode) => {
+                if (node.fullTarget)
+                    await writeTextToClipboard(node.fullTarget);
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkAddToBrowseSet,
+            async (node: TargetLeafNode) => {
+                const browseTargets = this.settings.get(Setting.browseTargets);
+                if (!browseTargets.includes(node.fullTarget)) {
+                    await this.settings.update(Setting.browseTargets, [...browseTargets, node.fullTarget]);
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRemoveFromBrowseSet,
+            async (node: TargetLeafNode) => {
+                const browseTargets = this.settings.get(Setting.browseTargets);
+                if (browseTargets.includes(node.fullTarget)) {
+                    await this.settings.update(Setting.browseTargets, browseTargets.filter(t => t !== node.fullTarget));
+                }
+            },
+        ));
+
         context.subscriptions.push(this.projectInfo.onChange(() => this.updateTargets(true)));
         this.settings.onChange( e => {
-            if (e.affects(Setting.target))
-                this.updateCurrentTarget(true);
+            const targetChanged = e.affects(Setting.target);
+            const browseTargetsChanged = e.affects(Setting.browseTargets);
+            if (targetChanged || browseTargetsChanged)
+                this.updateCurrentTarget(targetChanged, browseTargetsChanged);
             if (e.affects(Setting.isValhallaProject))
                 this.updateIsValhallaProject(true);
         });
 
-        this.updateCurrentTarget(false);
+        this.updateCurrentTarget(false, false);
         this.updateTargets(false);
         this.updateIsValhallaProject(false);
     }
@@ -184,27 +276,32 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     private updateTargets(refreshTree: boolean)
     {
         const projectDescription = this.projectInfo.getProjectDescription();
-        const targets = projectDescription?.targets ? Object.keys(projectDescription.targets) : [];
+        this.currentTarget.browseSet = this.projectInfo.getBrowseSet();
 
         this.nodeMap.clear();
-        this.root = buildTargetTree(targets, this.nodeMap);
+        this.root = buildTargetTree(projectDescription?.targets ?? {}, this.nodeMap);
 
         if (refreshTree) {
             this.refresh();
         }
     }
 
-    private updateCurrentTarget(refreshTree: boolean)
+    private updateCurrentTarget(targetChanged: boolean, browseTargetsChanged: boolean)
     {
         const target = this.settings.get(Setting.target);
 
-        if (this.currentTarget.selection && refreshTree) {
-            this.refresh(this.currentTarget.selection.original);
+        if (targetChanged || browseTargetsChanged) {
+            if (targetChanged)
+                this.refresh(this.currentTarget.selection?.original);
+
+            if (browseTargetsChanged) {
+                this.settings.get(Setting.browseTargets).forEach(t => this.refresh(t));
+            }
         }
         this.currentTarget.selection = target ? parseTarget(target, true) : undefined;
 
         setContext(zmkCommand.zmkTargetSelected, !!target);
-        if (refreshTree) {
+        if (targetChanged) {
             this.refresh(this.currentTarget.selection?.original);
         }
     }

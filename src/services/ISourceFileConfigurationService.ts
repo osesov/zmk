@@ -4,6 +4,8 @@ import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } f
 export interface ISourceFileConfigurationService
 {
     onDidChangeSourceFileConfiguration: vscode.Event<void>;
+    onDidChangeBrowseConfiguration: vscode.Event<void>;
+
     getSourceFileConfiguration(uri: vscode.Uri): Promise<MutableSourceFileConfiguration | undefined | null>;
     getBrowseConfiguration(): Promise<MutableWorkspaceBrowseConfiguration | null>;
 	getDependenciesForSourceFile(uri: vscode.Uri): string[] | null;

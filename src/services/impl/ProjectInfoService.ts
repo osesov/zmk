@@ -1,7 +1,7 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { parseProjectJson, ProjectInfoManager, ProjectJsonFile, ProjectJsonLinkUnit, ProjectJsonTarget } from "../../components/ProjectInfo";
-import { IProjectInfoService } from "../IProjectInfoService";
+import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfoService";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { Setting } from "../ISettingsService";
@@ -117,6 +117,19 @@ function buildDepToTargetMap(
             depToTargetCache.get(dep)!.push(key);
         }
     }
+}
+
+function isSourceSet(target: ProjectJsonTarget): boolean
+{
+    return target.type === 'source_set';
+}
+
+function isBrowseableTarget(target: ProjectJsonTarget): boolean
+{
+    return target.type === 'source_set'
+        || target.type === 'executable'
+        || target.type === 'shared_library'
+        || target.type === 'static_library';
 }
 
 export class ProjectInfoService implements IProjectInfoService
@@ -258,24 +271,21 @@ export class ProjectInfoService implements IProjectInfoService
             return null;
         }
 
+        const browseTargets = this.settings.get(Setting.browseTargets) ?? [];
         const valhallaDir = this.settings.get(Setting.valhallaDir);
         if (!valhallaDir) {
             return null;
         }
 
         const dirSet = new Set<string>();
-        for (const target of Object.values(projectJson.targets)) {
-            if (target.type !== 'source_set'
-                && target.type !== 'executable'
-                && target.type !== 'shared_library'
-                && target.type !== 'static_library') {
-                continue;
+        const includeAll = browseTargets.length === 0;
+
+        const addTarget = (target: ProjectJsonTarget) => {
+            if (!isBrowseableTarget(target)) {
+                return;
             }
 
-            if (!target.sources)
-                continue;
-
-            for (const source of target.sources) {
+            for (const source of target.sources ?? []) {
                 if (typeof source !== 'string')
                     continue;
                 const gnPath = getGNPath(source, false);
@@ -291,6 +301,39 @@ export class ProjectInfoService implements IProjectInfoService
             }
         }
 
+        if (includeAll) { // enumerate all the items in the project
+
+            for (const target of Object.values(projectJson.targets)) {
+                addTarget(target);
+            }
+        }
+
+        else { // include some: only those that are dependencies of the specified targets
+
+            const queue = [...browseTargets];
+            const visited = new Set<string>();
+
+            while (queue.length > 0) {
+                const current = queue.shift()!;
+                if (visited.has(current)) {
+                    continue;
+                }
+                visited.add(current);
+
+                const target = projectJson.targets[current];
+                if (!target) {
+                    continue;
+                }
+
+                addTarget(target);
+
+                for (const dep of target.deps ?? []) {
+                    if (!visited.has(dep) && isSourceSet(projectJson.targets[dep])) {
+                        queue.push(dep);
+                    }
+                }
+            }
+        }
         const compiler = this.settings.get(Setting.compiler);
         const cppStandard = (this.settings.get(Setting.cppStandard) ?? build.defaultCppStandard) as MutableWorkspaceBrowseConfiguration['standard'];
 
@@ -425,5 +468,156 @@ export class ProjectInfoService implements IProjectInfoService
     getUnitTests(): string[] | null
     {
         return ProjectInfoManager.getUnitTests(this.projectJson);
+    }
+
+    getLinkUnitSources(targetName: string): string[] | null
+    {
+        const target = this.projectJson?.targets?.[targetName];
+        if (!target) {
+            return null;
+        }
+
+        const sources = target.sources;
+        if (!sources || !Array.isArray(sources)) {
+            return null;
+        }
+
+        const valhallaDir = this.settings.get(Setting.valhallaDir);
+        if (!valhallaDir) {
+            return null;
+        }
+
+        const result: string[] = [];
+        for (const source of sources) {
+            if (typeof source !== 'string')
+                continue;
+            const gnPath = getGNPath(source, false);
+            if (!gnPath)
+                continue;
+
+            const sourcePath = path.join(valhallaDir, gnPath);
+            result.push(sourcePath);
+        }
+
+        // enumerate 'deps' and find all 'source_set's, then enumerate their sources as well
+        const queue = [...target.deps ?? []];
+        const visited = new Set<string>();
+
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (visited.has(current)) {
+                continue;
+            }
+            visited.add(current);
+
+            const currentTarget = this.projectJson?.targets?.[current];
+            if (!currentTarget) {
+                continue;
+            }
+
+            if (currentTarget.type === 'source_set') {
+                const deps = currentTarget.deps;
+                if (deps && Array.isArray(deps)) {
+                    for (const dep of deps) {
+                        if (!visited.has(dep)) {
+                            queue.push(dep);
+                        }
+                    }
+                }
+            }
+
+            if (currentTarget.sources && Array.isArray(currentTarget.sources)) {
+                for (const source of currentTarget.sources) {
+                    if (typeof source !== 'string')
+                        continue;
+                    const gnPath = getGNPath(source, false);
+                    if (!gnPath)
+                        continue;
+
+                    const sourcePath = path.join(valhallaDir, gnPath);
+                    result.push(sourcePath);
+                }
+            }
+        }
+
+        return result.length > 0 ? result : null;
+    }
+
+
+    public getBrowseSet(): IBrowseSet
+    {
+        const browseSet = new Set<string>(this.settings.get(Setting.browseTargets));
+        const browseableTypeCache = new Map<string, BrowseableType>();
+        const indirectlyBrowseableDeps = new Set<string>();
+        const includeAll = browseSet.size === 0;
+
+        if (includeAll) {
+            return {
+                isBrowseable: (target: string): BrowseableType => {
+                    return BrowseableType.IMPLICITLY;
+                }
+            };
+        }
+
+        for (const target of browseSet) {
+            const deps = this.projectJson?.targets?.[target]?.deps;
+            if (deps && Array.isArray(deps)) {
+                for (const dep of deps) {
+                    indirectlyBrowseableDeps.add(dep);
+                }
+            }
+        }
+
+        const calculateBrowseableType = (target: string): BrowseableType => {
+            const projectJson = this.projectJson;
+            if (!projectJson || !projectJson.targets) {
+                return BrowseableType.NON_BROWSEABLE;
+            }
+
+            const targetInfo = projectJson.targets[target];
+            if (!targetInfo) {
+                return BrowseableType.NON_BROWSEABLE;
+            }
+
+            if (!isBrowseableTarget(targetInfo)) {
+                return BrowseableType.NON_BROWSEABLE;
+            }
+
+            const targets = this.depToTargetCache.get(target);
+            if (!targets || targets.length === 0) {
+                return BrowseableType.POTENTIALLY;
+            }
+
+            if (browseSet.has(target)) {
+                return BrowseableType.EXPLICITLY;
+            }
+
+            if (!isSourceSet(targetInfo))
+                return BrowseableType.POTENTIALLY;
+
+            for (const sourceSet of targets) {
+                if (isBrowseableWithCache(sourceSet) !== BrowseableType.POTENTIALLY) {
+                    return BrowseableType.IMPLICITLY;
+                }
+            }
+
+            return BrowseableType.POTENTIALLY;
+        }
+
+        const isBrowseableWithCache = (target: string): BrowseableType => {
+            if (browseableTypeCache.has(target)) {
+                return browseableTypeCache.get(target)!;
+            }
+
+            const browseableType = calculateBrowseableType(target);
+            browseableTypeCache.set(target, browseableType);
+            return browseableType;
+        };
+
+        return {
+            isBrowseable: (target: string): BrowseableType => {
+                return isBrowseableWithCache(target);
+            }
+        };
     }
 }

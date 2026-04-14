@@ -67,9 +67,29 @@
 				"icon": "$(play)"
 			},
 			{
+				"command": "zmk.openTarget",
+				"title": "Open Target Build File",
+				"icon": "$(file-code)"
+			},
+			{
 				"command": "zmk.setDefaultTarget",
 				"title": "Set as Default",
 				"icon": "$(star-empty)"
+			},
+			{
+				"command": "zmk.copyTarget",
+				"title": "Copy Target to Clipboard",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "zmk.addToBrowseSet",
+				"title": "Add to Browse Set",
+				"icon": "$(diff-added)"
+			},
+			{
+				"command": "zmk.removeFromBrowseSet",
+				"title": "Remove from Browse Set",
+				"icon": "$(diff-removed)"
 			},
 			{
 				"command": "zmk.resetTarget",
@@ -152,6 +172,15 @@
 					],
 					"default": null,
 					"description": "Ninja target to build."
+				},
+				"zmk.browseTargets": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"title": "target to browse in target tree view"
+					},
+					"default": [],
+					"description": "List of targets to browse. If empty, all targets will be used."
 				},
 				"zmk.testConfig": {
 					"type": "string",
@@ -417,6 +446,10 @@
 				{
 					"id": "cppSourceConfig",
 					"name": "Source File Info"
+				},
+				{
+					"id": "linkUnitTreeView",
+					"name": "Link Units"
 				}
 			]
 		},
@@ -478,34 +511,68 @@
 				},
 				{
 					"command": "zmk.buildTarget",
-					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",
+					"when": "view == targetTreeView && viewItem =~ /<target>/",
 					"group": "inline"
 				},
 				{
 					"command": "zmk.buildTarget",
-					"when": "view == targetTreeView && (viewItem == target || viewItem == currentTarget)",
+					"when": "view == targetTreeView && viewItem =~ /<target>/",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.openTarget",
+					"when": "view == targetTreeView && viewItem =~ /<target>/",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.copyTarget",
+					"when": "view == targetTreeView && viewItem =~ /<target>/",
 					"group": "navigation"
 				},
 				{
 					"command": "zmk.setDefaultTarget",
-					"when": "view == targetTreeView && viewItem == target",
+					"when": "view == targetTreeView && viewItem =~ /<target>/ && !(viewItem =~ /<current>/)",
 					"group": "inline"
 				},
 				{
 					"command": "zmk.setDefaultTarget",
-					"when": "view == targetTreeView && viewItem == target",
+					"when": "view == targetTreeView && viewItem =~ /<target>/ && !(viewItem =~ /<current>/)",
 					"group": "navigation@2"
 				},
 				{
 					"command": "zmk.resetTarget",
-					"when": "view == targetTreeView && viewItem == currentTarget",
+					"when": "view == targetTreeView && viewItem =~ /<target>/ && viewItem =~ /<current>/",
 					"group": "inline"
 				},
 				{
 					"command": "zmk.resetTarget",
-					"when": "view == targetTreeView && viewItem == currentTarget",
+					"when": "view == targetTreeView && viewItem =~ /<target>/ && viewItem =~ /<current>/",
 					"group": "navigation@2"
 				},
+
+				{
+					"command": "zmk.addToBrowseSet",
+					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && !(viewItem =~ /<browse>/)",
+					"group": "inline@2"
+				},
+				{
+					"command": "zmk.addToBrowseSet",
+					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && !(viewItem =~ /<browse>/)",
+					"group": "navigation@2"
+				},
+
+				{
+					"command": "zmk.removeFromBrowseSet",
+					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && viewItem =~ /<browse>/",
+					"group": "inline@2"
+				},
+				{
+					"command": "zmk.removeFromBrowseSet",
+					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && viewItem =~ /<browse>/",
+					"group": "navigation@2"
+				},
+
+
 				{
 					"command": "zmk.revealIncludeInExplorer",
 					"when": "view == cppSourceConfig && viewItem == include",

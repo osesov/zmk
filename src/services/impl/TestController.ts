@@ -52,9 +52,6 @@ export class TestController implements ITestController
         this.fileWatcher.onChange(() => resetFile());
 
         resetFile();
-
-        ///
-        this.refreshTests();
     }
 
     getTests(): string[] | null
@@ -122,12 +119,6 @@ export class TestController implements ITestController
         }
 
         this.addFlatTestsAsHierarchy(this.controller, unitTests);
-
-        // for (const test of unitTests ?? []) {
-        //     const testItem = this.controller.createTestItem(test, test);
-        //     this.controller.items.add(testItem);
-        //     this.tests.set(test, testItem);
-        // }
     }
 
 

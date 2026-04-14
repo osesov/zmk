@@ -60,6 +60,10 @@ interface ProjectJsonToolchain
     [k: string]: ProjectJsonTool
 }
 
+export interface ProjectJsonTargetSet {
+    [k: string]: ProjectJsonTarget;
+}
+
 export interface ProjectJsonFile {
     build_settings ?: {
         build_dir: string
@@ -67,7 +71,7 @@ export interface ProjectJsonFile {
         gen_input_files: string[]
         root_path: string
     },
-    targets?: { [k: string]: ProjectJsonTarget};
+    targets?: ProjectJsonTargetSet;
     toolchains?: { [k: string]: ProjectJsonToolchain}
 }
 

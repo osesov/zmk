@@ -4,6 +4,15 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 2.4.0
+
+- Support `Browse Set`: Set of targets, which are reported to C/C++ tools as browse configuration.
+- Target Tree View:
+  - Allow so maintain browse set
+  - Show target type in description (group, source_set, shared_library, static_library, executable, ...)
+  - Copy target name to clipboard
+  - Open BUILD.gn for the given target
+
 ## 2.3.0
 
 - Propose to update extension daily

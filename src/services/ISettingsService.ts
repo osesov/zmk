@@ -157,7 +157,7 @@ export const Setting = {
     gnFlags: configuration('gnFlags', 'zmk.gnFlags', [] as string[]),
     testConfig: configuration('testConfig', 'zmk.testConfig', null as string | null),
     testTarget: configuration('testTarget', 'zmk.testTarget', null as string | null),
-
+    browseTargets: configuration('browseTargets', 'zmk.browseTargets', [] as string[]),
     env: configuration('env', 'zmk.env', undefined as Environment | undefined),
     includeDirs: configuration('includeDirs', 'zmk.includeDirs', undefined as string[] | undefined),
     defines: configuration('defines', 'zmk.defines', undefined as string[] | undefined),
