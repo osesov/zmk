@@ -19,6 +19,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
     - sources: allow to open file
     - include_dirs: allow to reveal in file explorer and open is OS file manager
   - Allow to find target by name
+  - Show reverse dependencies (i.e. targets, which depends on the current one)
 
 ## 2.3.0
 

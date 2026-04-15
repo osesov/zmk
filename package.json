@@ -616,6 +616,16 @@
 					"group": "navigation"
 				},
 				{
+					"command": "zmk.goToTargetDep",
+					"when": "view == targetTreeView && viewItem == propertyItem.reverse_deps",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.goToTargetDep",
+					"when": "view == targetTreeView && viewItem == propertyItem.reverse_deps",
+					"group": "navigation"
+				},
+				{
 					"command": "zmk.openSourceFile",
 					"when": "view == targetTreeView && viewItem == propertyItem.sources",
 					"group": "inline"

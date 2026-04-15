@@ -204,7 +204,11 @@ export class TargetTreeItem extends vscode.TreeItem {
             const count = Array.isArray(node.values) ? node.values.length : 0;
             this.description = `[${count}]`;
         } else if (node.kind === "propertyItem") {
-            if (node.propertyName === "deps") {
+            if (node.parent.label === "reverse_deps") {
+                this.iconPath = new vscode.ThemeIcon('references');
+                this.contextValue = "propertyItem.reverse_deps";
+                this.command = undefined; // No default action, use context menu
+            } else if (node.propertyName === "deps") {
                 this.iconPath = new vscode.ThemeIcon('references');
                 this.contextValue = "propertyItem.deps";
                 this.command = undefined; // No default action, use context menu
@@ -352,7 +356,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         // New commands for property items
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkGoToTargetDep,
             async (node: PropertyItemNode) => {
-                if (node.propertyName === "deps") {
+                if (node.propertyName === "deps" || node.parent.label === "reverse_deps") {
                     // Find the target node in the tree and reveal it
                     const targetNode = this.nodeMap.get(node.value);
                     if (targetNode) {
@@ -653,6 +657,18 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             }
         }
 
+        // Add reverse dependencies (which targets depend on this target)
+        const reverseDeps = this.projectInfo.getReverseDependencies(target.fullTarget);
+        if (reverseDeps && reverseDeps.length > 0) {
+            properties.unshift({
+                kind: "propertyGroup",
+                label: "reverse_deps",
+                propertyName: "deps" as keyof ProjectJsonTarget, // Reuse deps behavior
+                parent: target,
+                values: reverseDeps
+            });
+        }
+
         return properties;
     }
 
@@ -671,8 +687,8 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
                         parent: group
                     };
 
-                    // For deps, check if we can find the target data for recursive expansion
-                    if (group.propertyName === "deps") {
+                    // For deps and reverse_deps, check if we can find the target data for recursive expansion
+                    if (group.propertyName === "deps" || group.label === "reverse_deps") {
                         const projectDescription = this.projectInfo.getProjectDescription();
                         if (projectDescription?.targets) {
                             item.targetData = projectDescription.targets[value];

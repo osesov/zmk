@@ -31,5 +31,6 @@ export interface IProjectInfoService
     getUnitTests(): string[] | null;
 
     getTargets(filter: (target: string) => boolean): string[];
+    getReverseDependencies(target: string): string[] | null;
 
 }

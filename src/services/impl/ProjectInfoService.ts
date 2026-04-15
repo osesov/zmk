@@ -640,4 +640,13 @@ export class ProjectInfoService implements IProjectInfoService
         return result;
     }
 
+    getReverseDependencies(target: string): string[] | null
+    {
+        const reverseDeps = this.depToTargetCache.get(target);
+        if (!reverseDeps || reverseDeps.length === 0) {
+            return null;
+        }
+        return [...reverseDeps].sort((a, b) => a.localeCompare(b));
+    }
+
 }
