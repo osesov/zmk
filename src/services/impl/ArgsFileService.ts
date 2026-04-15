@@ -28,7 +28,7 @@ export class ArgsFileService implements IArgsFileService
             this._onChange.fire();
         }
 
-        settings.onChange(() => resetFile());
+        settings.onChange((event) => event.affects(Setting.outputDir) && resetFile());
         // initialBuild.then(() => resetArgsFile());
         // buildComplete(() => resetArgsFile());
         // vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());

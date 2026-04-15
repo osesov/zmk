@@ -165,7 +165,7 @@ export class ProjectInfoService implements IProjectInfoService
             this._onChange.fire();
         }
 
-        this.settings.onChange(() => resetFile());
+        this.settings.onChange((event) => event.affects(Setting.outputDir) && resetFile());
         vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());
         this.fileWatcher.onChange(() => resetFile());
 

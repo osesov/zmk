@@ -82,12 +82,21 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
         const intelliSenseMode = this.settings.get(Setting.intelliSenseMode);
         const result = Object.assign({}, info);
 
+        // going to modify defines array, so make a copy to avoid mutating original configuration
+        result.defines = [...result.defines];
+
         const includeDirs = this.settings.get(Setting.includeDirs)
         if (includeDirs && includeDirs.length > 0)
             result.includePath = [...includeDirs, ...result.includePath]
         const defines = this.settings.get(Setting.defines);
-        if (defines)
-            result.defines = [...Object.entries(defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
+        if (defines) {
+            for (const [name, value] of Object.entries(defines)) {
+                result.defines = result.defines.filter(d => !(d === name || d.startsWith(`${name}=`)));
+                if (value !== null) {
+                    result.defines.push(`${name}=${value}`);
+                }
+            }
+        }
 
         if (compilerArgs && compilerArgs.length > 0 && !result.compilerPath) {
             result.compilerPath = compilerArgs[0];
@@ -117,8 +126,14 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
                 result.includePath = [...toolchain.includeDirs, ...result.includePath];
             }
 
+            // toolchain defines should override settings defines, which should override original configuration defines
             if (toolchain.defines) {
-                result.defines = [...Object.entries(toolchain.defines).map(([k, v]) => `${k}=${v}`), ...result.defines];
+                for (const [name, value] of Object.entries(toolchain.defines)) {
+                    result.defines = result.defines.filter(d => !(d === name || d.startsWith(`${name}=`)));
+                    if (value !== null) {
+                        result.defines.push(`${name}=${value}`);
+                    }
+                }
             }
         }
 

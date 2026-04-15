@@ -1,4 +1,3 @@
-export interface ILMBuilder
+export abstract class ILMBuilder
 {
-
 }

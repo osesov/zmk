@@ -258,7 +258,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             case 'valhallaFolder': {
                 const selected = deps.activeProject;
                 if (selected && deps.valhallaProjects) {
-                    const match = deps.valhallaProjects.find(p => p.uri.toString() === selected);
+                    const match = deps.valhallaProjects.find(p => p.uri.fsPath === selected);
                     if (match) {
                         return match.uri as unknown as ValueOf<S>;
                     }
@@ -389,7 +389,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
 
         let valhallaFolder: vscode.Uri | undefined;
         if (activeProject) {
-            valhallaFolder = projects.find(p => p.uri.toString() === activeProject)?.uri;
+            valhallaFolder = projects.find(p => p.uri.fsPath === activeProject)?.uri;
         }
 
         valhallaFolder ??= projects[0]?.uri;

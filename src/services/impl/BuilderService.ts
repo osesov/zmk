@@ -311,6 +311,7 @@ export class BuilderService implements IBuilderService
         const settings = this.services.get('settings');
         const valhallaDir = settings.get(Setting.valhallaFolder);
         const buildDir = this.getOutputDir();
+        const testBuildDir = settings.get(Setting.testOutputDir);
         const buildConfig = options?.config ?? settings.get(Setting.config);
         const testConfig = options?.config ?? settings.get(Setting.testConfig);
         const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
@@ -319,6 +320,8 @@ export class BuilderService implements IBuilderService
         let target: string | undefined;
 
         buildMode = options?.mode ?? buildMode ?? BuildMode.build;
+        const cwd = buildMode === BuildMode.test ? testBuildDir : buildDir;
+        const expectedConfig = buildMode === BuildMode.test ? testConfig : buildConfig;
 
         if (buildMode === BuildMode.test) {
             target = options?.target ?? settings.get(Setting.testTarget) ?? undefined;
@@ -331,7 +334,8 @@ export class BuilderService implements IBuilderService
             target = options?.target ?? settings.get(Setting.target) ?? undefined;
         }
 
-        if (!valhallaDir || !buildConfig || !buildDir) {
+
+        if (!valhallaDir || !expectedConfig || !cwd) {
             return null;
         }
 
@@ -429,7 +433,6 @@ export class BuilderService implements IBuilderService
         const actualTarget = getActualTarget(buildMode);
         const command = prepareCommand(buildMode, actualConfig, actualTarget ? [actualTarget] : []);
         const env = makeEnvironment(process.env, configEnv, options?.env, toolchain?.env);
-        const cwd = buildDir;
 
         return { command, cwd, env, actualConfig, actualTarget, actualBuildMode: buildMode };
     }

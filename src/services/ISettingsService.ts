@@ -160,7 +160,7 @@ export const Setting = {
     browseTargets: configuration('browseTargets', 'zmk.browseTargets', [] as string[]),
     env: configuration('env', 'zmk.env', undefined as Environment | undefined),
     includeDirs: configuration('includeDirs', 'zmk.includeDirs', undefined as string[] | undefined),
-    defines: configuration('defines', 'zmk.defines', undefined as string[] | undefined),
+    defines: configuration('defines', 'zmk.defines', undefined as {[k:string]: string | null} | undefined),
 
     disableCppToolsIntegration: configuration('disableCppToolsIntegration', 'zmk.disableCppToolsIntegration', false),
     cppStandard: configuration('cppStandard', 'zmk.cppStandard', undefined as string | undefined),
