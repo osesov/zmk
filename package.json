@@ -18,7 +18,9 @@
 		"onLanguage:cpp",
 		"workspaceContains:**/BUILD.gn",
 		"workspaceContains:**/.gn",
-		"onTaskType:gnb"
+		"onTaskType:gnb",
+		"onLanguageModelTool:valhalla-list-configs",
+		"onLanguageModelTool:valhalla-build-target"
 	],
 	"extensionKind": [
 		"workspace"
@@ -681,7 +683,39 @@
 					"group": "navigation"
 				}
 			]
-		}
+		},
+		"languageModelTools": [
+			{
+				"name": "valhalla-list-configs",
+				"toolReferenceName": "listConfigs",
+				"canBeReferencedInPrompt": true,
+				"displayName": "list valhalla configs",
+				"modelDescription": "List available valhalla build configurations",
+				"userDescription": "List available valhalla build configurations in the current workspace.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {},
+					"additionalProperties": false
+				}
+			},
+			{
+				"name": "valhalla-build-target",
+				"toolReferenceName": "buildTarget",
+				"canBeReferencedInPrompt": true,
+				"displayName": "build valhalla target",
+				"modelDescription": "Build files using valhalla build system using default config",
+				"userDescription": "Build a valhalla target using the default configuration in the current workspace.",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"target": {
+							"type": "string",
+							"description": "build target"
+						}
+					}
+				}
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "node build.js --prepublish && npm run bundle",

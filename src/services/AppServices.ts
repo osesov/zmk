@@ -20,6 +20,7 @@ import { ISourceFileConfigurationService } from './ISourceFileConfigurationServi
 import { IFileDecorationProvider } from './IFileDecorationProvider';
 import { ITestController } from './ITestController';
 import { IUpdateService } from './IUpdateService';
+import { ILMBuilder } from './ILMBuilder';
 
 export type AppServices =
 {
@@ -51,6 +52,7 @@ export type AppServices =
     fileDecorations: IFileDecorationProvider;
     testController: ITestController;
     update: IUpdateService;
+    lmBuilder: ILMBuilder;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;

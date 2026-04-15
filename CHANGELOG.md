@@ -4,6 +4,12 @@ All notable changes to the "zmk" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 2.5.0
+
+- Implemented experimental LM tools:
+  - listConfigs
+  - buildTarget
+
 ## 2.4.0
 
 - Support `Browse Set`: Set of targets, which are reported to C/C++ tools as browse configuration.

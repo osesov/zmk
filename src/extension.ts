@@ -29,6 +29,7 @@ import { SourceFileConfigurationService } from './services/impl/SourceFileConfig
 import { FileDecorationProvider } from './services/impl/FileDecorationProvider';
 import { TestController } from './services/impl/TestController';
 import { UpdateService } from './services/impl/UpdateService';
+import { LMBuilder } from './services/impl/LMBuilder';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -285,6 +286,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('review', new ReviewService(services))
 		.registerInstance('testController', new TestController(services))
 		.registerInstance('update', new UpdateService(services))
+		.registerInstance('lmBuilder', new LMBuilder(services))
 		// .registerInstance('fileDecorations', new FileDecorationProvider(services))
 		;
 
