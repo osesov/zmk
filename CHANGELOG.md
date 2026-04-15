@@ -18,6 +18,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
     - deps: allow to go to item in the target tree
     - sources: allow to open file
     - include_dirs: allow to reveal in file explorer and open is OS file manager
+  - Allow to find target by name
 
 ## 2.3.0
 
