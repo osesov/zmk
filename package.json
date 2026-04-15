@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "2.3.0",
+	"version": "2.4.0",
 	"engines": {
 		"vscode": "^1.111.0"
 	},
@@ -575,7 +575,6 @@
 					"when": "view == targetTreeView && viewItem =~ /<target>/ && viewItem =~ /<current>/",
 					"group": "navigation@2"
 				},
-
 				{
 					"command": "zmk.addToBrowseSet",
 					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && !(viewItem =~ /<browse>/)",
@@ -586,7 +585,6 @@
 					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && !(viewItem =~ /<browse>/)",
 					"group": "navigation@2"
 				},
-
 				{
 					"command": "zmk.removeFromBrowseSet",
 					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && viewItem =~ /<browse>/",
@@ -597,7 +595,6 @@
 					"when": "view == targetTreeView && viewItem =~ /<browseable>/ && viewItem =~ /<browse>/",
 					"group": "navigation@2"
 				},
-
 				{
 					"command": "zmk.goToTargetDep",
 					"when": "view == targetTreeView && viewItem == propertyItem.deps",
@@ -608,7 +605,6 @@
 					"when": "view == targetTreeView && viewItem == propertyItem.deps",
 					"group": "navigation"
 				},
-
 				{
 					"command": "zmk.openSourceFile",
 					"when": "view == targetTreeView && viewItem == propertyItem.sources",
@@ -619,7 +615,6 @@
 					"when": "view == targetTreeView && viewItem == propertyItem.sources",
 					"group": "navigation"
 				},
-
 				{
 					"command": "zmk.revealIncludeDirInExplorer",
 					"when": "view == targetTreeView && viewItem == propertyItem.include_dirs",
@@ -630,7 +625,6 @@
 					"when": "view == targetTreeView && viewItem == propertyItem.include_dirs",
 					"group": "navigation"
 				},
-
 				{
 					"command": "zmk.copyPropertyValue",
 					"when": "view == targetTreeView && viewItem =~ /^propertyItem/",
@@ -646,7 +640,6 @@
 					"when": "view == targetTreeView && viewItem =~ /<target>/",
 					"group": "navigation@9"
 				},
-
 				{
 					"command": "zmk.revealIncludeInExplorer",
 					"when": "view == cppSourceConfig && viewItem == include",
