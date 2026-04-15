@@ -116,13 +116,27 @@ export class CompileCommandsService implements ICompileCommandsService
             _command: words.map(normalizeArg),
         };
 
+        let nextIsIncludePath = false;
+
         for (const word of words) {
             if (typeof word !== 'string') {
                 continue; // skip shell operators like &&, ||, etc.
             }
 
-            if (word.startsWith('-I')) {
+            if (nextIsIncludePath) {
+                result.includePath.push(word);
+                nextIsIncludePath = false;
+            }
+            else if (word === '-I') {
+                nextIsIncludePath = true;
+            }
+            else if (word === '-isystem') {
+                nextIsIncludePath = true;
+            }
+            else if (word.startsWith('-I')) {
                 result.includePath.push(word.slice(2));
+            } else if (word.startsWith('-isystem')) {
+                result.includePath.push(word.slice(8));
             } else if (word.startsWith('-D')) {
                 result.defines.push(word.slice(2));
             } else if (word.startsWith('-std=')) {
