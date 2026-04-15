@@ -102,6 +102,58 @@ export class CompileCommandsService implements ICompileCommandsService
             return undefined;
         }
 
+        const optParser = new class {
+            private index = 0;
+
+            get done(): boolean {
+                return this.index >= words.length;
+            }
+
+            skip(): void {
+                while (this.index < words.length) {
+                    this.index += 1;
+                    const word = words[this.index];
+                    if (typeof word !== 'string')
+                        continue;
+
+                    else if (!word.startsWith('-'))
+                        continue;
+
+                    else
+                        break;
+                }
+            }
+
+            getOpt(name: string, handle: (value: string) => void): boolean
+            {
+                if (this.index >= words.length) {
+                    return false;
+                }
+
+                const word = words[this.index];
+                if (typeof word !== 'string') {
+                    return false;
+                }
+
+                if (word === name) {
+                    if (this.index + 1 >= words.length) {
+                        return false;
+                    }
+                    handle(words[this.index + 1] as string);
+                    this.index += 2;
+                    return true;
+                }
+
+                if (word.startsWith(name)) {
+                    handle(word.slice(name.length));
+                    this.index += 1;
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
         const result: Mutable<SourceFileConfigurationEx> = {
             includePath: [],
             defines: [],
@@ -116,35 +168,29 @@ export class CompileCommandsService implements ICompileCommandsService
             _command: words.map(normalizeArg),
         };
 
-        let nextIsIncludePath = false;
+        // let nextIsIncludePath = false;
+        // let nextIsDirAfterIncludePath = false;
+        // let nextIsSysroot = false;
+        const dirAfterIncludePaths: string[] = [];
+        // sysroot affects paths, which started with '=' sign
+        let sysroot: string | undefined = undefined;
 
-        for (const word of words) {
-            if (typeof word !== 'string') {
-                continue; // skip shell operators like &&, ||, etc.
-            }
+        while (!optParser.done) {
+            optParser.getOpt('--sysroot=', value => {sysroot = value;})
+            || optParser.getOpt('--sysroot', value => {sysroot = value;})
+            || optParser.getOpt('-I', value => {result.includePath.push(value);})
+            || optParser.getOpt('-isystem', value => {result.includePath.push(value);})
+            || optParser.getOpt('-iquote', value => {result.includePath.push(value);})
+            || optParser.getOpt('-idirafter', value => {dirAfterIncludePaths.push(value);})
+            || optParser.getOpt('-D', value => {result.defines.push(value);})
+            || optParser.getOpt('-std=', value => {result.standard = value as cpptools.CppStandard;})
+            || optParser.skip(); // unrecognized option, skip
+        }
 
-            if (nextIsIncludePath) {
-                result.includePath.push(word);
-                nextIsIncludePath = false;
-            }
-            else if (word === '-I') {
-                nextIsIncludePath = true;
-            }
-            else if (word === '-isystem') {
-                nextIsIncludePath = true;
-            }
-            else if (word.startsWith('-I')) {
-                result.includePath.push(word.slice(2));
-            } else if (word.startsWith('-isystem')) {
-                result.includePath.push(word.slice(8));
-            } else if (word.startsWith('-D')) {
-                result.defines.push(word.slice(2));
-            } else if (word.startsWith('-std=')) {
-                result.standard = word.slice(5) as cpptools.CppStandard;
+        result.includePath.push(...dirAfterIncludePaths);
 
-                if (result.standard.includes('++') && typeof words[0] === 'string')
-                    this._cxxCompiler = words[0];
-            }
+        if (sysroot) {
+            result.includePath = result.includePath.map(p => p.startsWith('=') ? path.join(sysroot!, p.substring(1)) : p);
         }
 
         return result;
