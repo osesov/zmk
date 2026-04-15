@@ -569,6 +569,10 @@ export class ProjectInfoService implements IProjectInfoService
         }
 
         const calculateBrowseableType = (target: string): BrowseableType => {
+            if (browseSet.has(target)) {
+                return BrowseableType.EXPLICITLY;
+            }
+
             const projectJson = this.projectJson;
             if (!projectJson || !projectJson.targets) {
                 return BrowseableType.NON_BROWSEABLE;
@@ -588,15 +592,12 @@ export class ProjectInfoService implements IProjectInfoService
                 return BrowseableType.POTENTIALLY;
             }
 
-            if (browseSet.has(target)) {
-                return BrowseableType.EXPLICITLY;
-            }
-
             if (!isSourceSet(targetInfo))
                 return BrowseableType.POTENTIALLY;
 
             for (const sourceSet of targets) {
-                if (isBrowseableWithCache(sourceSet) !== BrowseableType.POTENTIALLY) {
+                const browseableType = calculateBrowseableType(sourceSet);
+                if (browseableType === BrowseableType.EXPLICITLY || browseableType === BrowseableType.IMPLICITLY) {
                     return BrowseableType.IMPLICITLY;
                 }
             }

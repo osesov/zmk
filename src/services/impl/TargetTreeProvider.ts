@@ -78,13 +78,57 @@ function isNodeAffected(node: TargetGroupNode, target: ParsedTarget | undefined 
     return node.prefix.every((part, index) => part === target?.pathParts[index]);
 }
 
+namespace labels
+{
+    export const non_browseable = '';
+    export const explicitly_browseable = ' ◼';
+    export const implicitly_browseable = ' ◻';
+    export const potentially_browseable = ' ⛶';
+    // export const non_browseable = '';
+    // export const explicitly_browseable = ' ●';
+    // export const implicitly_browseable = ' ◐';
+    // export const potentially_browseable = ' ◌';
+}
+
+export function getLabelForTarget(node: TargetNode, currentTarget: CurrentTarget): string
+{
+    switch (node.kind) {
+        case "group":
+            return node.label;
+        case "target":
+            const browseType = currentTarget.browseSet?.isBrowseable(node.fullTarget) ?? BrowseableType.NON_BROWSEABLE;
+            switch (browseType) {
+            case BrowseableType.EXPLICITLY:
+                return `${node.label}${labels.explicitly_browseable}`;
+            case BrowseableType.IMPLICITLY:
+                return `${node.label}${labels.implicitly_browseable}`;
+            case BrowseableType.POTENTIALLY:
+                return `${node.label}${labels.potentially_browseable}`;
+            case BrowseableType.NON_BROWSEABLE:
+                return `${node.label}${labels.non_browseable}`;
+            default:
+                assertNever(browseType);
+                return node.label;
+            }
+        case "propertyGroup":
+            return node.label;
+        case "propertyItem":
+            return node.label;
+        case "notValhalla":
+            return node.label;
+        default:
+            assertNever(node);
+    }
+
+}
+
 export class TargetTreeItem extends vscode.TreeItem {
     constructor(
         public readonly node: TargetNode,
         currentTarget: CurrentTarget,
     ) {
         super(
-            node.label,
+            getLabelForTarget(node, currentTarget),
             node.kind === "group"
                 ? vscode.TreeItemCollapsibleState.Collapsed
                 : node.kind === "target"
@@ -133,10 +177,10 @@ export class TargetTreeItem extends vscode.TreeItem {
 
             if (isCurrent)
                 this.iconPath = new vscode.ThemeIcon('star-full');
-            else if (inBrowseSet === BrowseableType.EXPLICITLY)
-                this.iconPath = new vscode.ThemeIcon('diff-added');
-            else if (inBrowseSet === BrowseableType.IMPLICITLY)
-                this.iconPath = new vscode.ThemeIcon('diff-modified');
+            // else if (inBrowseSet === BrowseableType.EXPLICITLY)
+            //     this.iconPath = new vscode.ThemeIcon('diff-added');
+            // else if (inBrowseSet === BrowseableType.IMPLICITLY)
+            //     this.iconPath = new vscode.ThemeIcon('diff-modified');
             else
                 this.iconPath = new vscode.ThemeIcon('star-empty');
 
@@ -144,7 +188,15 @@ export class TargetTreeItem extends vscode.TreeItem {
             this.description = `[${node.targetType}] ${node.fullTarget}`;
             this.tooltip = new vscode.MarkdownString()
             .appendMarkdown(`- **Type**: \`${node.targetType}\`\n`)
-            .appendMarkdown(`- **Target**: \`${node.fullTarget}\`\n`);
+            .appendMarkdown(`- **Target**: \`${node.fullTarget}\`\n`)
+            .appendMarkdown('\n')
+            .appendMarkdown('---\n\n')
+            .appendMarkdown(`**Legend:**\n\n`)
+            .appendMarkdown(`- ${labels.explicitly_browseable} -- Added to browse set\n`)
+            .appendMarkdown(`- ${labels.implicitly_browseable} -- Implicitly added to browse set\n`)
+            .appendMarkdown(`- ${labels.potentially_browseable} -- Potentially browseable\n`)
+            .appendMarkdown(`- ${labels.non_browseable || '&lt;empty&gt;'} -- Not browseable\n`)
+            ;
 
         } else if (node.kind === "propertyGroup") {
             this.iconPath = new vscode.ThemeIcon('symbol-property');
@@ -429,7 +481,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
                         await this.treeView.reveal(targetNode, {
                             select: true,
                             focus: true,
-                            expand: true
+                            expand: false
                         });
                     } catch (e) {
                         vscode.window.showErrorMessage(`Failed to reveal target: ${e instanceof Error ? e.message : String(e)}`);
