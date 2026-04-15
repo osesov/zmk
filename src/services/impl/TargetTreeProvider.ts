@@ -7,6 +7,7 @@ import { ISettingsService, Setting } from "../ISettingsService";
 import { assertNever, setContext, writeTextToClipboard } from "../../components/utils";
 import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfoService";
 import { ProjectJsonTarget, ProjectJsonTargetSet } from "../../components/ProjectInfo";
+import { fuzzyMatchScore } from "../../components/fuzzyMatchScore";
 
 interface CurrentTarget {
     selection: ParsedTarget | undefined | null
@@ -410,6 +411,35 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             },
         ));
 
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkFindTarget,
+            async () => {
+                const input = await vscode.window.showInputBox({
+                    prompt: "Enter target name to find",
+                    placeHolder: "e.g., //path/to:target",
+                });
+
+                if (!input) {
+                    return;
+                }
+
+                const targetNode = this.findBestMatchingTarget(input);
+                if (targetNode) {
+                    try {
+                        await vscode.commands.executeCommand('targetTreeView.focus');
+                        await this.treeView.reveal(targetNode, {
+                            select: true,
+                            focus: true,
+                            expand: true
+                        });
+                    } catch (e) {
+                        vscode.window.showErrorMessage(`Failed to reveal target: ${e instanceof Error ? e.message : String(e)}`);
+                    }
+                } else {
+                    vscode.window.showWarningMessage(`No matching target found for: ${input}`);
+                }
+            },
+        ));
+
         context.subscriptions.push(this.projectInfo.onChange(() => this.updateTargets(true)));
         this.settings.onChange( e => {
             const targetChanged = e.affects(Setting.target);
@@ -604,4 +634,53 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
         return items;
     }
+
+    private findBestMatchingTarget(searchTerm: string): TargetLeafNode | undefined {
+        const allTargets = Array.from(this.nodeMap.values());
+
+        if (allTargets.length === 0) {
+            return undefined;
+        }
+
+        // Strategy 1: Exact match
+        const exactMatch = allTargets.find(t => t.fullTarget === searchTerm);
+        if (exactMatch) {
+            return exactMatch;
+        }
+
+        // Strategy 2: Case-insensitive exact match
+        const lowerSearch = searchTerm.toLowerCase();
+        const caseInsensitiveMatch = allTargets.find(t => t.fullTarget.toLowerCase() === lowerSearch);
+        if (caseInsensitiveMatch) {
+            return caseInsensitiveMatch;
+        }
+
+        // Strategy 3: Contains match (substring)
+        const containsMatch = allTargets.find(t => t.fullTarget.includes(searchTerm));
+        if (containsMatch) {
+            return containsMatch;
+        }
+
+        // Strategy 4: Case-insensitive contains match
+        const caseInsensitiveContains = allTargets.find(t => t.fullTarget.toLowerCase().includes(lowerSearch));
+        if (caseInsensitiveContains) {
+            return caseInsensitiveContains;
+        }
+
+        // Strategy 5: Fuzzy match - score all targets and return best match
+        const scoredTargets = allTargets.map(target => ({
+            target,
+            score: fuzzyMatchScore(searchTerm.toLowerCase(), target.fullTarget.toLowerCase())
+        })).filter(item => item.score > 0);
+
+        if (scoredTargets.length === 0) {
+            return undefined;
+        }
+
+        // Return the target with highest score
+        scoredTargets.sort((a, b) => b.score - a.score);
+        return scoredTargets[0].target;
+    }
+
+
 }

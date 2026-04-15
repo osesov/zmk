@@ -22,6 +22,7 @@ export namespace zmkCommand
     export const zmkOpenIncludeDirFolder = "zmk.openIncludeDirFolder";
     export const zmkCopyPropertyValue = "zmk.copyPropertyValue";
     export const zmkCopyTargetData = "zmk.copyTargetData";
+    export const zmkFindTarget = "zmk.findTarget";
 
     export const toggleIncludeTreeView = "zmk.toggleIncludeTreeView";
     export const toggleIncludeListView = "zmk.toggleIncludeListView";

@@ -102,6 +102,11 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "zmk.findTarget",
+				"title": "Find Target",
+				"icon": "$(search)"
+			},
+			{
 				"command": "zmk.goToTargetDep",
 				"title": "Go To Target",
 				"icon": "$(go-to-file)"
@@ -500,6 +505,11 @@
 				},
 				{
 					"command": "zmk.refreshTargetTree",
+					"when": "view == targetTreeView",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.findTarget",
 					"when": "view == targetTreeView",
 					"group": "navigation"
 				},

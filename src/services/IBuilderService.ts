@@ -66,6 +66,7 @@ export interface IBuilderService
 
     needBuild(): Promise<NeedBuildResult>;
     buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>;
+    buildMultipleTargets(target: string[], options ?: BuildTargetOptions): Promise<BuildResult>;
     buildDefaultTarget(): Promise<BuildResult>;
     buildAllTarget(): Promise<BuildResult>;
     buildDefaultTargetIfNeeded(): Promise<BuildResult>;

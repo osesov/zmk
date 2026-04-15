@@ -620,4 +620,23 @@ export class ProjectInfoService implements IProjectInfoService
             }
         };
     }
+
+    getTargets(filter: (target: string) => boolean): string[]
+    {
+        const targets = this.projectJson?.targets;
+        if (!targets || typeof targets !== 'object') {
+            return [];
+        }
+
+        const result: string[] = [];
+        for (const [name, target] of Object.entries(targets)) {
+            if (filter(name)) {
+                result.push(name);
+            }
+        }
+
+        result.sort((a, b) => a.localeCompare(b));
+        return result;
+    }
+
 }

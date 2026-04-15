@@ -29,4 +29,7 @@ export interface IProjectInfoService
     getLinkUnits(): ProjectJsonLinkUnit[];
     getLinkUnitsForFile(uri: vscode.Uri): ProjectJsonLinkUnit[] | null;
     getUnitTests(): string[] | null;
+
+    getTargets(filter: (target: string) => boolean): string[];
+
 }

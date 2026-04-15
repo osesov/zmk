@@ -63,27 +63,24 @@ export class BuilderService implements IBuilderService
     public getOutputDir(): string | null
     {
         return this.settings.get(Setting.outputDir) ?? null;
-     }
+    }
 
-    async buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>
+    private async runCommand(
+        outputChannel: vscode.OutputChannel,
+        command: string[],
+        cwd: string,
+        env: NodeJS.ProcessEnv,
+        title: string,
+        options ?: BuildTargetOptions,
+    ): Promise<BuildResult>
     {
-        const outputChannel = this.services.get('buildOutputChannel');
-
-        outputChannel.clear();
-
-        const buildCommand = await this.getBuildCommand({target: target}, options?.buildMode ?? BuildMode.build);
-        if (!buildCommand) {
-            vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
-            return { success: false, status: 'Valhalla folder or configuration is not set', output: [] };
-        }
-
-        outputChannel.appendLine(`Running command: ${buildCommand.command.join(' ')}`);
-        outputChannel.appendLine(`In directory: ${buildCommand.cwd}`);
+        outputChannel.appendLine(`Running command: ${command.join(' ')}`);
+        outputChannel.appendLine(`In directory: ${cwd}`);
         // outputChannel.show(true);
 
         return vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `Running Valhalla build:\n${buildCommand.actualConfig}-${buildCommand.actualTarget ?? 'default target'}...`,
+            title: title,
             cancellable: true
         }, (progress, token) => {
             this._onBuildStarted.fire();
@@ -92,10 +89,10 @@ export class BuilderService implements IBuilderService
             return new Promise<BuildResult>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';
 
-                withoutException<void>(() => fs.mkdirSync(buildCommand.cwd, { recursive: true }), undefined);
-                const proc = child_process.spawn(buildCommand.command[0], buildCommand.command.slice(1), {
-                    cwd: buildCommand.cwd,
-                    env: buildCommand.env,
+                withoutException<void>(() => fs.mkdirSync(cwd, { recursive: true }), undefined);
+                const proc = child_process.spawn(command[0], command.slice(1), {
+                    cwd: cwd,
+                    env: env,
                     shell: false,
                     stdio: ['ignore', 'pipe', 'pipe'], // inherit stdout, pipe stderr
                     // Linux: start a new session so we can kill the whole process tree if needed
@@ -162,6 +159,28 @@ export class BuilderService implements IBuilderService
         });
     }
 
+    async buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>
+    {
+        const outputChannel = this.services.get('buildOutputChannel');
+
+        outputChannel.clear();
+
+        const buildCommand = await this.getBuildCommand({target: target}, options?.buildMode ?? BuildMode.build);
+        if (!buildCommand) {
+            vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
+            return { success: false, status: 'Valhalla folder or configuration is not set', output: [] };
+        }
+
+        return this.runCommand(
+            outputChannel,
+            buildCommand.command,
+            buildCommand.cwd,
+            buildCommand.env,
+            `Running Valhalla build:\n${buildCommand.actualConfig}-${buildCommand.actualTarget ?? 'default target'}...`,
+            options
+        )
+    }
+
     public async needBuild(): Promise<NeedBuildResult>
     {
         const isValhallaProject = this.settings.get(Setting.isValhallaProject);
@@ -205,6 +224,34 @@ export class BuilderService implements IBuilderService
     public async buildAllTarget(): Promise<BuildResult>
     {
         return await this.buildTarget(allBuildTarget);
+    }
+
+    public async buildMultipleTargets(targets: string[], options ?: BuildTargetOptions): Promise<BuildResult>
+    {
+        if (targets.length === 0) {
+            return { success: true, status: 0, output: [] };
+        }
+
+        const outputChannel = this.services.get('buildOutputChannel');
+        const config = this.settings.get(Setting.config);
+        const outputDir = this.settings.get(Setting.outputDir);
+        if (!outputDir || !config) {
+            vscode.window.showErrorMessage('Cannot build: Valhalla folder or configuration is not set.');
+            return { success: false, status: 'Valhalla folder or configuration is not set', output: [] };
+        }
+        outputChannel.clear();
+
+        const ninjaTargets = targets.map(target => target.startsWith("//") ? target.substring(2) : `${target}`);
+        const command = [...this.gnbCommand, config, '--', ...ninjaTargets];
+        const subset = targets.length > 5 ? `targets ${targets.length}` : `targets ${targets.join(' ')}`;
+        return await this.runCommand(
+            outputChannel,
+            command,
+            outputDir,
+            process.env,
+            `Build multiple targets:\n${config}\n${subset}...`,
+            options
+        )
     }
 
     private async toolchainSelectorInternal()

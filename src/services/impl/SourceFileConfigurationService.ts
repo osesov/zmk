@@ -16,6 +16,9 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
     private browseConfigurationChanged = new vscode.EventEmitter<void>();
     public readonly onDidChangeBrowseConfiguration = this.browseConfigurationChanged.event;
 
+    private providedSourceFileConfiguration = new vscode.EventEmitter<{ uri: vscode.Uri, configuration: MutableSourceFileConfiguration | null }>();
+    public readonly onDidProvidedSourceFileConfiguration = this.providedSourceFileConfiguration.event;
+
     private settings: ISettingsService;
     private projectInfo: IProjectInfoService;
     private compileCommands: ICompileCommandsService;
@@ -57,6 +60,8 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
             return null;
 
         entry = await this.enrich(entry);
+
+        this.providedSourceFileConfiguration.fire({ uri, configuration: entry });
         return entry;
     }
 
