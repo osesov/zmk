@@ -78,7 +78,7 @@
 			},
 			{
 				"command": "zmk.copyTarget",
-				"title": "Copy Target to Clipboard",
+				"title": "Copy Target Name to Clipboard",
 				"icon": "$(copy)"
 			},
 			{
@@ -100,6 +100,36 @@
 				"command": "zmk.refreshTargetTree",
 				"title": "Refresh Targets",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "zmk.goToTargetDep",
+				"title": "Go To Target",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "zmk.openSourceFile",
+				"title": "Open File",
+				"icon": "$(file-code)"
+			},
+			{
+				"command": "zmk.revealIncludeDirInExplorer",
+				"title": "Reveal in Explorer View",
+				"icon": "$(file-directory)"
+			},
+			{
+				"command": "zmk.openIncludeDirFolder",
+				"title": "Open Containing Folder",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "zmk.copyPropertyValue",
+				"title": "Copy Value",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "zmk.copyTargetData",
+				"title": "Copy Target Data as JSON",
+				"icon": "$(json)"
 			},
 			{
 				"command": "zmk.toggleIncludeListView",
@@ -446,10 +476,6 @@
 				{
 					"id": "cppSourceConfig",
 					"name": "Source File Info"
-				},
-				{
-					"id": "linkUnitTreeView",
-					"name": "Link Units"
 				}
 			]
 		},
@@ -572,6 +598,54 @@
 					"group": "navigation@2"
 				},
 
+				{
+					"command": "zmk.goToTargetDep",
+					"when": "view == targetTreeView && viewItem == propertyItem.deps",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.goToTargetDep",
+					"when": "view == targetTreeView && viewItem == propertyItem.deps",
+					"group": "navigation"
+				},
+
+				{
+					"command": "zmk.openSourceFile",
+					"when": "view == targetTreeView && viewItem == propertyItem.sources",
+					"group": "inline"
+				},
+				{
+					"command": "zmk.openSourceFile",
+					"when": "view == targetTreeView && viewItem == propertyItem.sources",
+					"group": "navigation"
+				},
+
+				{
+					"command": "zmk.revealIncludeDirInExplorer",
+					"when": "view == targetTreeView && viewItem == propertyItem.include_dirs",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.openIncludeDirFolder",
+					"when": "view == targetTreeView && viewItem == propertyItem.include_dirs",
+					"group": "navigation"
+				},
+
+				{
+					"command": "zmk.copyPropertyValue",
+					"when": "view == targetTreeView && viewItem =~ /^propertyItem/",
+					"group": "navigation@9"
+				},
+				{
+					"command": "zmk.copyPropertyValue",
+					"when": "view == targetTreeView && viewItem == propertyGroup",
+					"group": "navigation@9"
+				},
+				{
+					"command": "zmk.copyTargetData",
+					"when": "view == targetTreeView && viewItem =~ /<target>/",
+					"group": "navigation@9"
+				},
 
 				{
 					"command": "zmk.revealIncludeInExplorer",

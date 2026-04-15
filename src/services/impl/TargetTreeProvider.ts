@@ -6,7 +6,7 @@ import { zmkCommand } from "../../components/constants";
 import { ISettingsService, Setting } from "../ISettingsService";
 import { assertNever, setContext, writeTextToClipboard } from "../../components/utils";
 import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfoService";
-import { ProjectJsonTargetSet } from "../../components/ProjectInfo";
+import { ProjectJsonTarget, ProjectJsonTargetSet } from "../../components/ProjectInfo";
 
 interface CurrentTarget {
     selection: ParsedTarget | undefined | null
@@ -28,6 +28,24 @@ interface TargetLeafNode {
     fullTarget: string; // original target
     parent: TargetGroupNode | undefined;
     targetType: string;
+    targetData: ProjectJsonTarget | undefined;
+}
+
+interface PropertyGroupNode {
+    kind: "propertyGroup";
+    label: string;          // e.g., "deps", "sources", "include_dirs"
+    propertyName: keyof ProjectJsonTarget;
+    parent: TargetLeafNode;
+    values: unknown;
+}
+
+interface PropertyItemNode {
+    kind: "propertyItem";
+    label: string;          // the actual value (e.g., a target name, file path)
+    propertyName: keyof ProjectJsonTarget;
+    value: string;
+    parent: PropertyGroupNode;
+    targetData?: ProjectJsonTarget; // for deps that can be expanded
 }
 
 interface NotValhallaProjectNode {
@@ -35,7 +53,7 @@ interface NotValhallaProjectNode {
     label: string;
 }
 
-type TargetNode = TargetGroupNode | TargetLeafNode | NotValhallaProjectNode;
+type TargetNode = TargetGroupNode | TargetLeafNode | PropertyGroupNode | PropertyItemNode | NotValhallaProjectNode;
 
 function createGroup(label: string, prefix: string[] | undefined, parent: TargetGroupNode | undefined): TargetGroupNode {
     return {
@@ -67,6 +85,12 @@ export class TargetTreeItem extends vscode.TreeItem {
         super(
             node.label,
             node.kind === "group"
+                ? vscode.TreeItemCollapsibleState.Collapsed
+                : node.kind === "target"
+                ? vscode.TreeItemCollapsibleState.Collapsed
+                : node.kind === "propertyGroup"
+                ? vscode.TreeItemCollapsibleState.Collapsed
+                : node.kind === "propertyItem" && node.propertyName === "deps" && node.targetData
                 ? vscode.TreeItemCollapsibleState.Collapsed
                 : vscode.TreeItemCollapsibleState.None,
         );
@@ -115,13 +139,32 @@ export class TargetTreeItem extends vscode.TreeItem {
             else
                 this.iconPath = new vscode.ThemeIcon('star-empty');
 
-            // this.iconPath = isCurrent ? new vscode.ThemeIcon('star-full') : new vscode.ThemeIcon('star-empty');
             this.contextValue = contextParts.join(".");
             this.description = `[${node.targetType}] ${node.fullTarget}`;
             this.tooltip = new vscode.MarkdownString()
             .appendMarkdown(`- **Type**: \`${node.targetType}\`\n`)
             .appendMarkdown(`- **Target**: \`${node.fullTarget}\`\n`);
 
+        } else if (node.kind === "propertyGroup") {
+            this.iconPath = new vscode.ThemeIcon('symbol-property');
+            this.contextValue = "propertyGroup";
+            const count = Array.isArray(node.values) ? node.values.length : 0;
+            this.description = `[${count}]`;
+        } else if (node.kind === "propertyItem") {
+            if (node.propertyName === "deps") {
+                this.iconPath = new vscode.ThemeIcon('references');
+                this.contextValue = "propertyItem.deps";
+                this.command = undefined; // No default action, use context menu
+            } else if (node.propertyName === "sources") {
+                this.iconPath = new vscode.ThemeIcon('file-code');
+                this.contextValue = "propertyItem.sources";
+            } else if (node.propertyName === "include_dirs") {
+                this.iconPath = new vscode.ThemeIcon('folder-library');
+                this.contextValue = "propertyItem.include_dirs";
+            } else {
+                this.iconPath = new vscode.ThemeIcon('symbol-string');
+                this.contextValue = "propertyItem";
+            }
         } else if (node.kind === "notValhalla") {
             this.contextValue = "notValhalla";
             this.iconPath = new vscode.ThemeIcon('warning');
@@ -154,7 +197,8 @@ export function buildTargetTree(targets: ProjectJsonTargetSet, nodeMap: Map<stri
             label: parsed.action,
             fullTarget: parsed.original,
             parent: current,
-            targetType: target.type
+            targetType: target.type,
+            targetData: target
         };
         current.targets.push(leafNode);
         nodeMap.set(name, leafNode);
@@ -173,6 +217,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     private currentTarget: CurrentTarget = { selection: undefined, browseSet: null };
     private isValhallaProject: boolean = false;
     private nodeMap = new Map<string, TargetLeafNode>();
+    private treeView: vscode.TreeView<TargetNode>;
 
     constructor(private services: AppServiceContainer)
     {
@@ -180,7 +225,8 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         this.settings = services.get('settings');
         this.projectInfo = services.get('projectInfo');
 
-        context.subscriptions.push(vscode.window.registerTreeDataProvider("targetTreeView", this));
+        this.treeView = vscode.window.createTreeView("targetTreeView", { treeDataProvider: this });
+        context.subscriptions.push(this.treeView);
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRefreshTargetTree,
             () => {
                 this.refresh();
@@ -246,6 +292,120 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
                 const browseTargets = this.settings.get(Setting.browseTargets);
                 if (browseTargets.includes(node.fullTarget)) {
                     await this.settings.update(Setting.browseTargets, browseTargets.filter(t => t !== node.fullTarget));
+                }
+            },
+        ));
+
+        // New commands for property items
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkGoToTargetDep,
+            async (node: PropertyItemNode) => {
+                if (node.propertyName === "deps") {
+                    // Find the target node in the tree and reveal it
+                    const targetNode = this.nodeMap.get(node.value);
+                    if (targetNode) {
+                        // Set it as the current target (optional)
+                        // await this.settings.update(Setting.target, node.value);
+                        // Or just reveal it in the tree
+                        await vscode.commands.executeCommand('targetTreeView.focus');
+                        await this.treeView.reveal(targetNode, {
+                            select: true,
+                            focus: true,
+                            expand: false
+                        });
+                    } else {
+                        vscode.window.showWarningMessage(`Target ${node.value} not found in the tree.`);
+                    }
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkOpenSourceFile,
+            async (node: PropertyItemNode) => {
+                if (node.propertyName === "sources") {
+                    const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+                    if (!valhallaFolder)
+                        return;
+
+                    // node.value is a relative path from the valhalla folder
+                    const filePath = vscode.Uri.joinPath(valhallaFolder, node.value);
+                    try {
+                        const document = await vscode.workspace.openTextDocument(filePath);
+                        await vscode.window.showTextDocument(document);
+                    } catch (e) {
+                        vscode.window.showErrorMessage(`Failed to open source file: ${e instanceof Error ? e.message : String(e)}`);
+                    }
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkOpenIncludeDirFolder,
+            async (node: PropertyItemNode) => {
+                if (node.propertyName === "include_dirs") {
+                    const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+                    if (!valhallaFolder)
+                        return;
+
+                    const dirPath = vscode.Uri.joinPath(valhallaFolder, node.value);
+                    try {
+                        await vscode.commands.executeCommand('revealFileInOS', dirPath);
+                    } catch (e) {
+                        vscode.window.showErrorMessage(`Failed to reveal directory: ${e instanceof Error ? e.message : String(e)}`);
+                    }
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRevealIncludeDirInExplorer,
+            async (node: PropertyItemNode) => {
+                if (node.propertyName === "include_dirs") {
+                    const valhallaFolder = this.settings.get(Setting.valhallaFolder);
+                    if (!valhallaFolder)
+                        return;
+
+                    const dirPath = vscode.Uri.joinPath(valhallaFolder, node.value);
+                    try {
+                        await vscode.commands.executeCommand('revealInExplorer', dirPath);
+                    } catch (e) {
+                        vscode.window.showErrorMessage(`Failed to open directory: ${e instanceof Error ? e.message : String(e)}`);
+                    }
+                }
+            },
+        ));
+
+        // Copy commands for properties
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkCopyPropertyValue,
+            async (node: PropertyItemNode | PropertyGroupNode) => {
+                try {
+                    let textToCopy: string;
+
+                    if (node.kind === "propertyItem") {
+                        // For leaf nodes, copy the scalar value
+                        textToCopy = node.value;
+                    } else if (node.kind === "propertyGroup") {
+                        // For property groups, copy the JSON array/object from original data
+                        textToCopy = JSON.stringify(node.values, null, 2);
+                    } else {
+                        return;
+                    }
+
+                    await writeTextToClipboard(textToCopy);
+                    vscode.window.setStatusBarMessage(`Copied to clipboard`, 2000);
+                } catch (e) {
+                    vscode.window.showErrorMessage(`Failed to copy: ${e instanceof Error ? e.message : String(e)}`);
+                }
+            },
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkCopyTargetData,
+            async (node: TargetLeafNode) => {
+                if (node.kind === "target" && node.targetData) {
+                    try {
+                        const textToCopy = JSON.stringify(node.targetData, null, 2);
+                        await writeTextToClipboard(textToCopy);
+                        vscode.window.setStatusBarMessage(`Copied target data to clipboard`, 2000);
+                    } catch (e) {
+                        vscode.window.showErrorMessage(`Failed to copy: ${e instanceof Error ? e.message : String(e)}`);
+                    }
                 }
             },
         ));
@@ -317,6 +477,25 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         return new TargetTreeItem(element, this.currentTarget);
     }
 
+    public getParent(element: TargetNode): TargetNode | undefined {
+        if (element.kind === "notValhalla") {
+            return undefined;
+        }
+        if (element.kind === "group") {
+            return element.parent;
+        }
+        if (element.kind === "target") {
+            return element.parent;
+        }
+        if (element.kind === "propertyGroup") {
+            return element.parent;
+        }
+        if (element.kind === "propertyItem") {
+            return element.parent;
+        }
+        return undefined;
+    }
+
     public async getChildren(element?: TargetNode): Promise<TargetNode[]> {
         if (!this.isValhallaProject) {
             return [
@@ -335,6 +514,26 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
             return Promise.resolve(this.getSortedChildren(element));
         }
 
+        if (element.kind === "target") {
+            return Promise.resolve(this.getTargetProperties(element));
+        }
+
+        if (element.kind === "propertyGroup") {
+            return Promise.resolve(this.getPropertyItems(element));
+        }
+
+        if (element.kind === "propertyItem" && element.propertyName === "deps" && element.targetData) {
+            // Allow recursive expansion of deps
+            return Promise.resolve(this.getTargetProperties({
+                kind: "target",
+                fullTarget: element.value,
+                label: element.label,
+                parent: undefined,
+                targetType: element.targetData.type,
+                targetData: element.targetData
+            }));
+        }
+
         return Promise.resolve([]);
     }
 
@@ -342,5 +541,67 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
         const groups = [...group.children.values()].sort((a, b) => a.label.localeCompare(b.label));
         const targets = [...group.targets].sort((a, b) => a.label.localeCompare(b.label));
         return [...groups, ...targets];
+    }
+
+    private getTargetProperties(target: TargetLeafNode): PropertyGroupNode[] {
+        if (!target.targetData) {
+            return [];
+        }
+
+        const properties: PropertyGroupNode[] = [];
+        const data = target.targetData;
+
+        // Define which properties to show and in what order
+        const propertiesToShow: Array<keyof ProjectJsonTarget> = [
+            'deps', 'sources', 'include_dirs', 'defines', 'cflags', 'cflags_cc',
+            'ldflags', 'lib_dirs', 'libs', 'inputs', 'outputs', 'configs',
+            'public_configs', 'visibility'
+        ];
+
+        for (const propName of propertiesToShow) {
+            const value = data[propName];
+            if (value !== undefined && (Array.isArray(value) ? value.length > 0 : true)) {
+                properties.push({
+                    kind: "propertyGroup",
+                    label: propName,
+                    propertyName: propName,
+                    parent: target,
+                    values: value
+                });
+            }
+        }
+
+        return properties;
+    }
+
+    private getPropertyItems(group: PropertyGroupNode): PropertyItemNode[] {
+        const items: PropertyItemNode[] = [];
+        const values = group.values;
+
+        if (Array.isArray(values)) {
+            for (const value of values) {
+                if (typeof value === 'string') {
+                    const item: PropertyItemNode = {
+                        kind: "propertyItem",
+                        label: value,
+                        propertyName: group.propertyName,
+                        value: value,
+                        parent: group
+                    };
+
+                    // For deps, check if we can find the target data for recursive expansion
+                    if (group.propertyName === "deps") {
+                        const projectDescription = this.projectInfo.getProjectDescription();
+                        if (projectDescription?.targets) {
+                            item.targetData = projectDescription.targets[value];
+                        }
+                    }
+
+                    items.push(item);
+                }
+            }
+        }
+
+        return items;
     }
 }

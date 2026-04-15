@@ -12,6 +12,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - Show target type in description (group, source_set, shared_library, static_library, executable, ...)
   - Copy target name to clipboard
   - Open BUILD.gn for the given target
+  - Show target information (deps, sources, flags, etc...)
+  - Allow to copy target data to clipboard
+  - individual handling
+    - deps: allow to go to item in the target tree
+    - sources: allow to open file
+    - include_dirs: allow to reveal in file explorer and open is OS file manager
 
 ## 2.3.0
 

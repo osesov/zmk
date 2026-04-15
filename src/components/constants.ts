@@ -16,6 +16,12 @@ export namespace zmkCommand
     export const zmkTargetSelected = "zmk.targetSelected";
     export const zmkAddToBrowseSet = "zmk.addToBrowseSet";
     export const zmkRemoveFromBrowseSet = "zmk.removeFromBrowseSet";
+    export const zmkGoToTargetDep = "zmk.goToTargetDep";
+    export const zmkOpenSourceFile = "zmk.openSourceFile";
+    export const zmkRevealIncludeDirInExplorer = "zmk.revealIncludeDirInExplorer";
+    export const zmkOpenIncludeDirFolder = "zmk.openIncludeDirFolder";
+    export const zmkCopyPropertyValue = "zmk.copyPropertyValue";
+    export const zmkCopyTargetData = "zmk.copyTargetData";
 
     export const toggleIncludeTreeView = "zmk.toggleIncludeTreeView";
     export const toggleIncludeListView = "zmk.toggleIncludeListView";
