@@ -2,12 +2,12 @@ import * as vscode from 'vscode';
 import { AppServiceContainer } from "../AppServices";
 import { ITestController } from "../ITestController";
 import { BuildMode, BuildResult, BuildTargetOptions } from '../IBuilderService';
-import { ISettingsService, Setting } from '../ISettingsService';
+import { ISettingsService, Setting, SettingChangeEvent } from '../ISettingsService';
 import { FileWatcher } from '../../components/FileWatcher';
 import { parseProjectJson, ProjectInfoManager, ProjectJsonFile } from '../../components/ProjectInfo';
 import { parseTarget } from '../../components/parseTarget';
 
-export class TestController implements ITestController
+export class TestController implements ITestController, vscode.Disposable
 {
     private readonly controller: vscode.TestController;
     private readonly tests: Map<string, vscode.TestItem> = new Map();
@@ -15,14 +15,13 @@ export class TestController implements ITestController
     private readonly fileWatcher = new FileWatcher("project.json");
     private projectJson: ProjectJsonFile | null = null;
     private readonly runProfile: vscode.TestRunProfile;
+    private readonly disposables: vscode.Disposable[] = [];
+    private disposed = false;
+    private reloadVersion = 0;
 
     constructor(private services: AppServiceContainer)
     {
-        const context = services.get('context');
         this.controller = vscode.tests.createTestController('valhallaTestController', 'Valhalla Tests');
-
-        context.subscriptions.push(this.controller);
-
         this.runProfile = this.controller.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, async (request, token) => {
             await this.runTestsImpl(request)
         });
@@ -37,21 +36,54 @@ export class TestController implements ITestController
 
         this.settings = services.get('settings');
 
-        const resetFile = async () => {
-            const outputDir = this.settings.get(Setting.testOutputDir);
-            this.fileWatcher.setBaseDir(outputDir);
+        this.disposables.push(
+            this.runProfile,
+            this.controller,
+            this.fileWatcher,
+            this.settings.onChange((event: SettingChangeEvent) => {
+                if (event.affects(Setting.testOutputDir)) {
+                    void this.resetFile();
+                }
+            }),
+            vscode.workspace.onDidChangeWorkspaceFolders(() => {
+                void this.resetFile();
+            }),
+            this.fileWatcher.onChange(() => {
+                void this.resetFile();
+            }),
+        );
 
-            const content = await this.fileWatcher.getContentAsync()
-            this.projectJson = content ? parseProjectJson(content) : null;
+        void this.resetFile();
+        services.get('context').subscriptions.push(this);
+    }
 
-            await this.refreshTests();
+    public dispose(): void
+    {
+        if (this.disposed) {
+            return;
         }
 
-        this.settings.onChange(() => resetFile());
-        vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());
-        this.fileWatcher.onChange(() => resetFile());
+        this.disposed = true;
+        this.reloadVersion += 1;
 
-        resetFile();
+        for (const disposable of this.disposables.splice(0).reverse()) {
+            disposable.dispose();
+        }
+    }
+
+    private async resetFile(): Promise<void>
+    {
+        const currentReload = ++this.reloadVersion;
+        const outputDir = this.settings.get(Setting.testOutputDir);
+        this.fileWatcher.setBaseDir(outputDir);
+
+        const content = await this.fileWatcher.getContentAsync();
+        if (this.disposed || currentReload !== this.reloadVersion) {
+            return;
+        }
+
+        this.projectJson = content ? parseProjectJson(content) : null;
+        await this.refreshTests();
     }
 
     getTests(): string[] | null

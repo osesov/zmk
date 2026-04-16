@@ -5,7 +5,7 @@ import shell from "shell-quote";
 
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
-import { Setting } from "../ISettingsService";
+import { Setting, SettingChangeEvent } from "../ISettingsService";
 import { FileWatcher } from "../../components/FileWatcher";
 import { build } from "../../components/constants";
 import { CompileCommandEntry, CompileCommandsFile, parseCompileCommands } from "../../components/CompileCommands";
@@ -53,37 +53,73 @@ function normalizeArg(arg: shell.ParseEntry): string {
         return arg.op;
 }
 
-export class CompileCommandsService implements ICompileCommandsService
+export class CompileCommandsService implements ICompileCommandsService, vscode.Disposable
 {
-    private settings: AppServices['settings'];
-    private fileWatcher = new FileWatcher("compile_commands.json");
+    private readonly settings: AppServices['settings'];
+    private readonly fileWatcher = new FileWatcher("compile_commands.json");
+    private readonly disposables: vscode.Disposable[] = [];
     private compileCommands: CompileCommandsFile | null = null;
-    private cache: CompileCommandsCache = new Map();
+    private readonly cache: CompileCommandsCache = new Map();
     private _cxxCompiler: string | null = null;
 
-    private _onChange = new vscode.EventEmitter<void>();
+    private readonly _onChange = new vscode.EventEmitter<void>();
+    private disposed = false;
+    private reloadVersion = 0;
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
     constructor(private services: ServiceContainer<AppServices>)
     {
         this.settings = services.get('settings');
 
-        const resetFile = async () => {
-            const outputDir = this.settings.get(Setting.outputDir);
-            this.fileWatcher.setBaseDir(outputDir);
+        this.disposables.push(
+            this.fileWatcher,
+            this._onChange,
+            this.settings.onChange((event: SettingChangeEvent) => {
+                if (event.affects(Setting.outputDir)) {
+                    void this.resetFile();
+                }
+            }),
+            vscode.workspace.onDidChangeWorkspaceFolders(() => {
+                void this.resetFile();
+            }),
+            this.fileWatcher.onChange(() => {
+                void this.resetFile();
+            }),
+        );
 
-            const content = await this.fileWatcher.getContentAsync()
-            this.compileCommands = content ? parseCompileCommands(content) : null;
-            this._cxxCompiler = buildCache(this.compileCommands, this.cache);
+        void this.resetFile();
+        services.get('context').subscriptions.push(this);
+    }
 
-            this._onChange.fire();
+    public dispose(): void
+    {
+        if (this.disposed) {
+            return;
         }
 
-        this.settings.onChange((event) => event.affects(Setting.outputDir) && resetFile());
-        vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());
-        this.fileWatcher.onChange(() => resetFile());
+        this.disposed = true;
+        this.reloadVersion += 1;
 
-        resetFile();
+        for (const disposable of this.disposables.splice(0).reverse()) {
+            disposable.dispose();
+        }
+    }
+
+    private async resetFile(): Promise<void>
+    {
+        const currentReload = ++this.reloadVersion;
+        const outputDir = this.settings.get(Setting.outputDir);
+        this.fileWatcher.setBaseDir(outputDir);
+
+        const content = await this.fileWatcher.getContentAsync();
+        if (this.disposed || currentReload !== this.reloadVersion) {
+            return;
+        }
+
+        this.compileCommands = content ? parseCompileCommands(content) : null;
+        this._cxxCompiler = buildCache(this.compileCommands, this.cache);
+
+        this._onChange.fire();
     }
 
     get cxxCompiler(): string | null {

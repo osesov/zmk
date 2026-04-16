@@ -4,7 +4,7 @@ import { parseProjectJson, ProjectInfoManager, ProjectJsonFile, ProjectJsonLinkU
 import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfoService";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
-import { Setting } from "../ISettingsService";
+import { Setting, SettingChangeEvent } from "../ISettingsService";
 import { FileWatcher } from "../../components/FileWatcher";
 import { SourceFileConfiguration } from "vscode-cpptools";
 import { getGNPath, parseTarget } from "../../components/parseTarget";
@@ -135,15 +135,18 @@ function isBrowseableTarget(target: ProjectJsonTarget): boolean
 export class ProjectInfoService implements IProjectInfoService
 {
 
-    private settings: AppServices['settings'];
-    private fileWatcher = new FileWatcher("project.json");
+    private readonly settings: AppServices['settings'];
+    private readonly fileWatcher = new FileWatcher("project.json");
+    private readonly disposables: vscode.Disposable[] = [];
     private projectJson: ProjectJsonFile | null = null;
-    private links: Map<string, CacheEntry> = new Map();
-    private partOf: Map<string, string[]> = new Map();
-    private sourceToTargetCache: Map<string, string[]> = new Map();
-    private depToTargetCache: Map<string, string[]> = new Map();
+    private readonly links: Map<string, CacheEntry> = new Map();
+    private readonly partOf: Map<string, string[]> = new Map();
+    private readonly sourceToTargetCache: Map<string, string[]> = new Map();
+    private readonly depToTargetCache: Map<string, string[]> = new Map();
 
-    private _onChange = new vscode.EventEmitter<void>();
+    private readonly _onChange = new vscode.EventEmitter<void>();
+    private disposed = false;
+    private reloadVersion = 0;
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
@@ -151,25 +154,58 @@ export class ProjectInfoService implements IProjectInfoService
     {
         this.settings = services.get('settings');
 
-        const resetFile = async () => {
-            const outputDir = this.settings.get(Setting.outputDir);
-            this.fileWatcher.setBaseDir(outputDir);
+        this.disposables.push(
+            this.fileWatcher,
+            this._onChange,
+            this.settings.onChange((event: SettingChangeEvent) => {
+                if (event.affects(Setting.outputDir)) {
+                    void this.resetFile();
+                }
+            }),
+            vscode.workspace.onDidChangeWorkspaceFolders(() => {
+                void this.resetFile();
+            }),
+            this.fileWatcher.onChange(() => {
+                void this.resetFile();
+            }),
+        );
 
-            const content = await this.fileWatcher.getContentAsync()
-            this.projectJson = content ? parseProjectJson(content) : null;
-            buildLinks(this.projectJson, this.links, this.partOf);
+        void this.resetFile();
+        services.get('context').subscriptions.push(this);
+    }
 
-            buildSourceToTargetMap(this.projectJson, this.sourceToTargetCache);
-            buildDepToTargetMap(this.projectJson, this.depToTargetCache);
-
-            this._onChange.fire();
+    public dispose(): void
+    {
+        if (this.disposed) {
+            return;
         }
 
-        this.settings.onChange((event) => event.affects(Setting.outputDir) && resetFile());
-        vscode.workspace.onDidChangeWorkspaceFolders(() => resetFile());
-        this.fileWatcher.onChange(() => resetFile());
+        this.disposed = true;
+        this.reloadVersion += 1;
 
-        resetFile();
+        for (const disposable of this.disposables.splice(0).reverse()) {
+            disposable.dispose();
+        }
+    }
+
+    private async resetFile(): Promise<void>
+    {
+        const currentReload = ++this.reloadVersion;
+        const outputDir = this.settings.get(Setting.outputDir);
+        this.fileWatcher.setBaseDir(outputDir);
+
+        const content = await this.fileWatcher.getContentAsync();
+        if (this.disposed || currentReload !== this.reloadVersion) {
+            return;
+        }
+
+        this.projectJson = content ? parseProjectJson(content) : null;
+        buildLinks(this.projectJson, this.links, this.partOf);
+
+        buildSourceToTargetMap(this.projectJson, this.sourceToTargetCache);
+        buildDepToTargetMap(this.projectJson, this.depToTargetCache);
+
+        this._onChange.fire();
     }
 
     public getProjectDescription(): ProjectJsonFile | null
