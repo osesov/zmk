@@ -1,4 +1,7 @@
 import * as vscode from "vscode";
+import { ArgValue } from "../../components/ArgsFile";
+import { zmkCommand } from "../../components/constants";
+import { writeTextToClipboard } from "../../components/utils";
 import { IArgsTreeProvider } from "../IArgsTreeProvider";
 import { AppServiceContainer, AppServices } from "../AppServices";
 import { IArgsFileService } from "../IArgsFileService";
@@ -9,12 +12,37 @@ class ArgsNode extends vscode.TreeItem
     constructor(
         public readonly text: string | null,
         public readonly name: string,
-        public readonly type: string,
-        public readonly value: string
+        public readonly value: ArgValue
     ) {
-        const label = text ?? `${name} = ${value}`;
+        const valueText = ArgsNode.getDisplayValue(value);
+        const label = text ?? `${name} = ${valueText}`;
         super(label, vscode.TreeItemCollapsibleState.None);
-        this.tooltip = text ? undefined : `${type} ${name} = ${value}`;
+        this.tooltip = text ? undefined : `${typeof value} ${name} = ${valueText}`;
+        this.contextValue = text ? undefined : "arg";
+    }
+
+    public get valueText(): string
+    {
+        return ArgsNode.getDisplayValue(this.value);
+    }
+
+    public get assignmentText(): string
+    {
+        return `${this.name}=${ArgsNode.getAssignmentValue(this.value)}`;
+    }
+
+    private static getDisplayValue(value: ArgValue): string
+    {
+        return String(value);
+    }
+
+    private static getAssignmentValue(value: ArgValue): string
+    {
+        if (typeof value === "string") {
+            return JSON.stringify(value);
+        }
+
+        return String(value);
     }
 }
 
@@ -22,7 +50,7 @@ class NotValhallaProjectNode extends ArgsNode
 {
     constructor()
     {
-        super('Current workspace is not a Valhalla project', '', '', '');
+        super('Current workspace is not a Valhalla project', '', '');
         this.contextValue = "notValhalla";
         this.iconPath = new vscode.ThemeIcon('warning');
     }
@@ -46,6 +74,7 @@ export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArg
     readonly onDidChangeTreeData: vscode.Event<ArgsNode | undefined | void> = this._onDidChangeTreeData.event;
     private argsFile: IArgsFileService;
     private settings: ISettingsService;
+    private readonly treeView: vscode.TreeView<ArgsNode>;
 
     constructor(deps: ArgsTreeProviderDeps)
     {
@@ -55,8 +84,16 @@ export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArg
             this._onDidChangeTreeData.fire();
         });
 
+        this.treeView = vscode.window.createTreeView('argsView', { treeDataProvider: this });
+
         deps.context.subscriptions.push(
-            vscode.window.createTreeView('argsView', { treeDataProvider: this })
+            this.treeView,
+            vscode.commands.registerCommand(zmkCommand.zmkCopyArgValue, async (node?: ArgsNode) => {
+                await this.copyArgText(node, currentNode => currentNode.valueText, "Copied value to clipboard");
+            }),
+            vscode.commands.registerCommand(zmkCommand.zmkCopyArgPair, async (node?: ArgsNode) => {
+                await this.copyArgText(node, currentNode => currentNode.assignmentText, "Copied name=value to clipboard");
+            }),
         );
     }
 
@@ -77,14 +114,36 @@ export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArg
                 return Promise.resolve([]);
             }
 
-            const getType = (value: unknown): string => {
-                return typeof value;
-            }
-
             return Array.from(args.entries())
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-            .map(([key, value]) => new ArgsNode(null, key, getType(value), String(value)));
+            .map(([key, value]) => new ArgsNode(null, key, value));
         }
         return Promise.resolve([]);
+    }
+
+    private getSelectedArgNode(node?: ArgsNode): ArgsNode | undefined
+    {
+        const selectedNode = node ?? this.treeView.selection[0];
+        if (selectedNode?.contextValue === "arg") {
+            return selectedNode;
+        }
+
+        vscode.window.showInformationMessage("Select an arg entry first.");
+        return undefined;
+    }
+
+    private async copyArgText(node: ArgsNode | undefined, getText: (node: ArgsNode) => string, successMessage: string): Promise<void>
+    {
+        const selectedNode = this.getSelectedArgNode(node);
+        if (!selectedNode) {
+            return;
+        }
+
+        try {
+            await writeTextToClipboard(getText(selectedNode));
+            vscode.window.setStatusBarMessage(successMessage, 2000);
+        } catch (e) {
+            vscode.window.showErrorMessage(`Failed to copy: ${e instanceof Error ? e.message : String(e)}`);
+        }
     }
 }

@@ -9,6 +9,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Implemented experimental LM tools:
   - listConfigs
   - buildTarget
+- ArgsTreeProvider: copy arg value and arg name=value pair
 
 ## 2.4.0
 

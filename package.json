@@ -134,6 +134,16 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "zmk.copyArgValue",
+				"title": "Copy Arg Value",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "zmk.copyArgPair",
+				"title": "Copy Arg as name=value",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "zmk.copyTargetData",
 				"title": "Copy Target Data as JSON",
 				"icon": "$(json)"
@@ -656,6 +666,16 @@
 					"command": "zmk.copyPropertyValue",
 					"when": "view == targetTreeView && viewItem == propertyGroup",
 					"group": "navigation@9"
+				},
+				{
+					"command": "zmk.copyArgValue",
+					"when": "view == argsView && viewItem == arg",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.copyArgPair",
+					"when": "view == argsView && viewItem == arg",
+					"group": "navigation@1"
 				},
 				{
 					"command": "zmk.copyTargetData",

@@ -1,4 +1,4 @@
-type ArgValue = string | boolean | number
+export type ArgValue = string | boolean | number
 
 export namespace ArgsFile
 {
