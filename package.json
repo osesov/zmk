@@ -51,6 +51,11 @@
 				"icon": "$(file-code)"
 			},
 			{
+				"command": "zmk.copyConfig",
+				"title": "Copy Config Name to Clipboard",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "zmk.refreshConfigTree",
 				"title": "ZMK: Refresh Configurations",
 				"icon": "$(refresh)"
@@ -556,6 +561,11 @@
 					"command": "zmk.openConfig",
 					"when": "view == configTreeView && (viewItem == config || viewItem == defaultConfig)",
 					"group": "navigation"
+				},
+				{
+					"command": "zmk.copyConfig",
+					"when": "view == configTreeView && (viewItem == config || viewItem == defaultConfig)",
+					"group": "navigation@9"
 				},
 				{
 					"command": "zmk.buildTarget",

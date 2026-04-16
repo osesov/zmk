@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { AppServiceContainer, AppServices } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
+import { writeTextToClipboard } from "../../components/utils";
 import { Setting } from "../ISettingsService";
 import { IConfigTreeProvider } from "../IConfigTreeProvider";
 
@@ -187,6 +188,21 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
                     } else {
                         vscode.window.showErrorMessage(`Could not find path for config ${configName}`);
                     }
+                }
+            }
+        ));
+
+        context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkCopyConfig,
+            async (configNode: ModelNode) => {
+                if (configNode.kind !== "config") {
+                    return;
+                }
+
+                try {
+                    await writeTextToClipboard(configNode.fullName);
+                    vscode.window.setStatusBarMessage("Copied config name to clipboard", 2000);
+                } catch (e) {
+                    vscode.window.showErrorMessage(`Failed to copy: ${e instanceof Error ? e.message : String(e)}`);
                 }
             }
         ));

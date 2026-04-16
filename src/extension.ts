@@ -10,7 +10,7 @@ import { createStatusService } from './services/impl/StatusService';
 import { createValhallaTaskProvider } from './services/impl/ValhallaTaskProvider';
 import { createBuildStatusService } from './services/impl/BuildStatusService';
 import { createUIService } from './services/impl/UIService';
-import { createConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
+import { createConfigTreeProvider } from './services/impl/ConfigTreeProvider';
 import { createTargetTreeProvider } from './services/impl/TargetTreeProvider';
 import { createProjectInfoService } from './services/impl/ProjectInfoService';
 import { createSourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
