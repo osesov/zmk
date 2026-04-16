@@ -4,9 +4,22 @@ import { ISourceFileConfigurationService } from "../ISourceFileConfigurationServ
 import { CompilerStandard, IntelliSenseMode, MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from '../../components/SourceFileConfiguration';
 import { IProjectInfoService } from '../IProjectInfoService';
 import { ICompileCommandsService } from '../ICompileCommandsService';
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IBuilderService } from '../IBuilderService';
+
+type SourceFileConfigurationServiceDeps = Pick<AppServices, 'settings' | 'projectInfo' | 'compileCommands' | 'builder' | 'initialBuild'>;
+
+export function createSourceFileConfigurationService(services: AppServiceContainer): SourceFileConfigurationService
+{
+    return new SourceFileConfigurationService({
+        settings: services.get('settings'),
+        projectInfo: services.get('projectInfo'),
+        compileCommands: services.get('compileCommands'),
+        builder: services.get('builder'),
+        initialBuild: services.get('initialBuild'),
+    });
+}
 
 export class SourceFileConfigurationService implements ISourceFileConfigurationService
 {
@@ -24,13 +37,13 @@ export class SourceFileConfigurationService implements ISourceFileConfigurationS
     private compileCommands: ICompileCommandsService;
     private builder: IBuilderService;
 
-    constructor(services: AppServiceContainer) {
-        this.settings = services.get('settings');
-        this.projectInfo = services.get('projectInfo');
-        this.compileCommands = services.get('compileCommands');
-        this.builder = services.get('builder');
+    constructor(deps: SourceFileConfigurationServiceDeps) {
+        this.settings = deps.settings;
+        this.projectInfo = deps.projectInfo;
+        this.compileCommands = deps.compileCommands;
+        this.builder = deps.builder;
 
-        const initialBuild = services.get('initialBuild');
+        const initialBuild = deps.initialBuild;
 
         initialBuild.then(() => {
             this.projectInfo.onChange(() => {

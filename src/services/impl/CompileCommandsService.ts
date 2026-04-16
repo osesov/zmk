@@ -4,7 +4,7 @@ import * as cpptools from "vscode-cpptools";
 import shell from "shell-quote";
 
 import { ServiceContainer } from "../ServiceContainer";
-import { AppServices } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { Setting, SettingChangeEvent } from "../ISettingsService";
 import { build } from "../../components/constants";
 import { CompileCommandEntry, CompileCommandsFile, parseCompileCommands } from "../../components/CompileCommands";
@@ -53,6 +53,17 @@ function normalizeArg(arg: shell.ParseEntry): string {
         return arg.op;
 }
 
+export type CompileCommandsServiceDeps = Pick<AppServices, 'settings' | 'fs' | 'context'>;
+
+export function createCompileCommandsService(services: AppServiceContainer): CompileCommandsService
+{
+    return new CompileCommandsService({
+        settings: services.get('settings'),
+        fs: services.get('fs'),
+        context: services.get('context'),
+    });
+}
+
 export class CompileCommandsService implements ICompileCommandsService, vscode.Disposable
 {
     private readonly settings: AppServices['settings'];
@@ -67,10 +78,10 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
     private reloadVersion = 0;
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(services: CompileCommandsServiceDeps)
     {
-        this.settings = services.get('settings');
-        this.fileWatcher = services.get('fs').createWatchedFile("compile_commands.json", parseCompileCommands);
+        this.settings = services.settings;
+        this.fileWatcher = services.fs.createWatchedFile("compile_commands.json", parseCompileCommands);
 
         this.disposables.push(
             this.fileWatcher,
@@ -90,7 +101,7 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
 
         this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
         void this.resetFile();
-        services.get('context').subscriptions.push(this);
+        services.context.subscriptions.push(this);
     }
 
     public dispose(): void

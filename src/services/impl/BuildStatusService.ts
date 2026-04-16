@@ -1,8 +1,7 @@
-import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { IBuildStatusService } from "../IBuildStatusService";
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
@@ -10,19 +9,37 @@ import { BuildResult, IBuilderService, NeedBuildResult } from '../IBuilderServic
 import { expectNever } from '../../components/utils';
 import { zmkCommand } from '../../components/constants';
 
+type BuildStatusServiceDeps = Pick<AppServices, 'builder' | 'settings'>;
+
+export function createBuildStatusService(
+    services: AppServiceContainer,
+    onBuildComplete: vscode.EventEmitter<boolean>,
+    onInitialBuildComplete: Completion<boolean>,
+): BuildStatusService
+{
+    return new BuildStatusService(
+        {
+            builder: services.get('builder'),
+            settings: services.get('settings'),
+        },
+        onBuildComplete,
+        onInitialBuildComplete,
+    );
+}
+
 export class BuildStatusService implements IBuildStatusService
 {
     private readonly builder: IBuilderService;
     private readonly settings: ISettingsService;
 
     public constructor(
-        private services: AppServiceContainer,
+        deps: BuildStatusServiceDeps,
         private _onBuildComplete: vscode.EventEmitter<boolean>,
         private _onInitialBuildComplete: Completion<boolean>
     )
     {
-        this.builder = services.get('builder');
-        this.settings = services.get('settings');
+        this.builder = deps.builder;
+        this.settings = deps.settings;
 
         this.builder.onBuildFinished((success) => this._onBuildComplete.fire(success.success));
 

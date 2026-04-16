@@ -1,17 +1,19 @@
 import * as vscode from "vscode";
 
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { ILMBuilder } from "../ILMBuilder";
 
 namespace lm
 {
     interface ListConfigsParameters {}
 
+    type ListConfigsDeps = Pick<AppServices, 'context' | 'builder'>;
+
     export class ListConfigs implements vscode.LanguageModelTool<ListConfigsParameters>, vscode.Disposable
     {
-        constructor(private services: AppServiceContainer)
+        constructor(private deps: ListConfigsDeps)
         {
-            const context = services.get('context');
+            const context = deps.context;
             context.subscriptions.push(this,
                 vscode.lm.registerTool('valhalla-list-configs', this)
             );
@@ -36,8 +38,7 @@ namespace lm
             token: vscode.CancellationToken
         ): Promise<vscode.LanguageModelToolResult>
         {
-            const builder = this.services.get('builder');
-            const configs = await builder.listConfigs();
+            const configs = await this.deps.builder.listConfigs();
 
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
@@ -51,11 +52,13 @@ namespace lm
         target: string | undefined;
     }
 
+    type BuildTargetToolDeps = Pick<AppServices, 'context' | 'builder'>;
+
     export class BuildTargetTool implements vscode.LanguageModelTool<BuildTargetParameters>, vscode.Disposable
     {
-        constructor(private services: AppServiceContainer)
+        constructor(private deps: BuildTargetToolDeps)
         {
-            const context = services.get('context');
+            const context = deps.context;
             context.subscriptions.push(this,
                 vscode.lm.registerTool('valhalla-build-target', this)
             );
@@ -80,8 +83,7 @@ namespace lm
             token: vscode.CancellationToken
         ): Promise<vscode.LanguageModelToolResult>
         {
-            const builder = this.services.get('builder');
-            const success = await builder.buildTarget(options.input.target);
+            const success = await this.deps.builder.buildTarget(options.input.target);
 
             if (success.success) {
                 return new vscode.LanguageModelToolResult([
@@ -100,15 +102,25 @@ namespace lm
     }
 }
 
+type LMBuilderDeps = Pick<AppServices, 'context' | 'builder'>;
+
+export function createLMBuilder(services: AppServiceContainer): LMBuilder
+{
+    return new LMBuilder({
+        context: services.get('context'),
+        builder: services.get('builder'),
+    });
+}
+
 export class LMBuilder implements ILMBuilder
 {
     private listConfigsTool: lm.ListConfigs;
     private buildTargetTool: lm.BuildTargetTool;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: LMBuilderDeps)
     {
-        this.listConfigsTool = new lm.ListConfigs(services);
-        this.buildTargetTool = new lm.BuildTargetTool(services);
+        this.listConfigsTool = new lm.ListConfigs(deps);
+        this.buildTargetTool = new lm.BuildTargetTool(deps);
     }
 
 }

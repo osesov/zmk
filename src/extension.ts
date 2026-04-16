@@ -1,35 +1,33 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
+
 import { TextEditor, TextEditorEdit } from 'vscode';
 import { ValhallaCppToolsProviderService } from './services/impl/ValhallaCppToolsProviderService';
 import { ServiceContainer } from './services/ServiceContainer';
-import { VirtualDocumentProvider } from './services/impl/VirtualDocumentProviderService';
-import { BuilderService } from './services/impl/BuilderService';
-import { SettingsService } from './services/impl/SettingsService';
-import { StatusService } from './services/impl/StatusService';
-import { ValhallaTaskProvider } from './components/tasks';
-import { BuildStatusService } from './services/impl/BuildStatusService';
-import { UIService } from './services/impl/UIService';
-import { ConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
-import { TargetTreeProvider } from './services/impl/TargetTreeProvider';
-import { ProjectInfoService } from './services/impl/ProjectInfoService';
-import { SourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
+import { createVirtualDocumentProvider } from './services/impl/VirtualDocumentProviderService';
+import { createBuilderService } from './services/impl/BuilderService';
+import { createSettingsService } from './services/impl/SettingsService';
+import { createStatusService } from './services/impl/StatusService';
+import { createValhallaTaskProvider } from './components/tasks';
+import { createBuildStatusService } from './services/impl/BuildStatusService';
+import { createUIService } from './services/impl/UIService';
+import { createConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
+import { createTargetTreeProvider } from './services/impl/TargetTreeProvider';
+import { createProjectInfoService } from './services/impl/ProjectInfoService';
+import { createSourceFileConfigurationItemTreeProvider } from './services/impl/SourceFileConfigurationItemTreeProvider';
 import { Completion } from './components/promise';
-import { ArgsFileService } from './services/impl/ArgsFileService';
+import { createArgsFileService } from './services/impl/ArgsFileService';
 import { AppServiceContainer } from './services/AppServices';
-import { ArgsTreeProvider } from './services/impl/ArgsTreeProvider';
-import { CompileCommandsService } from './services/impl/CompileCommandsService';
-import { ReviewService } from './services/impl/ReviewService';
+import { createArgsTreeProvider } from './services/impl/ArgsTreeProvider';
+import { createCompileCommandsService } from './services/impl/CompileCommandsService';
+import { createReviewService } from './services/impl/ReviewService';
 import { getBuildDirAndCreate, getCurrentFile, getNfsDir, getNinjaTarget, getOrDefault, getRootDir, getTargetConfig, updateCurrentEnvironment } from './components/oldies';
 import { zmkUpdateBundlesInclude } from './components/CCxxPropertiesFile';
-import { awaitReady } from './services/IAsyncServiceInit';
-import { SourceFileConfigurationService } from './services/impl/SourceFileConfigurationService';
+import { createSourceFileConfigurationService } from './services/impl/SourceFileConfigurationService';
 import { FileDecorationProvider } from './services/impl/FileDecorationProvider';
-import { TestController } from './services/impl/TestController';
-import { UpdateService } from './services/impl/UpdateService';
-import { LMBuilder } from './services/impl/LMBuilder';
-import { FileService } from './services/impl/FileService';
+import { createTestController } from './services/impl/TestController';
+import { createUpdateService } from './services/impl/UpdateService';
+import { createLMBuilder } from './services/impl/LMBuilder';
+import { createFileService } from './services/impl/FileService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -267,27 +265,27 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('logOutputChannel', logOutputChannel)
 		.registerInstance('buildComplete', buildComplete.event)
 		.registerInstance('initialBuild', initialBuild.promise)
-		.registerInstance('fs', new FileService())
-		.registerInstance('settings', await awaitReady(new SettingsService(services)))
-		.registerInstance('argsFile', new ArgsFileService(services))
-		.registerInstance('projectInfo', new ProjectInfoService(services))
-		.registerInstance('compileCommands', new CompileCommandsService(services))
-		.registerInstance('virtualDocumentProvider', new VirtualDocumentProvider(services))
-		.registerInstance('builder', new BuilderService(services))
-		.registerInstance('buildStatus', new BuildStatusService(services, buildComplete, initialBuild))
-		.registerInstance('sourceFileInfo', new SourceFileConfigurationService(services))
+		.registerInstance('fs', createFileService())
+		.registerInstance('settings', await createSettingsService(services))
+		.registerInstance('argsFile', createArgsFileService(services))
+		.registerInstance('projectInfo', createProjectInfoService(services))
+		.registerInstance('compileCommands', createCompileCommandsService(services))
+		.registerInstance('virtualDocumentProvider', createVirtualDocumentProvider(services))
+		.registerInstance('builder', createBuilderService(services))
+		.registerInstance('buildStatus', createBuildStatusService(services, buildComplete, initialBuild))
+		.registerInstance('sourceFileInfo', createSourceFileConfigurationService(services))
 		.registerInstance('cppToolsProvider', await ValhallaCppToolsProviderService.create(services))
-		.registerInstance('tasks', new ValhallaTaskProvider(services))
-		.registerInstance('status', new StatusService(services))
-		.registerInstance('ui', new UIService(services))
-		.registerInstance('configTree', new ConfigTreeProvider(services))
-		.registerInstance('targetTree', new TargetTreeProvider(services))
-		.registerInstance('sourceFileConfigurationTree', new SourceFileConfigurationItemTreeProvider(services))
-		.registerInstance('argsTree', new ArgsTreeProvider(services))
-		.registerInstance('review', new ReviewService(services))
-		.registerInstance('testController', new TestController(services))
-		.registerInstance('update', new UpdateService(services))
-		.registerInstance('lmBuilder', new LMBuilder(services))
+		.registerInstance('tasks', createValhallaTaskProvider(services))
+		.registerInstance('status', createStatusService(services))
+		.registerInstance('testController', createTestController(services))
+		.registerInstance('ui', createUIService(services))
+		.registerInstance('configTree', createConfigTreeProvider(services))
+		.registerInstance('targetTree', createTargetTreeProvider(services))
+		.registerInstance('sourceFileConfigurationTree', createSourceFileConfigurationItemTreeProvider(services))
+		.registerInstance('argsTree', createArgsTreeProvider(services))
+		.registerInstance('review', createReviewService(services))
+		.registerInstance('update', createUpdateService(services))
+		.registerInstance('lmBuilder', createLMBuilder(services))
 		// .registerInstance('fileDecorations', new FileDecorationProvider(services))
 		;
 

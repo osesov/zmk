@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ITargetTreeProvider } from "../ITargetTreeProvider";
 import { ParsedTarget, parseTarget } from "../../components/parseTarget";
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { ISettingsService, Setting } from "../ISettingsService";
 import { assertNever, setContext, writeTextToClipboard } from "../../components/utils";
@@ -264,6 +264,18 @@ export function buildTargetTree(targets: ProjectJsonTargetSet, nodeMap: Map<stri
     return root;
 }
 
+type TargetTreeProviderDeps = Pick<AppServices, 'context' | 'settings' | 'projectInfo' | 'builder'>;
+
+export function createTargetTreeProvider(services: AppServiceContainer): TargetTreeProvider
+{
+    return new TargetTreeProvider({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        projectInfo: services.get('projectInfo'),
+        builder: services.get('builder'),
+    });
+}
+
 export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, ITargetTreeProvider
 {
     private readonly _onDidChangeTreeData = new vscode.EventEmitter<TargetNode | undefined | void>();
@@ -275,12 +287,14 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
     private isValhallaProject: boolean = false;
     private nodeMap = new Map<string, TargetLeafNode>();
     private treeView: vscode.TreeView<TargetNode>;
+    private readonly builder: AppServices['builder'];
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: TargetTreeProviderDeps)
     {
-        const context = services.get('context');
-        this.settings = services.get('settings');
-        this.projectInfo = services.get('projectInfo');
+        const context = deps.context;
+        this.settings = deps.settings;
+        this.projectInfo = deps.projectInfo;
+        this.builder = deps.builder;
 
         this.treeView = vscode.window.createTreeView("targetTreeView", { treeDataProvider: this });
         context.subscriptions.push(this.treeView);
@@ -304,7 +318,7 @@ export class TargetTreeProvider implements vscode.TreeDataProvider<TargetNode>, 
 
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkBuildTarget,
             async (node: TargetLeafNode) => {
-                await this.services.get('builder').buildTarget(node.fullTarget);
+                await this.builder.buildTarget(node.fullTarget);
             },
         ));
 

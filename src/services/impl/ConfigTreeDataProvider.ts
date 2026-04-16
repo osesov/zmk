@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { zmkCommand } from "../../components/constants";
 import { Setting } from "../ISettingsService";
 import { IConfigTreeProvider } from "../IConfigTreeProvider";
@@ -125,6 +125,17 @@ class ConfigTreeItem extends vscode.TreeItem {
     }
 }
 
+type ConfigTreeProviderDeps = Pick<AppServices, 'context' | 'settings' | 'builder'>;
+
+export function createConfigTreeProvider(services: AppServiceContainer): ConfigTreeProvider
+{
+    return new ConfigTreeProvider({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        builder: services.get('builder'),
+    });
+}
+
 export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, IConfigTreeProvider
 {
     private _onDidChangeTreeData = new vscode.EventEmitter<ModelNode | undefined | void>();
@@ -133,11 +144,15 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
     private root: GroupNode = createGroup("root", undefined);
     private configs: string[] | null | undefined = undefined;
     private currentConfig: CurrentConfig = { selection: undefined }
+    private readonly settings: AppServices['settings'];
+    private readonly builder: AppServices['builder'];
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: ConfigTreeProviderDeps)
     {
-        const context = services.get('context');
-        const settings = services.get('settings');
+        const context = deps.context;
+        const settings = deps.settings;
+        this.settings = deps.settings;
+        this.builder = deps.builder;
 
         context.subscriptions.push(vscode.window.registerTreeDataProvider("configTreeView", this));
         context.subscriptions.push(vscode.commands.registerCommand(zmkCommand.zmkRefreshConfigTree,
@@ -165,7 +180,7 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
                 if (configNode.kind === "config") {
                     const configName = configNode.fullName;
 
-                    const configPath = await this.services.get('builder').getConfigPath(configName);
+                    const configPath = await this.builder.getConfigPath(configName);
                     if (configPath) {
                         const doc = await vscode.workspace.openTextDocument(configPath);
                         await vscode.window.showTextDocument(doc);
@@ -214,13 +229,12 @@ export class ConfigTreeProvider implements vscode.TreeDataProvider<ModelNode>, I
 
     async getChildren(element?: ModelNode): Promise<ModelNode[]> {
         if (this.configs === undefined) {
-            const settings = this.services.get('settings');
-            if (!settings.get(Setting.isValhallaProject)) {
+            if (!this.settings.get(Setting.isValhallaProject)) {
                 this.configs = null;
             }
 
             else {
-                const configs = await this.services.get('builder').listConfigs()
+                const configs = await this.builder.listConfigs()
                 this.setConfigurations(configs);
             }
         }

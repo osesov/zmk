@@ -132,6 +132,17 @@ function isBrowseableTarget(target: ProjectJsonTarget): boolean
         || target.type === 'static_library';
 }
 
+type ProjectInfoServiceDeps = Pick<AppServices, 'settings' | 'fs' | 'context'>;
+
+export function createProjectInfoService(services: ServiceContainer<AppServices>): ProjectInfoService
+{
+    return new ProjectInfoService({
+        settings: services.get('settings'),
+        fs: services.get('fs'),
+        context: services.get('context'),
+    });
+}
+
 export class ProjectInfoService implements IProjectInfoService
 {
 
@@ -150,10 +161,10 @@ export class ProjectInfoService implements IProjectInfoService
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
-    constructor(private services: ServiceContainer<AppServices>)
+    constructor(services: ProjectInfoServiceDeps)
     {
-        this.settings = services.get('settings');
-        this.fileWatcher = services.get('fs').createWatchedFile("project.json", parseProjectJson);
+        this.settings = services.settings;
+        this.fileWatcher = services.fs.createWatchedFile("project.json", parseProjectJson);
 
         this.disposables.push(
             this.fileWatcher,
@@ -173,7 +184,7 @@ export class ProjectInfoService implements IProjectInfoService
 
         this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
         void this.resetFile();
-        services.get('context').subscriptions.push(this);
+        services.context.subscriptions.push(this);
     }
 
     public dispose(): void

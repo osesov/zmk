@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { IUIService } from "../IUIService";
 import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
@@ -8,19 +8,40 @@ import { getCurrentFile } from '../../components/oldies';
 import { BuildMode } from '../IBuilderService';
 import { parseTarget } from '../../components/parseTarget';
 
+type UIServiceDeps = Pick<AppServices, 'context' | 'settings' | 'buildOutputChannel' | 'builder' | 'projectInfo' | 'testController'>;
+
+export function createUIService(services: AppServiceContainer): UIService
+{
+    return new UIService({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        buildOutputChannel: services.get('buildOutputChannel'),
+        builder: services.get('builder'),
+        projectInfo: services.get('projectInfo'),
+        testController: services.get('testController'),
+    });
+}
+
 export class UIService implements IUIService
 {
     private readonly settings: ISettingsService;
+    private readonly buildOutputChannel: vscode.OutputChannel;
+    private readonly builder: AppServices['builder'];
+    private readonly projectInfo: AppServices['projectInfo'];
+    private readonly testController: AppServices['testController'];
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: UIServiceDeps)
     {
-        this.settings = this.services.get('settings');
-        const context = this.services.get('context');
+        this.settings = deps.settings;
+        this.buildOutputChannel = deps.buildOutputChannel;
+        this.builder = deps.builder;
+        this.projectInfo = deps.projectInfo;
+        this.testController = deps.testController;
+        const context = deps.context;
 
         context.subscriptions.push(
             vscode.commands.registerCommand(zmkCommand.showOutput, () => {
-                const outputChannel = this.services.get('buildOutputChannel');
-                outputChannel.show();
+                this.buildOutputChannel.show();
             }),
         );
 
@@ -42,13 +63,12 @@ export class UIService implements IUIService
 
     private async setConfigCommand(): Promise<void>
     {
-        const settings = this.services.get('settings');
+        const settings = this.settings;
         if (!settings.get(Setting.isValhallaProject)) {
             vscode.window.showErrorMessage('Current workspace is not a Valhalla project.');
             return;
         }
-        const builder = this.services.get('builder');
-        const configs = await builder.listConfigs();
+        const configs = await this.builder.listConfigs();
 
         type MyQuickPickItem = vscode.QuickPickItem & { configs: string[] };
         const quickPick = vscode.window.createQuickPick<MyQuickPickItem>();
@@ -139,14 +159,12 @@ export class UIService implements IUIService
         if (!valhallaFolder)
             return;
 
-        const projectInfo = this.services.get('projectInfo');
-        const testController = this.services.get('testController');
-        const linkUnits = projectInfo.getLinkUnits();
+        const linkUnits = this.projectInfo.getLinkUnits();
         const currentFileUri = await this.getCurrentFile(valhallaFolder);
-        const fileLinkUnits = currentFileUri ? projectInfo.getLinkUnitsForFile(currentFileUri) : null;
-        const unitTests = projectInfo.getUnitTests();
+        const fileLinkUnits = currentFileUri ? this.projectInfo.getLinkUnitsForFile(currentFileUri) : null;
+        const unitTests = this.projectInfo.getUnitTests();
         const currentFileToBuild = getCurrentFile();
-        const allUnitTests = testController.getTests();
+        const allUnitTests = this.testController.getTests();
 
         // prepare quick pick items
         const tasks: TargetQuickPickItem[] = [];
@@ -198,8 +216,7 @@ export class UIService implements IUIService
         await vscode.window.showQuickPick(tasks, { placeHolder: 'Select a target to build' })
         .then(async selection => {
             if (selection) {
-                const builder = this.services.get('builder');
-                await builder.buildTarget(selection.target);
+                await this.builder.buildTarget(selection.target);
             }
         });
     }
@@ -221,8 +238,7 @@ export class UIService implements IUIService
 
     private async selectAndRunTest(): Promise<void>
     {
-        const testController = this.services.get('testController');
-        const tests = testController.getTests();
+        const tests = this.testController.getTests();
 
         if (!tests || tests.length === 0) {
             vscode.window.showInformationMessage('No tests found in the current project.');
@@ -254,7 +270,7 @@ export class UIService implements IUIService
             matchOnDescription: true,
         });
         if (selection) {
-            await testController.runTests(selection.map(s => s.testId));
+            await this.testController.runTests(selection.map(s => s.testId));
         }
     }
 }

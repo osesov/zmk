@@ -1,14 +1,15 @@
+import path from "path";
 import * as vscode from "vscode";
 import type * as cpptools from "vscode-cpptools";
 import shell from 'shell-quote';
 
 import { ISourceFileConfigurationItemTreeProvider } from "../ISourceFileConfigurationItemTreeProvider";
-import { AppServiceContainer } from "../AppServices";
-import { JsonValue, Setting } from "../ISettingsService";
-import path from "path";
+import { AppServiceContainer, AppServices } from "../AppServices";
+import { ISettingsService, JsonValue, Setting } from "../ISettingsService";
 import { Context, zmkCommand } from "../../components/constants";
 import { setContext, writeTextToClipboard } from "../../components/utils";
-import { SourceFileConfigurationEx } from "../ICompileCommandsService";
+import { ICompileCommandsService, SourceFileConfigurationEx } from "../ICompileCommandsService";
+import { ISourceFileConfigurationService } from "../ISourceFileConfigurationService";
 
 type NodeType =
     | "compiler"
@@ -146,29 +147,35 @@ export class SourceFileConfigurationItemTreeProvider
     private compileCommand: SourceFileConfigurationEx | null | undefined;
     private viewMode: "tree" | "list" = "tree";
     private isValhallaProject = false;
+    private readonly settings: ISettingsService;
+    private readonly sourceFileInfo: ISourceFileConfigurationService;
+    private readonly compileCommands: ICompileCommandsService;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: Pick<AppServices, 'context' | 'settings' | 'sourceFileInfo' | 'compileCommands'>)
     {
-        const context = services.get('context');
-        const settings = services.get('settings');
-        const sourceFileInfo = this.services.get('sourceFileInfo');
-        const compileCommands = this.services.get('compileCommands');
+        const context = deps.context;
+        const settings = deps.settings;
+        this.settings = deps.settings;
+        this.sourceFileInfo = deps.sourceFileInfo;
+        this.compileCommands = deps.compileCommands;
 
-        vscode.window.createTreeView("cppSourceConfig", {
-            treeDataProvider: this
-        });
+        context.subscriptions.push(
+            vscode.window.createTreeView("cppSourceConfig", {
+                treeDataProvider: this
+            })
+        );
 
-        if (sourceFileInfo) {
+        if (this.sourceFileInfo) {
             const loadCurrentConfig = async () => {
                 const uri = vscode.window.activeTextEditor?.document.uri;
-                const config = uri ? await sourceFileInfo.getSourceFileConfiguration(uri) : null;
-                const compileCommand = uri ? await compileCommands.getSourceFileConfiguration(uri) : null;
+                const config = uri ? await this.sourceFileInfo.getSourceFileConfiguration(uri) : null;
+                const compileCommand = uri ? await this.compileCommands.getSourceFileConfiguration(uri) : null;
                 this.setConfiguration(config, compileCommand);
             }
 
             loadCurrentConfig();
             context.subscriptions.push( vscode.window.onDidChangeActiveTextEditor(() => loadCurrentConfig()));
-            sourceFileInfo.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
+            this.sourceFileInfo.onDidChangeSourceFileConfiguration(() => loadCurrentConfig());
         }
 
         this.isValhallaProject = settings.get(Setting.isValhallaProject);
@@ -274,8 +281,7 @@ export class SourceFileConfigurationItemTreeProvider
 
             case "includes":
                 {
-                    const settings = this.services.get('settings');
-                    const valhallaDir = settings.get(Setting.valhallaDir);
+                    const valhallaDir = this.settings.get(Setting.valhallaDir);
 
                     if (this.viewMode === "tree") {
                         const nodes = new Map<string, IncludeNode>();
@@ -436,4 +442,14 @@ export class SourceFileConfigurationItemTreeProvider
                 return node.value?.text;
         }
     }
+}
+
+export function createSourceFileConfigurationItemTreeProvider(services: AppServiceContainer): SourceFileConfigurationItemTreeProvider
+{
+    return new SourceFileConfigurationItemTreeProvider({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        sourceFileInfo: services.get('sourceFileInfo'),
+        compileCommands: services.get('compileCommands'),
+    });
 }

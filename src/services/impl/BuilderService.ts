@@ -1,16 +1,29 @@
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
-import { AppServices } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult } from "../IBuilderService";
-import { ServiceContainer } from "../ServiceContainer";
 import { expectNever, expectNotNull, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
 import { ISettingsService, JsonValue, Setting, Toolchain } from '../ISettingsService';
+import { IArgsFileService } from '../IArgsFileService';
 import path from 'path';
 import { AsyncCache } from '../../components/LazyCache';
 
 const defaultBuildTarget = ':empty';
 const allBuildTarget = ':valhalla_sysroot'; // from BUILD.gn
+
+type BuilderServiceDeps = Pick<AppServices, 'settings' | 'initialBuild' | 'buildComplete' | 'buildOutputChannel' | 'argsFile'>;
+
+export function createBuilderService(services: AppServiceContainer): BuilderService
+{
+    return new BuilderService({
+        settings: services.get('settings'),
+        initialBuild: services.get('initialBuild'),
+        buildComplete: services.get('buildComplete'),
+        buildOutputChannel: services.get('buildOutputChannel'),
+        argsFile: services.get('argsFile'),
+    });
+}
 
 export class BuilderService implements IBuilderService
 {
@@ -24,18 +37,22 @@ export class BuilderService implements IBuilderService
 
     private readonly _toolchain = new AsyncCache<Toolchain | null>(() => this.selectToolchain());
     private readonly settings: ISettingsService;
+    private readonly buildOutputChannel: vscode.OutputChannel;
+    private readonly argsFile: IArgsFileService;
 
-    constructor(private services: ServiceContainer <AppServices>)
+    constructor(deps: BuilderServiceDeps)
     {
-        this.settings = services.get('settings');
+        this.settings = deps.settings;
+        this.buildOutputChannel = deps.buildOutputChannel;
+        this.argsFile = deps.argsFile;
 
         if (isDevContainerHost())
             this.gnbCommand = ["../gnbc"];
         else
             this.gnbCommand = ["../gnb"];
 
-        const initialBuild = services.get('initialBuild');
-        const buildComplete = services.get('buildComplete');
+        const initialBuild = deps.initialBuild;
+        const buildComplete = deps.buildComplete;
 
         const resetState = () => {
             // this.argsFile.reset();
@@ -161,7 +178,7 @@ export class BuilderService implements IBuilderService
 
     async buildTarget(target: string | undefined, options ?: BuildTargetOptions): Promise<BuildResult>
     {
-        const outputChannel = this.services.get('buildOutputChannel');
+        const outputChannel = this.buildOutputChannel;
 
         outputChannel.clear();
 
@@ -232,7 +249,7 @@ export class BuilderService implements IBuilderService
             return { success: true, status: 0, output: [] };
         }
 
-        const outputChannel = this.services.get('buildOutputChannel');
+        const outputChannel = this.buildOutputChannel;
         const config = this.settings.get(Setting.config);
         const outputDir = this.settings.get(Setting.outputDir);
         if (!outputDir || !config) {
@@ -256,8 +273,7 @@ export class BuilderService implements IBuilderService
 
     private async toolchainSelectorInternal()
     {
-        const argsFile = this.services.get('argsFile');
-        const args = argsFile.getArgs();
+        const args = this.argsFile.getArgs();
 
         const crossOS = args?.get<string>('cross_os') || 'none';
         const crossCPU = args?.get<string>('cross_cpu') || 'none';
@@ -279,8 +295,7 @@ export class BuilderService implements IBuilderService
 
     private async selectToolchain(): Promise<Toolchain | null>
     {
-        const settings = this.services.get('settings');
-        const toolchains = settings.get(Setting.toolchain);
+        const toolchains = this.settings.get(Setting.toolchain);
         if (!toolchains || toolchains.length === 0) {
             return null;
         }
@@ -308,15 +323,14 @@ export class BuilderService implements IBuilderService
 
     public async getBuildCommand(options ?: BuildCommandOptions, buildMode?: BuildMode): Promise<BuildCommand | null>
     {
-        const settings = this.services.get('settings');
-        const valhallaDir = settings.get(Setting.valhallaFolder);
+        const valhallaDir = this.settings.get(Setting.valhallaFolder);
         const buildDir = this.getOutputDir();
-        const testBuildDir = settings.get(Setting.testOutputDir);
-        const buildConfig = options?.config ?? settings.get(Setting.config);
-        const testConfig = options?.config ?? settings.get(Setting.testConfig);
-        const gnbFlags = options?.gnbFlags ?? settings.getOrDefault(Setting.gnbFlags, []);
-        const gnFlags = options?.gnFlags ?? settings.getOrDefault(Setting.gnFlags, []);
-        const configEnv = options?.env ?? settings.getOrDefault(Setting.env, {});
+        const testBuildDir = this.settings.get(Setting.testOutputDir);
+        const buildConfig = options?.config ?? this.settings.get(Setting.config);
+        const testConfig = options?.config ?? this.settings.get(Setting.testConfig);
+        const gnbFlags = options?.gnbFlags ?? this.settings.getOrDefault(Setting.gnbFlags, []);
+        const gnFlags = options?.gnFlags ?? this.settings.getOrDefault(Setting.gnFlags, []);
+        const configEnv = options?.env ?? this.settings.getOrDefault(Setting.env, {});
         let target: string | undefined;
 
         buildMode = options?.mode ?? buildMode ?? BuildMode.build;
@@ -324,14 +338,14 @@ export class BuilderService implements IBuilderService
         const expectedConfig = buildMode === BuildMode.test ? testConfig : buildConfig;
 
         if (buildMode === BuildMode.test) {
-            target = options?.target ?? settings.get(Setting.testTarget) ?? undefined;
+            target = options?.target ?? this.settings.get(Setting.testTarget) ?? undefined;
 
             if (testConfig === null) {
                 return null;
             }
         }
         else {
-            target = options?.target ?? settings.get(Setting.target) ?? undefined;
+            target = options?.target ?? this.settings.get(Setting.target) ?? undefined;
         }
 
 

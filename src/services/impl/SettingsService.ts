@@ -15,9 +15,9 @@ import {
     AnySettingDecl,
     GlobalStateSetting,
 } from '../ISettingsService';
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { findProjectRootUri } from '../../components/utils';
-import { IAsyncServiceInit } from '../IAsyncServiceInit';
+import { awaitReady, IAsyncServiceInit } from '../IAsyncServiceInit';
 
 type SettingsSnapshot = {
     [K in keyof SettingMap]: SettingMap[K]['defaultValue'];
@@ -78,6 +78,15 @@ function deepEqual(a: unknown, b: unknown): boolean {
     return false;
 }
 
+type SettingsServiceDeps = Pick<AppServices, 'context'>;
+
+
+export function createSettingsService(services: AppServiceContainer): Promise<SettingsService> {
+    return awaitReady(new SettingsService({
+        context: services.get('context'),
+    }));
+}
+
 export class SettingsService implements ISettingsService, IAsyncServiceInit {
     private readonly _context: vscode.ExtensionContext;
     private readonly _onChangeEmitter = new vscode.EventEmitter<SettingChangeEvent>();
@@ -89,8 +98,8 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
 
     public readonly ready: Promise<void>;
 
-    public constructor(services: AppServiceContainer) {
-        this._context = services.get('context');
+    public constructor(services: SettingsServiceDeps) {
+        this._context = services.context;
 
         vscode.workspace.onDidChangeWorkspaceFolders(() => this.recomputeAndEmit(), this, this._disposables);
         vscode.workspace.onDidChangeConfiguration(() => this.recomputeAndEmit(), this, this._disposables);

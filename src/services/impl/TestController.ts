@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { ITestController } from "../ITestController";
 import { BuildMode, BuildResult, BuildTargetOptions } from '../IBuilderService';
 import { ISettingsService, Setting, SettingChangeEvent } from '../ISettingsService';
@@ -7,19 +7,32 @@ import { parseProjectJson, ProjectInfoManager, ProjectJsonFile } from '../../com
 import { parseTarget } from '../../components/parseTarget';
 import { IWatchedFile } from '../IFileService';
 
+type TestControllerDeps = Pick<AppServices, 'context' | 'settings' | 'fs' | 'builder'>;
+
+export function createTestController(services: AppServiceContainer): TestController
+{
+    return new TestController({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        fs: services.get('fs'),
+        builder: services.get('builder'),
+    });
+}
+
 export class TestController implements ITestController, vscode.Disposable
 {
     private readonly controller: vscode.TestController;
     private readonly tests: Map<string, vscode.TestItem> = new Map();
     private readonly settings: ISettingsService;
     private readonly fileWatcher: IWatchedFile<ProjectJsonFile>;
+    private readonly builder: AppServices['builder'];
     private projectJson: ProjectJsonFile | null = null;
     private readonly runProfile: vscode.TestRunProfile;
     private readonly disposables: vscode.Disposable[] = [];
     private disposed = false;
     private reloadVersion = 0;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: TestControllerDeps)
     {
         this.controller = vscode.tests.createTestController('valhallaTestController', 'Valhalla Tests');
         this.runProfile = this.controller.createRunProfile('Run Tests', vscode.TestRunProfileKind.Run, async (request, token) => {
@@ -34,8 +47,9 @@ export class TestController implements ITestController, vscode.Disposable
 
         /// Tests
 
-        this.settings = services.get('settings');
-        this.fileWatcher = services.get('fs').createWatchedFile("project.json", parseProjectJson);
+        this.settings = deps.settings;
+        this.fileWatcher = deps.fs.createWatchedFile("project.json", parseProjectJson);
+        this.builder = deps.builder;
 
         this.disposables.push(
             this.runProfile,
@@ -55,7 +69,7 @@ export class TestController implements ITestController, vscode.Disposable
         );
 
         this.fileWatcher.setBaseDir(this.settings.get(Setting.testOutputDir));
-        services.get('context').subscriptions.push(this);
+        deps.context.subscriptions.push(this);
     }
 
     public dispose(): void
@@ -155,14 +169,13 @@ export class TestController implements ITestController, vscode.Disposable
     {
         // return { success: true, status: null, output: [] };
 
-        const builder = this.services.get('builder');
         const options: BuildTargetOptions = {
             onStdout: (data) => run.appendOutput(`[STDOUT] ${data}\r\n`, undefined, test),
             onStderr: (data) => run.appendOutput(`[STDERR] ${data}\r\n`, undefined, test),
             buildMode: BuildMode.test,
         };
         run.appendOutput(`Starting test ${test.id}...\r\n`);
-        const result = await builder.buildTarget(testId, options);
+        const result = await this.builder.buildTarget(testId, options);
         run.appendOutput(`Build result for test target ${testId}: ${result.success ? 'Success' : 'Failure'}\r\n`, undefined, test);
         return result
     }

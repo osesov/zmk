@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { MemoryFileSystemProvider } from '../../components/memoryFs';
 import { IReviewService } from '../IReviewService';
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { zmkCommand } from '../../components/constants';
 
 type ReviewSession = {
@@ -210,10 +210,10 @@ export class ReviewService implements IReviewService
 {
     private readonly reviewManager: ReviewManager;
 
-    constructor(services: AppServiceContainer)
+    constructor(deps: Pick<AppServices, 'context'>)
     {
         const memfs = new MemoryFileSystemProvider();
-        const context = services.get('context');
+        const context = deps.context;
 
         context.subscriptions.push(
             vscode.workspace.registerFileSystemProvider(
@@ -235,4 +235,11 @@ export class ReviewService implements IReviewService
         return await this.reviewManager.reviewTextDocument(originalUri, proposedText, title);
     }
 
+}
+
+export function createReviewService(services: AppServiceContainer): ReviewService
+{
+    return new ReviewService({
+        context: services.get('context'),
+    });
 }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { AppServiceContainer } from '../services/AppServices';
+import { AppServiceContainer, AppServices } from '../services/AppServices';
 import { ISettingsService, Setting } from '../services/ISettingsService';
 import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
 import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../services/IBuilderService';
@@ -11,20 +11,35 @@ interface ValhallaTaskDefinition extends vscode.TaskDefinition, BuildCommandOpti
     label: string;
 }
 
+type ValhallaTaskProviderDeps = Pick<AppServices, 'context' | 'settings' | 'builder' | 'logOutputChannel'>;
+
+export function createValhallaTaskProvider(services: AppServiceContainer): ValhallaTaskProvider
+{
+    return new ValhallaTaskProvider({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        builder: services.get('builder'),
+        logOutputChannel: services.get('logOutputChannel'),
+    });
+}
+
 export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskProvider
 {
     private readonly settings: ISettingsService;
+    private readonly builder: IBuilderService;
+    private readonly logOutputChannel: vscode.LogOutputChannel;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: ValhallaTaskProviderDeps)
     {
-        this.settings = services.get('settings');
-        const context = services.get('context');
-        context.subscriptions.push(vscode.tasks.registerTaskProvider(gnbTaskType, this));
+        this.settings = deps.settings;
+        this.builder = deps.builder;
+        this.logOutputChannel = deps.logOutputChannel;
+        deps.context.subscriptions.push(vscode.tasks.registerTaskProvider(gnbTaskType, this));
     }
 
     public async provideTasks(token: vscode.CancellationToken): Promise<vscode.Task[]> {
 
-        const builder = this.services.get('builder');
+        const builder = this.builder;
         const tasks: vscode.Task[] = [];
         const taskDefinition: ValhallaTaskDefinition = {
             type: gnbTaskType,
@@ -58,15 +73,14 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
     }
 
     public async resolveTask(task: vscode.Task, token: vscode.CancellationToken): Promise<vscode.Task | null> {
-        const logOutputChannel = this.services.get('logOutputChannel');
+        const logOutputChannel = this.logOutputChannel;
         logOutputChannel.info(`Resolving task: ${task.name} ${JSON.stringify(task.definition)}`);
         if (task.definition.type !== gnbTaskType) {
             return null;
         }
 
-        const builder = this.services.get('builder');
         const taskDefinition = task.definition as ValhallaTaskDefinition;
-        const buildCommand = await builder.getBuildCommand(taskDefinition);
+        const buildCommand = await this.builder.getBuildCommand(taskDefinition);
 
         if (!buildCommand || buildCommand.command.length === 0) {
             logOutputChannel.error(`Cannot resolve task ${task.name}: no build command available.`);

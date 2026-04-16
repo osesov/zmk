@@ -2,14 +2,25 @@ import * as vscode from "vscode";
 import { AppServices, AppServiceContainer } from "../AppServices";
 import { IArgsFileService } from "../IArgsFileService";
 import { ArgsFile, ArgsMap, parseArgs } from "../../components/ArgsFile";
-import { Setting, SettingChangeEvent } from "../ISettingsService";
+import { ISettingsService, Setting, SettingChangeEvent } from "../ISettingsService";
 import { IWatchedFile } from "../IFileService";
+
+export type ArgsFileServiceDeps = Pick<AppServices, 'fs' | 'settings' | 'context'>;
+
+export function createArgsFileService(services: AppServiceContainer): ArgsFileService
+{
+    return new ArgsFileService({
+        fs: services.get('fs'),
+        settings: services.get('settings'),
+        context: services.get('context'),
+    });
+}
 
 export class ArgsFileService implements IArgsFileService, vscode.Disposable
 {
     private readonly _onChange = new vscode.EventEmitter<void>();
     private readonly fileWatcher: IWatchedFile<ArgsMap>;
-    private readonly settings: AppServices['settings'];
+    private readonly settings: ISettingsService;
     private readonly disposables: vscode.Disposable[] = [];
     private args: ArgsMap | null = null;
     private disposed = false;
@@ -17,10 +28,10 @@ export class ArgsFileService implements IArgsFileService, vscode.Disposable
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
-    constructor(services: AppServiceContainer)
+    constructor(services: ArgsFileServiceDeps)
     {
-        this.settings = services.get('settings');
-        this.fileWatcher = services.get('fs').createWatchedFile(ArgsFile.fileName, parseArgs);
+        this.settings = services.settings;
+        this.fileWatcher = services.fs.createWatchedFile(ArgsFile.fileName, parseArgs);
 
         this.disposables.push(
             this.fileWatcher,
@@ -37,7 +48,7 @@ export class ArgsFileService implements IArgsFileService, vscode.Disposable
 
         this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
         this.resetFile();
-        services.get('context').subscriptions.push(this);
+        services.context.subscriptions.push(this);
     }
 
     public dispose(): void

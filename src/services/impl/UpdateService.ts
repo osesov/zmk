@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { Setting } from "../ISettingsService";
 import { IUpdateService } from "../IUpdateService";
 
@@ -41,9 +41,19 @@ function latestReleaseURL(): string
     return `${apiRepo}/releases/latest`;
 }
 
+type UpdateServiceDeps = Pick<AppServices, 'settings' | 'context'>;
+
+export function createUpdateService(services: AppServiceContainer): UpdateService
+{
+    return new UpdateService({
+        settings: services.get('settings'),
+        context: services.get('context'),
+    });
+}
+
 export class UpdateService implements IUpdateService
 {
-    constructor(private services: AppServiceContainer)
+    constructor(private deps: UpdateServiceDeps)
     {
         this.checkForUpdatesAndNotify();
     }
@@ -82,9 +92,9 @@ export class UpdateService implements IUpdateService
 
         try {
 
-            const settings = this.services.get('settings');
+            const settings = this.deps.settings;
             const updateCheckTime = settings.get(Setting.lastUpdateCheck);
-            const currentVersion = this.services.get('context').extension.packageJSON.version;
+            const currentVersion = this.deps.context.extension.packageJSON.version;
             const now = new Date;
 
             if (updateCheckTime) {
@@ -123,8 +133,7 @@ export class UpdateService implements IUpdateService
         }
 
         finally {
-            const settings = this.services.get('settings');
-            settings.updateGlobalState(Setting.lastUpdateCheck, new Date().toISOString());
+            this.deps.settings.updateGlobalState(Setting.lastUpdateCheck, new Date().toISOString());
         }
     }
 

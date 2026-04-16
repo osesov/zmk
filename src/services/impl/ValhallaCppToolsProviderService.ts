@@ -1,10 +1,12 @@
 // Integrate with CppTools to provide IntelliSense for Valhalla
 import * as vscode from 'vscode';
 import * as cpptools from 'vscode-cpptools';
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { IValhallaCppToolsProvider } from '../IValhallaCppTools';
 import { ISourceFileConfigurationService } from '../ISourceFileConfigurationService';
+
+type ValhallaCppToolsProviderServiceDeps = Pick<AppServices, 'settings' | 'context' | 'sourceFileInfo' | 'logOutputChannel' | 'buildComplete' | 'initialBuild'>;
 
 export class ValhallaCppToolsProviderService implements cpptools.CustomConfigurationProvider, IValhallaCppToolsProvider
 {
@@ -26,21 +28,28 @@ export class ValhallaCppToolsProviderService implements cpptools.CustomConfigura
             return null;
         }
 
-        const provider = new ValhallaCppToolsProviderService(services, cppToolsApi);
+        const provider = new ValhallaCppToolsProviderService({
+            settings: services.get('settings'),
+            context: services.get('context'),
+            sourceFileInfo: services.get('sourceFileInfo'),
+            logOutputChannel: services.get('logOutputChannel'),
+            buildComplete: services.get('buildComplete'),
+            initialBuild: services.get('initialBuild'),
+        }, cppToolsApi);
         return provider;
     }
 
-    public constructor(private services: AppServiceContainer, private cppToolsApi: cpptools.CppToolsApi) {
-        const settings: ISettingsService = services.get('settings');
-        const context: vscode.ExtensionContext = services.get('context');
+    public constructor(deps: ValhallaCppToolsProviderServiceDeps, private cppToolsApi: cpptools.CppToolsApi) {
+        const settings: ISettingsService = deps.settings;
+        const context: vscode.ExtensionContext = deps.context;
 
         this.extensionId = context.extension.id;
         this.settings = settings;
-        this.sourceFileInfo = services.get('sourceFileInfo');
-        this.logOutputChannel = services.get('logOutputChannel');
+        this.sourceFileInfo = deps.sourceFileInfo;
+        this.logOutputChannel = deps.logOutputChannel;
 
-        const buildCompleteEvent = services.get('buildComplete');
-        const initialBuild = services.get('initialBuild');
+        const buildCompleteEvent = deps.buildComplete;
+        const initialBuild = deps.initialBuild;
 
         context.subscriptions.push(this);
 

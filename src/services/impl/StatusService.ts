@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IStatusService } from "../IStatusService";
-import { AppServiceContainer } from '../AppServices';
+import { AppServiceContainer, AppServices } from '../AppServices';
 import { gnbTaskType } from '../../components/tasks';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
@@ -11,6 +11,19 @@ const selector: vscode.DocumentSelector = [
     { language: 'c' },
     { language: '*' },
 ]
+
+type StatusServiceDeps = Pick<AppServices, 'initialBuild' | 'buildComplete' | 'argsFile' | 'settings' | 'builder'>;
+
+export function createStatusService(services: AppServiceContainer): StatusService
+{
+    return new StatusService({
+        initialBuild: services.get('initialBuild'),
+        buildComplete: services.get('buildComplete'),
+        argsFile: services.get('argsFile'),
+        settings: services.get('settings'),
+        builder: services.get('builder'),
+    });
+}
 
 export class StatusService implements IStatusService
 {
@@ -23,13 +36,13 @@ export class StatusService implements IStatusService
     private currentToolchain: vscode.LanguageStatusItem | null = null;
     private buildCount = 0;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: StatusServiceDeps)
     {
-        const initialBuild = services.get('initialBuild');
-        const buildComplete = services.get('buildComplete');
-        const argsFile = services.get('argsFile');
-        this.settings = services.get('settings');
-        this.builder = services.get('builder');
+        const initialBuild = deps.initialBuild;
+        const buildComplete = deps.buildComplete;
+        const argsFile = deps.argsFile;
+        this.settings = deps.settings;
+        this.builder = deps.builder;
 
         this.builder.onBuildStarted(() => this.buildStarted());
         this.builder.onBuildFinished((success) => this.buildCompleted(success.success));

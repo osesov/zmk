@@ -1,9 +1,20 @@
 import * as vscode from 'vscode';
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { IFileDecorationProvider } from "../IFileDecorationProvider";
 import { symbols } from '../../components/symbols';
 import { ICompileCommandsService } from '../ICompileCommandsService';
 import { Setting } from '../ISettingsService';
+
+type FileDecorationProviderDeps = Pick<AppServices, 'context' | 'settings' | 'compileCommands'>;
+
+export function createFileDecorationProvider(services: AppServiceContainer): FileDecorationProvider
+{
+    return new FileDecorationProvider({
+        context: services.get('context'),
+        settings: services.get('settings'),
+        compileCommands: services.get('compileCommands'),
+    });
+}
 
 export class FileDecorationProvider implements vscode.FileDecorationProvider, IFileDecorationProvider
 {
@@ -24,12 +35,11 @@ export class FileDecorationProvider implements vscode.FileDecorationProvider, IF
     onDidChangeFileDecorations = this.onDidChangeFileDecorationsEmitter.event;
     private isValhallaProject = false;
 
-    constructor(services: AppServiceContainer)
+    constructor(deps: FileDecorationProviderDeps)
     {
-        const context = services.get('context');
-        const settings = services.get('settings');
-        this.compileCommands = services.get('compileCommands');
-        context.subscriptions.push(vscode.window.registerFileDecorationProvider(this));
+        const settings = deps.settings;
+        this.compileCommands = deps.compileCommands;
+        deps.context.subscriptions.push(vscode.window.registerFileDecorationProvider(this));
 
         settings.onChange(e => {
             if (e.affects(Setting.isValhallaProject)) {

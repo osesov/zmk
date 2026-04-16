@@ -120,6 +120,11 @@ export class FileWatcher<T = string> implements IWatchedFile<T>
     }
 }
 
+export function createFileService(): IFileService
+{
+    return new FileService();
+}
+
 export class FileService implements IFileService
 {
     createWatchedFile<T = string>(fileName: string, parser: FileParser<T>): IWatchedFile<T>

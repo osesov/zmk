@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { IArgsTreeProvider } from "../IArgsTreeProvider";
-import { AppServiceContainer } from "../AppServices";
+import { AppServiceContainer, AppServices } from "../AppServices";
 import { IArgsFileService } from "../IArgsFileService";
 import { ISettingsService, Setting } from "../ISettingsService";
 
@@ -28,6 +28,17 @@ class NotValhallaProjectNode extends ArgsNode
     }
 }
 
+type ArgsTreeProviderDeps = Pick<AppServices, 'context' | 'argsFile' | 'settings'>;
+
+export function createArgsTreeProvider(services: AppServiceContainer): ArgsTreeProvider
+{
+    return new ArgsTreeProvider({
+        context: services.get('context'),
+        argsFile: services.get('argsFile'),
+        settings: services.get('settings'),
+    });
+}
+
 export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArgsTreeProvider
 {
 
@@ -36,15 +47,17 @@ export class ArgsTreeProvider implements vscode.TreeDataProvider<ArgsNode>, IArg
     private argsFile: IArgsFileService;
     private settings: ISettingsService;
 
-    constructor(private services: AppServiceContainer)
+    constructor(deps: ArgsTreeProviderDeps)
     {
-        this.argsFile = this.services.get('argsFile');
-        this.settings = this.services.get('settings');
+        this.argsFile = deps.argsFile;
+        this.settings = deps.settings;
         this.argsFile.onChange(() => {
             this._onDidChangeTreeData.fire();
         });
 
-        vscode.window.createTreeView('argsView', { treeDataProvider: this });
+        deps.context.subscriptions.push(
+            vscode.window.createTreeView('argsView', { treeDataProvider: this })
+        );
     }
 
     getTreeItem(element: ArgsNode): vscode.TreeItem | Thenable<vscode.TreeItem>
