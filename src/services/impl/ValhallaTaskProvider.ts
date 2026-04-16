@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { AppServiceContainer, AppServices } from '../services/AppServices';
-import { ISettingsService, Setting } from '../services/ISettingsService';
-import { IValhallaTaskProvider } from '../services/IValhallaTaskProvider';
-import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../services/IBuilderService';
-import { assertNever, expectNever } from './utils';
+import { AppServiceContainer, AppServices } from '../AppServices';
+import { ISettingsService, Setting } from '../ISettingsService';
+import { IValhallaTaskProvider } from '../IValhallaTaskProvider';
+import { BuildCommand, BuildCommandOptions, BuildMode, IBuilderService } from '../IBuilderService';
+import { assertNever, expectNever } from '../../components/utils';
 
 export const gnbTaskType = 'gnb';
 interface ValhallaTaskDefinition extends vscode.TaskDefinition, BuildCommandOptions {

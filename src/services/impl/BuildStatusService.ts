@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { IBuildStatusService } from "../IBuildStatusService";
 import { AppServiceContainer, AppServices } from '../AppServices';
-import { gnbTaskType } from '../../components/tasks';
+import { gnbTaskType } from './ValhallaTaskProvider';
 import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { BuildResult, IBuilderService, NeedBuildResult } from '../IBuilderService';

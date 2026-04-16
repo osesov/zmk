@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { IStatusService } from "../IStatusService";
 import { AppServiceContainer, AppServices } from '../AppServices';
-import { gnbTaskType } from '../../components/tasks';
+import { gnbTaskType } from './ValhallaTaskProvider';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
 import { IBuilderService } from '../IBuilderService';

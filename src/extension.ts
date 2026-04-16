@@ -7,7 +7,7 @@ import { createVirtualDocumentProvider } from './services/impl/VirtualDocumentPr
 import { createBuilderService } from './services/impl/BuilderService';
 import { createSettingsService } from './services/impl/SettingsService';
 import { createStatusService } from './services/impl/StatusService';
-import { createValhallaTaskProvider } from './components/tasks';
+import { createValhallaTaskProvider } from './services/impl/ValhallaTaskProvider';
 import { createBuildStatusService } from './services/impl/BuildStatusService';
 import { createUIService } from './services/impl/UIService';
 import { createConfigTreeProvider } from './services/impl/ConfigTreeDataProvider';
