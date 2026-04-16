@@ -21,6 +21,7 @@ import { IFileDecorationProvider } from './IFileDecorationProvider';
 import { ITestController } from './ITestController';
 import { IUpdateService } from './IUpdateService';
 import { ILMBuilder } from './ILMBuilder';
+import { IFileService } from './IFileService';
 
 export type AppServices =
 {
@@ -29,6 +30,7 @@ export type AppServices =
     logOutputChannel: vscode.LogOutputChannel;
     buildComplete: vscode.Event<boolean>; // some build has completed (maybe run by user), with success or failure
     initialBuild: Promise<boolean>; // initial valhalla build complete
+    fs: IFileService;
 
     settings: ISettingsService;
     argsFile: IArgsFileService;

@@ -3,7 +3,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { TextEditor, TextEditorEdit } from 'vscode';
 import { ValhallaCppToolsProviderService } from './services/impl/ValhallaCppToolsProviderService';
-import { findProjectRootInWorkspace, getWorkspaceRoot, hasWorkspace } from './components/utils';
 import { ServiceContainer } from './services/ServiceContainer';
 import { VirtualDocumentProvider } from './services/impl/VirtualDocumentProviderService';
 import { BuilderService } from './services/impl/BuilderService';
@@ -30,6 +29,7 @@ import { FileDecorationProvider } from './services/impl/FileDecorationProvider';
 import { TestController } from './services/impl/TestController';
 import { UpdateService } from './services/impl/UpdateService';
 import { LMBuilder } from './services/impl/LMBuilder';
+import { FileService } from './services/impl/FileService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -267,6 +267,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('logOutputChannel', logOutputChannel)
 		.registerInstance('buildComplete', buildComplete.event)
 		.registerInstance('initialBuild', initialBuild.promise)
+		.registerInstance('fs', new FileService())
 		.registerInstance('settings', await awaitReady(new SettingsService(services)))
 		.registerInstance('argsFile', new ArgsFileService(services))
 		.registerInstance('projectInfo', new ProjectInfoService(services))

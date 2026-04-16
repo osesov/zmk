@@ -6,11 +6,11 @@ import shell from "shell-quote";
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { Setting, SettingChangeEvent } from "../ISettingsService";
-import { FileWatcher } from "../../components/FileWatcher";
 import { build } from "../../components/constants";
 import { CompileCommandEntry, CompileCommandsFile, parseCompileCommands } from "../../components/CompileCommands";
 import { ICompileCommandsService, SourceFileConfigurationEx } from "../ICompileCommandsService";
 import { isDevContainerHost, Mutable } from "../../components/utils";
+import { IWatchedFile } from "../IFileService";
 
 interface CompileCommandCacheEntry {
     source: CompileCommandEntry;
@@ -56,7 +56,7 @@ function normalizeArg(arg: shell.ParseEntry): string {
 export class CompileCommandsService implements ICompileCommandsService, vscode.Disposable
 {
     private readonly settings: AppServices['settings'];
-    private readonly fileWatcher = new FileWatcher("compile_commands.json");
+    private readonly fileWatcher: IWatchedFile<CompileCommandsFile>;
     private readonly disposables: vscode.Disposable[] = [];
     private compileCommands: CompileCommandsFile | null = null;
     private readonly cache: CompileCommandsCache = new Map();
@@ -70,13 +70,14 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
     constructor(private services: ServiceContainer<AppServices>)
     {
         this.settings = services.get('settings');
+        this.fileWatcher = services.get('fs').createWatchedFile("compile_commands.json", parseCompileCommands);
 
         this.disposables.push(
             this.fileWatcher,
             this._onChange,
             this.settings.onChange((event: SettingChangeEvent) => {
                 if (event.affects(Setting.outputDir)) {
-                    void this.resetFile();
+                    this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
                 }
             }),
             vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -87,6 +88,7 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
             }),
         );
 
+        this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
         void this.resetFile();
         services.get('context').subscriptions.push(this);
     }
@@ -108,15 +110,11 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
     private async resetFile(): Promise<void>
     {
         const currentReload = ++this.reloadVersion;
-        const outputDir = this.settings.get(Setting.outputDir);
-        this.fileWatcher.setBaseDir(outputDir);
-
-        const content = await this.fileWatcher.getContentAsync();
+        this.compileCommands = await this.fileWatcher.read();
         if (this.disposed || currentReload !== this.reloadVersion) {
             return;
         }
 
-        this.compileCommands = content ? parseCompileCommands(content) : null;
         this._cxxCompiler = buildCache(this.compileCommands, this.cache);
 
         this._onChange.fire();

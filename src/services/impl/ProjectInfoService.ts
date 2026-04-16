@@ -5,11 +5,11 @@ import { BrowseableType, IBrowseSet, IProjectInfoService } from "../IProjectInfo
 import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { Setting, SettingChangeEvent } from "../ISettingsService";
-import { FileWatcher } from "../../components/FileWatcher";
 import { SourceFileConfiguration } from "vscode-cpptools";
 import { getGNPath, parseTarget } from "../../components/parseTarget";
 import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../../components/SourceFileConfiguration";
 import { build } from "../../components/constants";
+import { IWatchedFile } from "../IFileService";
 
 interface CacheEntry
 {
@@ -136,7 +136,7 @@ export class ProjectInfoService implements IProjectInfoService
 {
 
     private readonly settings: AppServices['settings'];
-    private readonly fileWatcher = new FileWatcher("project.json");
+    private readonly fileWatcher: IWatchedFile<ProjectJsonFile>;
     private readonly disposables: vscode.Disposable[] = [];
     private projectJson: ProjectJsonFile | null = null;
     private readonly links: Map<string, CacheEntry> = new Map();
@@ -153,13 +153,14 @@ export class ProjectInfoService implements IProjectInfoService
     constructor(private services: ServiceContainer<AppServices>)
     {
         this.settings = services.get('settings');
+        this.fileWatcher = services.get('fs').createWatchedFile("project.json", parseProjectJson);
 
         this.disposables.push(
             this.fileWatcher,
             this._onChange,
             this.settings.onChange((event: SettingChangeEvent) => {
                 if (event.affects(Setting.outputDir)) {
-                    void this.resetFile();
+                    this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
                 }
             }),
             vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -170,6 +171,7 @@ export class ProjectInfoService implements IProjectInfoService
             }),
         );
 
+        this.fileWatcher.setBaseDir(this.settings.get(Setting.outputDir));
         void this.resetFile();
         services.get('context').subscriptions.push(this);
     }
@@ -191,15 +193,11 @@ export class ProjectInfoService implements IProjectInfoService
     private async resetFile(): Promise<void>
     {
         const currentReload = ++this.reloadVersion;
-        const outputDir = this.settings.get(Setting.outputDir);
-        this.fileWatcher.setBaseDir(outputDir);
-
-        const content = await this.fileWatcher.getContentAsync();
+        this.projectJson = await this.fileWatcher.read();
         if (this.disposed || currentReload !== this.reloadVersion) {
             return;
         }
 
-        this.projectJson = content ? parseProjectJson(content) : null;
         buildLinks(this.projectJson, this.links, this.partOf);
 
         buildSourceToTargetMap(this.projectJson, this.sourceToTargetCache);
