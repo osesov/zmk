@@ -85,6 +85,13 @@ Create custom `gnb` tasks with full control:
 }
 ```
 
+### `project.json` Services
+
+- **Definitions**: Go to definition for targets and sources
+- **References**: Find all references to a target or source
+- **Hover**: View target metadata and source information on hover
+- **CodeLens**: Inline "go to definition", allowing to select from list. Available on `deps` key.
+
 ## Commands
 
 ### Interactive Build Commands

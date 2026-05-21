@@ -10,6 +10,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
   - listConfigs
   - buildTarget
 - ArgsTreeProvider: copy arg value and arg name=value pair
+- project.json services: definitions, references, hover.
 
 ## 2.4.0
 
