@@ -25,5 +25,8 @@ esbuild.build({
   target: 'node18',
   external: ['vscode'],
   sourcemap: true,
-  minify: false
+  minify: false,
+
+  // jsonc-parser is imported from 'main' field, while expected to be imported from 'module'.
+  mainFields: ['module', 'main'],
 }).catch(() => process.exit(1));

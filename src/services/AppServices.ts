@@ -22,6 +22,8 @@ import { ITestController } from './ITestController';
 import { IUpdateService } from './IUpdateService';
 import { ILMBuilder } from './ILMBuilder';
 import { IFileService } from './IFileService';
+import { IProjectJsonHover } from './IProjectJsonHover';
+import { IProjectJsonServices } from './IProjectJsonServices';
 
 export type AppServices =
 {
@@ -55,6 +57,9 @@ export type AppServices =
     testController: ITestController;
     update: IUpdateService;
     lmBuilder: ILMBuilder;
+
+    projectJsonHover: IProjectJsonHover;
+    projectJsonServices: IProjectJsonServices;
 }
 
 export type AppServiceContainer = ServiceContainer<AppServices>;

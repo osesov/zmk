@@ -28,6 +28,8 @@ import { createTestController } from './services/impl/TestController';
 import { createUpdateService } from './services/impl/UpdateService';
 import { createLMBuilder } from './services/impl/LMBuilder';
 import { createFileService } from './services/impl/FileService';
+import { createProjectJsonHover } from './services/impl/ProjectJsonHover';
+import { createProjectJsonServiceProvider } from './services/impl/ProjectJsonServices';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -286,6 +288,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('review', createReviewService(services))
 		.registerInstance('update', createUpdateService(services))
 		.registerInstance('lmBuilder', createLMBuilder(services))
+		.registerInstance('projectJsonHover', createProjectJsonHover(services))
+		.registerInstance('projectJsonServices', createProjectJsonServiceProvider(services))
 		// .registerInstance('fileDecorations', new FileDecorationProvider(services))
 		;
 
