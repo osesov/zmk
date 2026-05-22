@@ -220,17 +220,21 @@ export async function writeTextToClipboard(str: string | undefined | null): Prom
     await vscode.env.clipboard.writeText(str);
 }
 
-export async function isBuildDirValid(buildDir: string): Promise<boolean>
+export async function isBuildDirValid(buildDir: string): Promise<string | null>
 {
     const files = ["compile_commands.json", "project.json", "args.gn"];
+    const missingFiles: string[] = [];
+    if (!exists(buildDir)) {
+        return `Output directory does not exist: ${buildDir}`;
+    }
     for (const file of files) {
         const filePath = path.join(buildDir, file);
         if (!exists(filePath)) {
-            return false;
+            missingFiles.push(file);
         }
     }
 
-    return true;
+    return missingFiles.length === 0 ? null : 'Missing files in output folder: ' + missingFiles.join(', ');
 }
 
 export function withoutException<T>(promise: Promise<T>): Promise<{ result: T | null, error: Error | null }>;

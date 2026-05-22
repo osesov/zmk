@@ -2,7 +2,7 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { AppServiceContainer, AppServices } from "../AppServices";
-import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult } from "../IBuilderService";
+import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult, NeedBuildStatus } from "../IBuilderService";
 import { expectNever, expectNotNull, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
 import { ISettingsService, JsonValue, Setting, Toolchain } from '../ISettingsService';
 import { IArgsFileService } from '../IArgsFileService';
@@ -202,31 +202,31 @@ export class BuilderService implements IBuilderService
     {
         const isValhallaProject = this.settings.get(Setting.isValhallaProject);
         if (!isValhallaProject) {
-            return NeedBuildResult.no;
+            return { pending: NeedBuildStatus.no };
         }
 
         const outputDir = this.getOutputDir();
         if (!outputDir) {
-            return NeedBuildResult.configIncomplete;
+            return { pending: NeedBuildStatus.configIncomplete };
         }
 
-        const isValid = await isBuildDirValid(outputDir);
-        return isValid ? NeedBuildResult.no : NeedBuildResult.yes;
+        const rebuildReason = await isBuildDirValid(outputDir);
+        return rebuildReason === null ? { pending: NeedBuildStatus.no } : { pending: NeedBuildStatus.yes, reason: rebuildReason };
     }
 
     public async buildDefaultTargetIfNeeded(): Promise<BuildResult>
     {
         const needBuildResult = await this.needBuild();
-        if (needBuildResult === NeedBuildResult.no) {
+        if (needBuildResult.pending === NeedBuildStatus.no) {
             return { success: true, status: 0, output: [] };
         }
-        if (needBuildResult === NeedBuildResult.configIncomplete) {
+        if (needBuildResult.pending === NeedBuildStatus.configIncomplete) {
             vscode.window.showWarningMessage('Build configuration is incomplete. Check "zmk.config" setting.');
             return { success: false, status: null, output: [] };
         }
 
         const result = await this.buildTarget(defaultBuildTarget);
-        if (result.success && (await this.needBuild() !== NeedBuildResult.no)) {
+        if (result.success && (await this.needBuild()).pending !== NeedBuildStatus.no) {
             vscode.window.showErrorMessage(`Failed to build Valhalla.`);
             return result;
         }

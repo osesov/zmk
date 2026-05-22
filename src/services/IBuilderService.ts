@@ -36,12 +36,18 @@ export interface BuildCommandOptions
     env ?: { [k: string]: string | null | undefined } | undefined
 }
 
-export enum NeedBuildResult
+export enum NeedBuildStatus
 {
-    no,
-    yes,
-    configIncomplete
+    no = 'no',
+    configIncomplete = 'configIncomplete',
+    yes = 'yes',
 }
+
+export type NeedBuildResult =
+    | { pending: NeedBuildStatus.no }
+    | { pending: NeedBuildStatus.configIncomplete }
+    | { pending: NeedBuildStatus.yes; reason: string }
+    ;
 
 export interface BuildTargetOptions
 {

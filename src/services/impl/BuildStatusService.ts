@@ -5,7 +5,7 @@ import { AppServiceContainer, AppServices } from '../AppServices';
 import { gnbTaskType } from './ValhallaTaskProvider';
 import { Completion } from '../../components/promise';
 import { ISettingsService, Setting } from '../ISettingsService';
-import { BuildResult, IBuilderService, NeedBuildResult } from '../IBuilderService';
+import { BuildResult, IBuilderService, NeedBuildResult, NeedBuildStatus } from '../IBuilderService';
 import { expectNever } from '../../components/utils';
 import { zmkCommand } from '../../components/constants';
 
@@ -71,11 +71,11 @@ export class BuildStatusService implements IBuildStatusService
                 const buildMinButton = 'Build Minimal';
                 const buildAllButton = 'Build All';
 
-                switch (needBuildResult) {
-                    case NeedBuildResult.no:
+                switch (needBuildResult.pending) {
+                    case NeedBuildStatus.no:
                         return { success: true, status: 0, output: [] };
 
-                    case NeedBuildResult.configIncomplete:
+                    case NeedBuildStatus.configIncomplete:
                         const result = await vscode.window.showWarningMessage('Build configuration is incomplete. Set "zmk.config".', configureButton);
                         if (result === configureButton) {
                             await vscode.commands.executeCommand(zmkCommand.setConfig);
@@ -84,9 +84,9 @@ export class BuildStatusService implements IBuildStatusService
                         }
                         return { success: false, status: 'Build configuration is incomplete', output: [] };
 
-                    case NeedBuildResult.yes:
+                    case NeedBuildStatus.yes:
                         const config = this.settings.get(Setting.config);
-                        const answer = await vscode.window.showWarningMessage(`Output directory for '${config}' does not exist. Build is required.`,
+                        const answer = await vscode.window.showWarningMessage(`Build is required. ${needBuildResult.reason}.`,
                             configureButton, buildMinButton, buildAllButton);
 
                         switch (answer) {
