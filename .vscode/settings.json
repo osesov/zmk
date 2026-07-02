@@ -45,8 +45,9 @@
     // Limit IntelliSense
     "editor.quickSuggestionsDelay": 100,
     "editor.suggest.maxVisibleSuggestions": 8,
+    "C_Cpp.default.compilerPath": "/usr/bin/clang++",
 
     // C/C++ extension performance (for when you use the extension itself)
-    "C_Cpp.intelliSenseEngine": "disabled",
-    "C_Cpp.autocomplete": "disabled",
+    // "C_Cpp.intelliSenseEngine": "disabled",
+    // "C_Cpp.autocomplete": "disabled",
 }
