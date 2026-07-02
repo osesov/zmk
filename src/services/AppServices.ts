@@ -24,6 +24,7 @@ import { ILMBuilder } from './ILMBuilder';
 import { IFileService } from './IFileService';
 import { IProjectJsonHover } from './IProjectJsonHover';
 import { IProjectJsonServices } from './IProjectJsonServices';
+import { ISourceTreeProvider } from './ISourceTreeProvider';
 
 export type AppServices =
 {
@@ -50,6 +51,7 @@ export type AppServices =
     ui: IUIService;
     configTree: IConfigTreeProvider;
     targetTree: ITargetTreeProvider;
+    sourceTree: ISourceTreeProvider;
     sourceFileConfigurationTree: ISourceFileConfigurationItemTreeProvider;
     argsTree: IArgsTreeProvider;
     review: IReviewService;

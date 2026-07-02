@@ -30,6 +30,7 @@ import { createLMBuilder } from './services/impl/LMBuilder';
 import { createFileService } from './services/impl/FileService';
 import { createProjectJsonHover } from './services/impl/ProjectJsonHover';
 import { createProjectJsonServiceProvider } from './services/impl/ProjectJsonServices';
+import { createSourceTreeProvider } from './services/impl/SourceTreeProvider';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -283,6 +284,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('ui', createUIService(services))
 		.registerInstance('configTree', createConfigTreeProvider(services))
 		.registerInstance('targetTree', createTargetTreeProvider(services))
+		.registerInstance('sourceTree', createSourceTreeProvider(services))
 		.registerInstance('sourceFileConfigurationTree', createSourceFileConfigurationItemTreeProvider(services))
 		.registerInstance('argsTree', createArgsTreeProvider(services))
 		.registerInstance('review', createReviewService(services))

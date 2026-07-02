@@ -134,6 +134,16 @@
 				"icon": "$(folder-opened)"
 			},
 			{
+				"command": "zmk.sourceTree.revealSourceInExplorer",
+				"title": "Reveal in Explorer View",
+				"icon": "$(file-directory)"
+			},
+			{
+				"command": "zmk.sourceTree.revealSourceInOS",
+				"title": "Open Containing Folder",
+				"icon": "$(folder-opened)"
+			},
+			{
 				"command": "zmk.copyPropertyValue",
 				"title": "Copy Value",
 				"icon": "$(copy)"
@@ -497,6 +507,10 @@
 					"name": "Targets"
 				},
 				{
+					"id": "sourceTreeView",
+					"name": "Source Tree"
+				},
+				{
 					"id": "argsView",
 					"name": "Args"
 				},
@@ -715,6 +729,16 @@
 				{
 					"command": "zmk.cppSource.copyJson",
 					"when": "view == cppSourceConfig",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.sourceTree.revealSourceInExplorer",
+					"when": "view == sourceTreeView && viewItem == sourceTree.sourceFile",
+					"group": "navigation"
+				},
+				{
+					"command": "zmk.sourceTree.revealSourceInOS",
+					"when": "view == sourceTreeView && viewItem == sourceTree.sourceFile",
 					"group": "navigation"
 				}
 			]
