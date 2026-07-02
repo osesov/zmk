@@ -82,6 +82,62 @@ export class BuilderService implements IBuilderService
         return this.settings.get(Setting.outputDir) ?? null;
     }
 
+    private async checkServers(outputChannel: vscode.OutputChannel)
+    {
+        const nexusServer = this.settings.get(Setting.nexusServer);
+        if (!nexusServer) {
+            outputChannel.appendLine('Nexus server is not configured.');
+            return;
+        }
+
+        outputChannel.appendLine(`Checking Nexus server: ${nexusServer}`);
+
+        while (true) {
+            // 1st. nexus.dev.zodiac.tv:5000 - docker registry
+            const result = await fetch(`${nexusServer}/v2/`, { method: 'GET' })
+                .then<boolean>(response => {
+                    // expect a 401 Unauthorized with header
+                    // "Docker-Distribution-Api-Version: registry/2.0"s
+                    if (response.ok) {
+                        // it become public?
+                        outputChannel.appendLine('Nexus server check passed.');
+                        return true;
+                    }
+                    else if (response.status === 401 && response.headers.get('Docker-Distribution-Api-Version') === 'registry/2.0') {
+                        outputChannel.appendLine('Nexus server check passed.');
+                        return true;
+                    } else {
+                        outputChannel.appendLine(`Nexus server check failed: ${response.status} ${response.statusText}`);
+                        return false;
+                    }
+                })
+                .catch<boolean>(error => {
+                    outputChannel.appendLine(`Nexus server check failed: ${error}`);
+                    return false;
+                });
+
+            if (result) {
+                break;
+            }
+
+            const retryButton = 'Retry';
+            const ignoreButton = 'Ignore';
+            const selection = await vscode.window.showErrorMessage(
+                `Nexus server check failed: ${nexusServer}`,
+                // { modal: true },
+                retryButton,
+                ignoreButton
+            );
+
+            if (selection === retryButton) {
+                outputChannel.appendLine('Retrying Nexus server check...');
+                continue;
+            }
+
+            break;
+        }
+    }
+
     private async runCommand(
         outputChannel: vscode.OutputChannel,
         command: string[],
@@ -99,9 +155,11 @@ export class BuilderService implements IBuilderService
             location: vscode.ProgressLocation.Notification,
             title: title,
             cancellable: true
-        }, (progress, token) => {
+        }, async (progress, token) => {
             this._onBuildStarted.fire();
             let output: string[] = [];
+
+            await this.checkServers(outputChannel);
 
             return new Promise<BuildResult>((resolve, reject) => {
                 const isWindows = process.platform === 'win32';

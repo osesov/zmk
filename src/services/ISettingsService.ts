@@ -168,6 +168,8 @@ export const Setting = {
     intelliSenseMode: configuration('intelliSenseMode', 'zmk.intelliSenseMode', undefined as string | undefined),
     toolchain: configuration('toolchain', 'zmk.toolchain', undefined as Toolchain[] | undefined),
 
+    nexusServer: configuration('nexusServer', 'zmk.nexusServer', undefined as string | undefined),
+
     // environment
     path: environment('path', 'PATH', undefined as string | undefined),
     pythonPath: environment('pythonPath', 'PYTHONPATH', undefined as string | undefined),

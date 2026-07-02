@@ -386,6 +386,11 @@
 							}
 						}
 					}
+				},
+				"zmk.nexusServer": {
+					"type": "string",
+					"description": "Nexus server URL for docker registry",
+					"default": "https://nexus.dev.zodiac.tv:5000"
 				}
 			}
 		},
