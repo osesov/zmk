@@ -49,7 +49,8 @@ export class UIService implements IUIService
             vscode.commands.registerCommand(zmkCommand.setConfig, async () => this.setConfigCommand()),
             vscode.commands.registerCommand(zmkCommand.selectValhallaProject, async () => this.selectValhallaProject()),
             vscode.commands.registerCommand(zmkCommand.selectAndBuildTarget, async () => this.selectAndBuildTarget()),
-            vscode.commands.registerCommand(zmkCommand.selectAndRunTest, async () => this.selectAndRunTest())
+            vscode.commands.registerCommand(zmkCommand.selectAndRunTest, async () => this.selectAndRunTest()),
+            vscode.commands.registerCommand(zmkCommand.zmkShowCommands, async () => this.showValhallaCommands()),
         );
 
         this.settings.onChange(e => {
@@ -271,6 +272,25 @@ export class UIService implements IUIService
         });
         if (selection) {
             await this.testController.runTests(selection.map(s => s.testId));
+        }
+    }
+
+    private async showValhallaCommands(): Promise<void>
+    {
+        const commands = [
+            { label: 'Show Valhalla Output', command: zmkCommand.showOutput },
+            { label: 'Set Config', command: zmkCommand.setConfig },
+            { label: 'Select Valhalla Project', command: zmkCommand.selectValhallaProject },
+            { label: 'Select and Build Target', command: zmkCommand.selectAndBuildTarget },
+            { label: 'Select and Run Test', command: zmkCommand.selectAndRunTest },
+        ];
+
+        const selection = await vscode.window.showQuickPick(commands, {
+            placeHolder: 'Select a Valhalla command to execute',
+        });
+
+        if (selection) {
+            await vscode.commands.executeCommand(selection.command);
         }
     }
 }
