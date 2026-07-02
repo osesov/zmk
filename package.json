@@ -782,7 +782,7 @@
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"test": "npm run compile && vscode-test",
-		"package": "npm i && npm run compile && vsce package",
+		"package": "npm ci && npm run compile && vsce package",
 		"lint": "eslint ."
 	},
 	"devDependencies": {
