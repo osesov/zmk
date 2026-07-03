@@ -93,7 +93,7 @@ async function loadFile(context: vscode.ExtensionContext, outputDir: string | un
     const ninja = await getBundledNinjaPath(context);
 
     return new Promise((resolve, reject) => {
-        const child = child_process.spawn(ninja, ['-t', 'deps'], { cwd: outputDir });
+        const child = child_process.spawn(ninja, ['-t', 'deps'], { cwd: outputDir, shell: false });
 
         let output = '';
         child.stdout.on('data', (data) => {

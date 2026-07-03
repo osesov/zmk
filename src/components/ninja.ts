@@ -15,17 +15,21 @@ export async function getBundledNinjaPath(
   context: vscode.ExtensionContext,
 ): Promise<string> {
   const target = `${process.platform}-${process.arch}`;
+  const executable = process.platform === 'win32'
+    ? 'ninja.exe'
+    : 'ninja';
 
   if (!supportedTargets.has(target)) {
+    console.warn(
+      `Bundled Ninja is not available for ${target}. ` +
+      `Supported targets: ${[...supportedTargets].join(', ')}`,
+    );
+    return executable; // lookup system path for ninja
     throw new Error(
       `Bundled Ninja is not available for ${target}. ` +
       `Supported targets: ${[...supportedTargets].join(', ')}`,
     );
   }
-
-  const executable = process.platform === 'win32'
-    ? 'ninja.exe'
-    : 'ninja';
 
   const executablePath = path.join(
     context.extensionPath,
