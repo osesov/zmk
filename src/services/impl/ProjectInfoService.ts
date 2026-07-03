@@ -201,6 +201,11 @@ export class ProjectInfoService implements IProjectInfoService
         }
     }
 
+    public get loaded(): boolean
+    {
+        return this.projectJson !== null;
+    }
+
     private async resetFile(): Promise<void>
     {
         const currentReload = ++this.reloadVersion;

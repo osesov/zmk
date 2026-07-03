@@ -3,6 +3,7 @@ import { ArgsMap } from "../components/ArgsFile";
 
 export interface IArgsFileService
 {
-    onChange: vscode.Event<void>;
+    readonly onChange: vscode.Event<void>;
+    readonly loaded: boolean;
     getArgs(): ArgsMap | null;
 }

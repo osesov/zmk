@@ -17,10 +17,12 @@ export interface IBrowseSet
 
 export interface IProjectInfoService
 {
-    onChange: vscode.Event<void>;
+    readonly onChange: vscode.Event<void>;
+    readonly loaded: boolean;
+
     getProjectDescription(): ProjectJsonFile | null;
     // TODO: Should remove 'cpp' parameter?
-    // it is being loaded from compile_commands.json nowm since project.json
+    // it is being loaded from compile_commands.json now since project.json
     // has 'ccache', and the tool itself is has no path
     getSourceFileConfiguration(uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null;
     getBrowseConfiguration(): MutableWorkspaceBrowseConfiguration | null;

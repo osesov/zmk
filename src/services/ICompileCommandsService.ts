@@ -8,9 +8,9 @@ export interface SourceFileConfigurationEx extends MutableSourceFileConfiguratio
 
 export interface ICompileCommandsService
 {
-    onChange: vscode.Event<void>;
-
-    cxxCompiler: string | null;
+    readonly onChange: vscode.Event<void>;
+    readonly loaded: boolean;
+    readonly cxxCompiler: string | null;
     getSourceFileConfiguration(uri: vscode.Uri): SourceFileConfigurationEx | null;
     isFileListed(uri: vscode.Uri): boolean;
 

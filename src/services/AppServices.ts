@@ -25,6 +25,7 @@ import { IFileService } from './IFileService';
 import { IProjectJsonHover } from './IProjectJsonHover';
 import { IProjectJsonServices } from './IProjectJsonServices';
 import { ISourceTreeProvider } from './ISourceTreeProvider';
+import { IDepsFileService } from './IDepsFileService';
 
 export type AppServices =
 {
@@ -39,6 +40,7 @@ export type AppServices =
     argsFile: IArgsFileService;
     projectInfo: IProjectInfoService;
     compileCommands: ICompileCommandsService;
+    depsFile: IDepsFileService;
 
     virtualDocumentProvider: IVirtualDocumentProvider;
 

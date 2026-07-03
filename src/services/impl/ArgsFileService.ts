@@ -81,4 +81,9 @@ export class ArgsFileService implements IArgsFileService, vscode.Disposable
     {
         return this.args;
     }
+
+    public get loaded(): boolean
+    {
+        return this.args !== null;
+    }
 }

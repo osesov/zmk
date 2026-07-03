@@ -31,6 +31,7 @@ import { createFileService } from './services/impl/FileService';
 import { createProjectJsonHover } from './services/impl/ProjectJsonHover';
 import { createProjectJsonServiceProvider } from './services/impl/ProjectJsonServices';
 import { createSourceTreeProvider } from './services/impl/SourceTreeProvider';
+import { createDepsFileService } from './services/impl/DepsFileService';
 
 const zmkDocumentScheme = 'zmkdoc';
 
@@ -273,6 +274,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		.registerInstance('argsFile', createArgsFileService(services))
 		.registerInstance('projectInfo', createProjectInfoService(services))
 		.registerInstance('compileCommands', createCompileCommandsService(services))
+		.registerInstance('depsFile', createDepsFileService(services))
 		.registerInstance('virtualDocumentProvider', createVirtualDocumentProvider(services))
 		.registerInstance('builder', createBuilderService(services))
 		.registerInstance('buildStatus', createBuildStatusService(services, buildComplete, initialBuild))

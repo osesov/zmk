@@ -3,7 +3,6 @@ import * as vscode from "vscode";
 import * as cpptools from "vscode-cpptools";
 import shell from "shell-quote";
 
-import { ServiceContainer } from "../ServiceContainer";
 import { AppServiceContainer, AppServices } from "../AppServices";
 import { Setting, SettingChangeEvent } from "../ISettingsService";
 import { build } from "../../components/constants";
@@ -116,6 +115,11 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
         for (const disposable of this.disposables.splice(0).reverse()) {
             disposable.dispose();
         }
+    }
+
+    public get loaded(): boolean
+    {
+        return this.compileCommands !== null;
     }
 
     private async resetFile(): Promise<void>

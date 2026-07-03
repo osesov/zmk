@@ -4,8 +4,12 @@ import { AppServiceContainer, AppServices } from '../AppServices';
 import { gnbTaskType } from './ValhallaTaskProvider';
 import { ISettingsService, Setting } from '../ISettingsService';
 import { zmkCommand } from '../../components/constants';
-import { BuildResult, IBuilderService } from '../IBuilderService';
-import { ISourceFileConfigurationService } from '../ISourceFileConfigurationService';
+import { IBuilderService } from '../IBuilderService';
+import { ICompileCommandsService } from '../ICompileCommandsService';
+import { IDepsFileService } from '../IDepsFileService';
+import { assertNever } from '../../components/utils';
+import { IArgsFileService } from '../IArgsFileService';
+import { IProjectInfoService } from '../IProjectInfoService';
 
 const selector: vscode.DocumentSelector = [
     { language: 'c++' },
@@ -13,24 +17,27 @@ const selector: vscode.DocumentSelector = [
     { language: '*' },
 ]
 
-type StatusServiceDeps = Pick<AppServices, 'initialBuild' | 'buildComplete' | 'argsFile' | 'settings' | 'builder' | 'sourceFileInfo'>;
-
-enum EventType {
-    InitialUpdate = 'initialUpdate',
-    BuildStarted = 'buildStarted',
-    BuildCompleted = 'buildCompleted',
-    EditorChanged = 'editorChanged'
+enum KnownAs
+{
+    UnknownFile,
+    KnownSourceFile,
+    KnownDependencyFile,
+    MaybeDependencyFile,
 }
+
+type StatusServiceDeps = Pick<AppServices, 'initialBuild' | 'buildComplete' | 'argsFile' | 'projectInfo' | 'settings' | 'builder' | 'compileCommands' | 'depsFile'>;
 
 export function createStatusService(services: AppServiceContainer): StatusService
 {
     return new StatusService({
         initialBuild: services.get('initialBuild'),
         buildComplete: services.get('buildComplete'),
-        argsFile: services.get('argsFile'),
         settings: services.get('settings'),
         builder: services.get('builder'),
-        sourceFileInfo: services.get('sourceFileInfo'),
+        argsFile: services.get('argsFile'),
+        compileCommands: services.get('compileCommands'),
+        projectInfo: services.get('projectInfo'),
+        depsFile: services.get('depsFile'),
     });
 }
 
@@ -38,7 +45,10 @@ export class StatusService implements IStatusService
 {
     private readonly settings: ISettingsService;
     private readonly builder: IBuilderService;
-    private readonly sourceFileInfo: ISourceFileConfigurationService;
+    private readonly compileCommands: ICompileCommandsService;
+    private readonly depsFileService: IDepsFileService;
+    private readonly argsFile: IArgsFileService;
+    private readonly projectInfo: IProjectInfoService;
     private buildStatus: vscode.LanguageStatusItem | null = null;
     private currentConfig: vscode.LanguageStatusItem | null = null;
     private currentTarget: vscode.LanguageStatusItem | null = null;
@@ -51,17 +61,19 @@ export class StatusService implements IStatusService
     {
         const initialBuild = deps.initialBuild;
         const buildComplete = deps.buildComplete;
-        const argsFile = deps.argsFile;
         this.settings = deps.settings;
         this.builder = deps.builder;
-        this.sourceFileInfo = deps.sourceFileInfo;
+        this.compileCommands = deps.compileCommands;
+        this.depsFileService = deps.depsFile;
+        this.argsFile = deps.argsFile;
+        this.projectInfo = deps.projectInfo;
 
-        this.builder.onBuildStarted(() => (this.buildStarted(), this.updateStatusButton(EventType.BuildStarted)));
-        this.builder.onBuildFinished((success) => (this.buildCompleted(success.success), this.updateStatusButton(EventType.BuildCompleted, success)));
+        this.builder.onBuildStarted(() => (this.buildStarted(), this.updateStatusButton()));
+        this.builder.onBuildFinished((success) => (this.buildCompleted(success.success), this.updateStatusButton()));
 
         vscode.tasks.onDidStartTaskProcess((e) => (e.execution.task.definition.type === gnbTaskType) && this.buildStarted());
         vscode.tasks.onDidEndTaskProcess( e => (e.execution.task.definition.type === gnbTaskType) && this.buildCompleted(e.exitCode === 0));
-        vscode.window.onDidChangeActiveTextEditor((e) => (this.updateCurrentFile(e), this.updateStatusButton(EventType.EditorChanged, e)));
+        vscode.window.onDidChangeActiveTextEditor((e) => (this.updateCurrentFile(e), this.updateStatusButton()));
         this.currentUri = vscode.window.activeTextEditor?.document.uri ?? null;
 
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
@@ -69,7 +81,12 @@ export class StatusService implements IStatusService
 
         initialBuild.finally(() => this.updateToolchain());
         buildComplete(() => this.updateToolchain());
-        argsFile.onChange(() => this.updateToolchain());
+        this.argsFile.onChange(() => this.updateToolchain());
+
+        this.argsFile.onChange(() => this.updateStatusButton());
+        this.projectInfo.onChange(() => this.updateStatusButton());
+        this.compileCommands.onChange(() => this.updateStatusButton());
+        this.depsFileService.onChange(() => this.updateStatusButton());
 
         this.updateSettings();
     }
@@ -158,7 +175,7 @@ export class StatusService implements IStatusService
                     command: zmkCommand.zmkShowCommands,
                 };
                 this.statusButton.show();
-                this.updateStatusButton(EventType.InitialUpdate);
+                this.updateStatusButton();
             }
         }
     }
@@ -196,16 +213,27 @@ export class StatusService implements IStatusService
     {
         const uri = vscode.window.activeTextEditor?.document.uri;
         this.currentUri = uri ?? null;
-        // const config = uri ? await this.sourceFileInfo.getSourceFileConfiguration(uri) : null;
-                // const compileCommand = uri ? await this.compileCommands.getSourceFileConfiguration(uri) : null;
-                // this.setConfiguration(config, compileCommand);
     }
 
-    private updateStatusButton(eventType: EventType.BuildStarted): void;
-    private updateStatusButton(eventType: EventType.InitialUpdate): void;
-    private updateStatusButton(eventType: EventType.BuildCompleted, result: BuildResult): void;
-    private updateStatusButton(eventType: EventType.EditorChanged, editor: vscode.TextEditor | undefined): void;
-    private async updateStatusButton(event: EventType, arg?: true | BuildResult | vscode.TextEditor): Promise<void>
+    private async isKnownFile(uri: vscode.Uri | null): Promise<KnownAs>
+    {
+        if (!uri) {
+            return KnownAs.UnknownFile;
+        }
+
+        const sourceFileConfig = await this.compileCommands.getSourceFileConfiguration(uri);
+        if (sourceFileConfig) {
+            return KnownAs.KnownSourceFile;
+        }
+
+        if (!this.depsFileService.loaded) {
+            return KnownAs.MaybeDependencyFile;
+        }
+
+        return this.depsFileService.isKnownFile(uri) ? KnownAs.KnownDependencyFile : KnownAs.UnknownFile;
+    }
+
+    private async updateStatusButton(): Promise<void>
     {
         if (!this.settings.get(Setting.isValhallaProject) || !this.statusButton) {
             return;
@@ -213,7 +241,7 @@ export class StatusService implements IStatusService
 
         // show build status and if the current file is a part of the build
 
-        const sourceFileConfig = this.currentUri ? await this.sourceFileInfo.getSourceFileConfiguration(this.currentUri) : null;
+        const knownFile = await this.isKnownFile(this.currentUri);
         const config = this.settings.get(Setting.config);
         const target = this.settings.get(Setting.target);
 
@@ -221,24 +249,64 @@ export class StatusService implements IStatusService
 
         let text = '';
         let tooltip = new vscode.MarkdownString();
+        const loadedFiles: string[] = [];
+        const notLoadedFiles: string[] = [];
 
-        tooltip.appendMarkdown(`- **config:** ${config ?? 'not set'}\n\n`);
-        tooltip.appendMarkdown(`- **target:** ${target ?? 'not set'}\n\n`);
+        tooltip.supportHtml = true;
 
-        if (this.buildCount > 0) {
-            text += '$(sync~spin)';
-            tooltip.appendMarkdown('- *Build in progress...*\n\n');
+        tooltip.appendMarkdown('<table>');
+        tooltip.appendMarkdown('<tr><td><b>Config:</b></td><td>' + (config ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Target:</b></td><td>' + (target ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Toolchain:</b></td><td>' + (await this.builder.toolchainSelector() ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Build status:</b></td><td>' + (this.buildCount > 0 ? '$(sync~spin) building...' : (this.buildStatus?.detail ?? 'unknown')) + '</td></tr>');
+
+        for (const [name, service] of Object.entries({
+            'args.gn': this.argsFile,
+            'compile_commands.json': this.compileCommands,
+            'project.json': this.projectInfo,
+            '.ninja_deps': this.depsFileService,
+        })) {
+            if (service.loaded) {
+                loadedFiles.push(name);
+            } else {
+                notLoadedFiles.push(name);
+            }
         }
+
+        // if (loadedFiles.length > 0) {
+        //     tooltip.appendMarkdown('<tr><td><b>Loaded files:</b></td><td>' + loadedFiles.join(', ') + '</td></tr>');
+        // }
+
+        if (notLoadedFiles.length > 0) {
+            tooltip.appendMarkdown('<tr><td><b>Not loaded files:</b></td><td>' + notLoadedFiles.join(', ') + '</td></tr>');
+        }
+        tooltip.appendMarkdown('</table>\n\n');
 
         text += ' Valhalla';
 
-        if (sourceFileConfig) {
-            text += ' (+)';
-            tooltip.appendMarkdown(`- *Current file is part of Valhalla build*\n\n`);
-        }
-        else {
-            text += ' (-)';
-            tooltip.appendMarkdown('- *Current file is not part of Valhalla build*\n\n');
+        switch (knownFile) {
+            case KnownAs.KnownSourceFile:
+                text += ' (S)';
+                tooltip.appendMarkdown(`*Current file is a source file in Valhalla build*\n\n`);
+                break;
+
+            case KnownAs.KnownDependencyFile:
+                text += ' (D)';
+                tooltip.appendMarkdown(`*Current file is a dependency file in Valhalla build*\n\n`);
+                break;
+
+            case KnownAs.MaybeDependencyFile:
+                text += ' (?)';
+                tooltip.appendMarkdown(`*Current file may be a dependency file in Valhalla build*\n\n`);
+                break;
+
+            case KnownAs.UnknownFile:
+                text += ' (-)';
+                tooltip.appendMarkdown(`*Current file is not part of Valhalla build*\n\n`);
+                break;
+
+            default:
+                assertNever(knownFile);
         }
 
         this.statusButton.text = text;
