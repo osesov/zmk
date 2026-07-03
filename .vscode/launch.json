@@ -36,5 +36,13 @@
 			],
 			"preLaunchTask": "npm: watch"
 		},
+
+		{
+			"name": "scripts/prepare-ninja.mjs",
+			"type": "node",
+			"request": "launch",
+			"program": "${workspaceFolder}/scripts/prepare-ninja.mjs",
+			"args": []
+		}
 	]
 }

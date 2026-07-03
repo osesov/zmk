@@ -6,6 +6,7 @@ import { AppServices, AppServiceContainer } from "../AppServices";
 import { ISettingsService, Setting, SettingChangeEvent } from "../ISettingsService";
 import { IWatchedFile } from "../IFileService";
 import { IDepsFileService } from "../IDepsFileService";
+import { getBundledNinjaPath } from "../../components/ninja";
 
 export type DepsFileServiceDeps = Pick<AppServices, 'fs' | 'settings' | 'context'>;
 
@@ -83,14 +84,16 @@ function parseNinjaDeps(output: string, outputDir: string): PairedDependencies {
     return { deps, rdeps };
 }
 
-function loadFile(outputDir: string | undefined): Promise<PairedDependencies | null>
+async function loadFile(context: vscode.ExtensionContext, outputDir: string | undefined): Promise<PairedDependencies | null>
 {
     if (!outputDir) {
         return Promise.resolve(null);
     }
 
+    const ninja = await getBundledNinjaPath(context);
+
     return new Promise((resolve, reject) => {
-        const child = child_process.spawn('ninja', ['-t', 'deps'], { cwd: outputDir });
+        const child = child_process.spawn(ninja, ['-t', 'deps'], { cwd: outputDir });
 
         let output = '';
         child.stdout.on('data', (data) => {
@@ -134,6 +137,7 @@ async function getFileMTime(filePath: string): Promise<number | null> {
 
 export class DepsFileService implements IDepsFileService, vscode.Disposable
 {
+    private readonly context: vscode.ExtensionContext;
     private readonly _onChange = new vscode.EventEmitter<void>();
     private readonly fileWatcher: IWatchedFile<never>;
     private readonly settings: ISettingsService;
@@ -146,6 +150,7 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
 
     constructor(services: DepsFileServiceDeps)
     {
+        this.context = services.context;
         this.settings = services.settings;
         this.fileWatcher = services.fs.createWatchedFile(fileName, parseFile);
 
@@ -210,7 +215,7 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
 
         if (this.fileTime == null || mtime > this.fileTime) {
             this.fileTime = mtime;
-            const data = await loadFile(this.settings.get(Setting.outputDir));
+            const data = await loadFile(this.context, this.settings.get(Setting.outputDir));
             if (mtime === this.fileTime) {
                 this.deps = data;
                 this._onChange.fire();

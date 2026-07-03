@@ -2,7 +2,7 @@
 	"name": "zmk",
 	"displayName": "zmk",
 	"description": "Zodiac Make",
-	"version": "2.6.0",
+	"version": "2.7.0",
 	"engines": {
 		"vscode": "^1.111.0"
 	},
@@ -778,6 +778,7 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "node build.js --prepublish && npm run bundle",
+		"prepare:ninja": "node scripts/prepare-ninja.mjs",
 		"bundle": "node build.js",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
@@ -799,6 +800,7 @@
 		"eslint": "^10.0.3",
 		"globals": "^17.4.0",
 		"jiti": "^2.6.1",
+		"tar": "^7.5.19",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.57.0",
 		"vscode-cpptools": "^7.1.1"
