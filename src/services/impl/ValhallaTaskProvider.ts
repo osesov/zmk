@@ -158,7 +158,7 @@ export class ValhallaTaskProvider implements vscode.TaskProvider, IValhallaTaskP
 
         const buildCommand = await builder.getBuildCommand(taskDefinitionTemplate, buildKind);
 
-        if (!buildCommand || buildCommand.command.length == 0)
+        if (!buildCommand || buildCommand.command.length === 0)
             return;
 
         const taskDefinition = Object.assign({}, taskDefinitionTemplate);

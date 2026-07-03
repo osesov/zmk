@@ -6,7 +6,7 @@ Thank you for your interest in contributing to ZMK (Zodiac Make)! This document 
 
 ### Prerequisites
 
-- Node.js (v14 or later)
+- Node.js (v24 or later)
 - npm
 - VS Code
 

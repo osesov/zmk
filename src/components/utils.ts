@@ -182,11 +182,9 @@ export function groupBy<T>(array: T[], key: (item: T) => string): { [k: string]:
 
 export function callDebugger(msg: string): void {
     console.error(msg);
-    // eslint-disable-next-line no-debugger
     debugger;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function assertNever(x: never): never {
     callDebugger("Unexpected object: " + x);
     throw new Error("Didn't expect to get here");
