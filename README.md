@@ -55,11 +55,13 @@ Get accurate C++ IntelliSense automatically:
 
 ### Visual Navigation
 
-Three tree views in the "Valhalla build system" sidebar:
+Tree views available in the "Valhalla build system" sidebar:
 
 1. **Configurations**: Browse and select build configurations
 2. **Targets**: View and build project targets
-3. **Source File Configuration**: Inspect IntelliSense settings for the current file
+3. **Source Tree**: Browse source file tree and executables, source sets, shared and static libraries.
+4. **Args**: Browse and edit GN build arguments
+5. **Source File Info**: Inspect IntelliSense settings for the current file
 
 ### Build Tasks
 
