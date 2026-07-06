@@ -55,7 +55,6 @@ export class StatusService implements IStatusService
     private currentToolchain: vscode.LanguageStatusItem | null = null;
     private statusButton: vscode.StatusBarItem | null = null;
     private buildCount = 0;
-    private currentUri: vscode.Uri | null = null;
 
     constructor(deps: StatusServiceDeps)
     {
@@ -73,8 +72,7 @@ export class StatusService implements IStatusService
 
         vscode.tasks.onDidStartTaskProcess((e) => (e.execution.task.definition.type === gnbTaskType) && this.buildStarted());
         vscode.tasks.onDidEndTaskProcess( e => (e.execution.task.definition.type === gnbTaskType) && this.buildCompleted(e.exitCode === 0));
-        vscode.window.onDidChangeActiveTextEditor((e) => (this.updateCurrentFile(e), this.updateStatusButton()));
-        this.currentUri = vscode.window.activeTextEditor?.document.uri ?? null;
+        vscode.window.onDidChangeActiveTextEditor((e) => this.updateStatusButton());
 
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
         this.settings.onChange(e => (e.affects(Setting.target)) && this.updateCurrentTarget());
@@ -209,17 +207,17 @@ export class StatusService implements IStatusService
         this.buildStatus.severity = success ? vscode.LanguageStatusSeverity.Information : vscode.LanguageStatusSeverity.Error;
     }
 
-    private async updateCurrentFile(editor: vscode.TextEditor | undefined): Promise<void>
+    private async isKnownFile(doc: vscode.TextDocument | undefined): Promise<KnownAs | null>
     {
-        const uri = vscode.window.activeTextEditor?.document.uri;
-        this.currentUri = uri ?? null;
-    }
-
-    private async isKnownFile(uri: vscode.Uri | null): Promise<KnownAs>
-    {
-        if (!uri) {
-            return KnownAs.UnknownFile;
+        if (!doc) {
+            return null;
         }
+
+        if (doc.languageId !== 'c' && doc.languageId !== 'cpp') {
+            return null;
+        }
+
+        const uri = doc.uri;
 
         const sourceFileConfig = await this.compileCommands.getSourceFileConfiguration(uri);
         if (sourceFileConfig) {
@@ -241,14 +239,14 @@ export class StatusService implements IStatusService
 
         // show build status and if the current file is a part of the build
 
-        const knownFile = await this.isKnownFile(this.currentUri);
+        const knownFile = await this.isKnownFile(vscode.window.activeTextEditor?.document);
         const config = this.settings.get(Setting.config);
         const target = this.settings.get(Setting.target);
 
         // this.currentConfig.detail = config ?? 'not set';
 
         let text = '';
-        let tooltip = new vscode.MarkdownString();
+        const tooltip = new vscode.MarkdownString();
         const loadedFiles: string[] = [];
         const notLoadedFiles: string[] = [];
 
@@ -285,6 +283,9 @@ export class StatusService implements IStatusService
         text += ' Valhalla';
 
         switch (knownFile) {
+            case null:
+                break;
+
             case KnownAs.KnownSourceFile:
                 text += ' (S)';
                 tooltip.appendMarkdown(`*Current file is a source file in Valhalla build*\n\n`);
