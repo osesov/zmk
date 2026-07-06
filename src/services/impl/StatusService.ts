@@ -70,8 +70,8 @@ export class StatusService implements IStatusService
         this.builder.onBuildStarted(() => (this.buildStarted(), this.updateStatusButton()));
         this.builder.onBuildFinished((success) => (this.buildCompleted(success.success), this.updateStatusButton()));
 
-        vscode.tasks.onDidStartTaskProcess((e) => (e.execution.task.definition.type === gnbTaskType) && this.buildStarted());
-        vscode.tasks.onDidEndTaskProcess( e => (e.execution.task.definition.type === gnbTaskType) && this.buildCompleted(e.exitCode === 0));
+        vscode.tasks.onDidStartTaskProcess((e) => (e.execution.task.definition.type === gnbTaskType) && (this.buildStarted(), this.updateStatusButton()));
+        vscode.tasks.onDidEndTaskProcess( e => (e.execution.task.definition.type === gnbTaskType) && (this.buildCompleted(e.exitCode === 0), this.updateStatusButton()));
         vscode.window.onDidChangeActiveTextEditor((e) => this.updateStatusButton());
 
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
@@ -245,18 +245,19 @@ export class StatusService implements IStatusService
 
         // this.currentConfig.detail = config ?? 'not set';
 
-        let text = '';
+        let text = 'Valhalla';
         const tooltip = new vscode.MarkdownString();
         const loadedFiles: string[] = [];
         const notLoadedFiles: string[] = [];
 
         tooltip.supportHtml = true;
+        tooltip.supportThemeIcons = true;
 
         tooltip.appendMarkdown('<table>');
         tooltip.appendMarkdown('<tr><td><b>Config:</b></td><td>' + (config ?? 'not set') + '</td></tr>');
         tooltip.appendMarkdown('<tr><td><b>Target:</b></td><td>' + (target ?? 'not set') + '</td></tr>');
         tooltip.appendMarkdown('<tr><td><b>Toolchain:</b></td><td>' + (await this.builder.toolchainSelector() ?? 'not set') + '</td></tr>');
-        tooltip.appendMarkdown('<tr><td><b>Build status:</b></td><td>' + (this.buildCount > 0 ? '$(sync~spin) building...' : (this.buildStatus?.detail ?? 'unknown')) + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Build status:</b></td><td>' + (this.buildCount > 0 ? 'in progress...' : (this.buildStatus?.detail ?? 'unknown')) + '</td></tr>');
 
         for (const [name, service] of Object.entries({
             'args.gn': this.argsFile,
@@ -280,7 +281,14 @@ export class StatusService implements IStatusService
         }
         tooltip.appendMarkdown('</table>\n\n');
 
-        text += ' Valhalla';
+        if (this.buildCount > 0)
+            text += ' $(gear~spin)';
+        else if (this.buildStatus?.severity === vscode.LanguageStatusSeverity.Error)
+            text += ' $(error)';
+        else if (this.buildStatus?.severity === vscode.LanguageStatusSeverity.Warning)
+            text += ' $(warning)';
+        else
+            text += ' $(check)';
 
         switch (knownFile) {
             case null:
