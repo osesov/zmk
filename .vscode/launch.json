@@ -13,7 +13,8 @@
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				// "/home/osesov/zodiac/valhalla/components/powerup/native/apps/PowerUpJS"
-				"${workspaceFolder}/../valhalla"
+				// "${workspaceFolder}/../valhalla"
+				"${workspaceFolder}/../valhalla.charter_develop"
 				// "/home/osesov/zodiac/valhalla".
 				// "/home/osesov/zodiac/third-party/uriparser",
 			],

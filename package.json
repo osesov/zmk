@@ -4,7 +4,7 @@
 	"description": "Zodiac Make",
 	"version": "2.7.0",
 	"engines": {
-		"vscode": "^1.111.0"
+		"vscode": "^1.125.0"
 	},
 	"categories": [
 		"Other"
@@ -789,13 +789,13 @@
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@types/mocha": "^10.0.10",
-		"@types/node": "^22.18.1",
+		"@types/node": "^24.13.2",
 		"@types/shell-quote": "^1.7.5",
-		"@types/vscode": "^1.110.0",
+		"@types/vscode": "^1.125.0",
 		"@typescript-eslint/parser": "^8.57.0",
 		"@vscode/test-cli": "^0.0.12",
 		"@vscode/test-electron": "^2.5.2",
-		"@vscode/vsce": "^3.7.1",
+		"@vscode/vsce": "^3.9.2",
 		"esbuild": "^0.27.3",
 		"eslint": "^10.0.3",
 		"globals": "^17.4.0",
@@ -808,7 +808,11 @@
 	"license": "0BSD",
 	"dependencies": {
 		"jsonc-parser": "^3.3.1",
-		"shell-quote": "^1.8.3",
+		"shell-quote": "^1.9.0",
 		"vscode-uri": "^3.1.0"
+	},
+	"allowScripts": {
+		"esbuild@0.27.3": true,
+		"@vscode/vsce-sign@2.0.9": true
 	}
 }
