@@ -33,7 +33,7 @@ export default defineConfig([
                 // Constants in this codebase also use PascalCase and UPPER_CASE.
                 {
                     "selector": "variable",
-                    "modifiers": ["const"],
+                    "modifiers": ["const", "readonly"],
                     "format": ["camelCase", "PascalCase", "snake_case", "UPPER_CASE"],
                     "leadingUnderscore": "allow"
                 },
