@@ -86,6 +86,21 @@ export class UpdateService implements IUpdateService
         }
     }
 
+    private compareVersions(v1: string, v2: string): number
+    {
+        const v1Parts = v1.split('.').map(Number);
+        const v2Parts = v2.split('.').map(Number);
+        const length = Math.max(v1Parts.length, v2Parts.length);
+
+        for (let i = 0; i < length; i++) {
+            const v1Part = v1Parts[i] || 0;
+            const v2Part = v2Parts[i] || 0;
+            if (v1Part > v2Part) return 1;
+            if (v1Part < v2Part) return -1;
+        }
+        return 0;
+    }
+
     async checkForUpdates(): Promise<UpdateResult>
     {
         // once a day check for updates
@@ -114,7 +129,7 @@ export class UpdateService implements IUpdateService
 
             const availableVersion = githubData.tag_name.startsWith('v') ? githubData.tag_name.substring(1) : githubData.tag_name;
 
-            if (availableVersion === currentVersion) {
+            if (this.compareVersions(availableVersion, currentVersion) <= 0) {
                 return { ok: UpdateCheckResult.NoUpdate };
             }
 
