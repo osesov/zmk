@@ -12,3 +12,5 @@
   Other candidates considered:
   - https://www.npmjs.com/package/ninja-binaries
   - https://www.npmjs.com/package/ninja-build
+
+- [ ] Use official ninja instead? [Ninja Releases](https://github.com/ninja-build/ninja/releases)

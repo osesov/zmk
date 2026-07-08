@@ -709,6 +709,17 @@ class CompileCommands {
 }
 ```
 
+## Bundled Ninja
+
+Extension bundles Ninja binaries for Windows, macOS, and Linux. The
+binaries are fetched from `ninja-runtime` project via `scripts/prepare-ninja.mjs` script.
+
+Binaries are stored in the `resources/ninja` directory and bundled into the extension package. The extension uses the bundled Ninja binaries to execute build commands in a cross-platform manner.
+
+> [!TODO] Should I pick them up from the original repository instead?
+>
+> see [Ninja Releases](https://github.com/ninja-build/ninja/releases)
+
 ## References
 
 ### VS Code Extension Development
