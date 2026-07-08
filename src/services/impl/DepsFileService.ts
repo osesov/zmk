@@ -84,44 +84,6 @@ function parseNinjaDeps(output: string, outputDir: string): PairedDependencies {
     return { deps, rdeps };
 }
 
-async function loadFile(context: vscode.ExtensionContext, outputDir: string | undefined): Promise<PairedDependencies | null>
-{
-    if (!outputDir) {
-        return Promise.resolve(null);
-    }
-
-    const ninja = await getBundledNinjaPath(context);
-
-    return new Promise((resolve, reject) => {
-        const child = child_process.spawn(ninja, ['-t', 'deps'], { cwd: outputDir, shell: false });
-
-        let output = '';
-        child.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-
-        child.stderr.on('data', (data) => {
-            console.error(`Ninja process error: ${data.toString()}`);
-        });
-
-        child.on('error', (err) => {
-            console.error(`Failed to start Ninja process: ${err}`);
-            resolve(null);
-        });
-
-        child.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`Ninja process exited with code ${code}`);
-                resolve(null);
-                return;
-            }
-
-            const deps = parseNinjaDeps(output, outputDir);
-            resolve(deps);
-        });
-    });
-}
-
 async function getFileMTime(filePath: string): Promise<number | null> {
     try {
         const stats = await fs.stat(filePath);
@@ -137,6 +99,8 @@ async function getFileMTime(filePath: string): Promise<number | null> {
 
 export class DepsFileService implements IDepsFileService, vscode.Disposable
 {
+    private static readonly DEBOUNCE_DELAY_MS = 3000;
+
     private readonly context: vscode.ExtensionContext;
     private readonly _onChange = new vscode.EventEmitter<void>();
     private readonly fileWatcher: IWatchedFile<never>;
@@ -145,6 +109,8 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
     private deps: PairedDependencies | null = null;
     private disposed = false;
     private fileTime: number | null = null;
+    private child: child_process.ChildProcessWithoutNullStreams | null = null;
+    private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     public readonly onChange: vscode.Event<void> = this._onChange.event;
 
@@ -163,7 +129,7 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
                 }
             }),
             this.fileWatcher.onChange(() => {
-                this.resetFile();
+                this.scheduleReset();
             }),
         );
 
@@ -182,14 +148,47 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
         this.fileTime = null;
         this.deps = null;
 
+        if (this.debounceTimer !== null) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+        }
+
+        if (this.child) {
+            this.child.kill('SIGTERM');
+            this.child = null;
+        }
+
         for (const disposable of this.disposables.splice(0).reverse()) {
             disposable.dispose();
         }
     }
 
+    private scheduleReset(): void
+    {
+        // Eagerly kill any running process — its result will be ignored
+        if (this.child) {
+            this.child.kill('SIGTERM');
+        }
+
+        if (this.debounceTimer !== null) {
+            // Burst mode: reset the debounce timer and wait before processing
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => {
+                this.debounceTimer = null;
+                void this.resetFile();
+            }, DepsFileService.DEBOUNCE_DELAY_MS);
+        } else {
+            // First change or quiet period: process immediately.
+            // Set a guard timer so rapid follow-up changes enter burst mode.
+            this.debounceTimer = setTimeout(() => {
+                this.debounceTimer = null;
+            }, DepsFileService.DEBOUNCE_DELAY_MS);
+            void this.resetFile();
+        }
+    }
+
     private async resetFile(): Promise<void>
     {
-
         const fileName = this.fileWatcher.filePath;
 
         if (this.disposed) {
@@ -213,14 +212,88 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
             return;
         }
 
-        if (this.fileTime == null || mtime > this.fileTime) {
+        if (this.fileTime === null || mtime > this.fileTime) {
             this.fileTime = mtime;
-            const data = await loadFile(this.context, this.settings.get(Setting.outputDir));
+            const data = await this.loadFile(this.context, this.settings.get(Setting.outputDir));
             if (mtime === this.fileTime) {
                 this.deps = data;
                 this._onChange.fire();
             }
         }
+    }
+
+    private async killAndWait(signal: NodeJS.Signals = 'SIGTERM') {
+        // If the process already exited, resolve immediately
+        const child = this.child;
+        if (!child || child.exitCode !== null || child.signalCode !== null) {
+            return;
+        }
+
+        return new Promise((resolve) => {
+            // 'close' ensures stdio streams are also completely closed
+            child.on('close', (code, signal) => {
+                resolve({ code, signal });
+            });
+
+            // Send the kill signal to the child process
+            child.kill(signal);
+        });
+    }
+
+    private async loadFile(context: vscode.ExtensionContext, outputDir: string | undefined): Promise<PairedDependencies | null>
+    {
+        if (!outputDir) {
+            return Promise.resolve(null);
+        }
+
+        if (this.child) {
+            await this.killAndWait();
+            this.child = null;
+        }
+
+        const ninja = await getBundledNinjaPath(context);
+
+        return new Promise((resolve, reject) => {
+            const that_child = child_process.spawn(ninja, ['-t', 'deps'], { cwd: outputDir, shell: false });
+            this.child = that_child;
+
+            let output = '';
+            that_child.stdout.on('data', (data) => {
+                output += data.toString();
+            });
+
+            that_child.stderr.on('data', (data) => {
+                if (that_child === this.child) {
+                    console.error(`Ninja process error: ${data.toString()}`);
+                }
+            });
+
+            that_child.on('error', (err) => {
+                if (that_child === this.child) {
+                    console.error(`Failed to start Ninja process: ${err}`);
+                }
+                resolve(null);
+            });
+
+            that_child.on('close', (code) => {
+                if (code !== 0) {
+                    if (that_child === this.child) {
+                        console.error(`Ninja process exited with code ${code}`);
+                    }
+                    resolve(null);
+                    return;
+                }
+
+                if (that_child !== this.child) {
+                    resolve(null);
+                    return;
+                }
+
+                const deps = parseNinjaDeps(output, outputDir);
+                this.child = null;
+                resolve(deps);
+            });
+        });
     }
 
     public get loaded(): boolean
