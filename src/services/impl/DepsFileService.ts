@@ -97,6 +97,28 @@ async function getFileMTime(filePath: string): Promise<number | null> {
     }
 }
 
+// it might interfere with build process, disable fo now
+//
+// Fo some reasons '.ninja_log' file stops to appear in the output folder,
+// and if ninja is run with '-t explain' options, it shows following lines:
+//
+// ```
+// ninja explain: command line not found in log for obj/components/common_runtime/src/crt/core.ArgumentList.o
+// ninja explain: obj/components/common_runtime/src/crt/core.ArgumentList.o is dirty
+// ...
+// ```
+//
+// The suspect is that the 'ninja -t deps' locks the '.ninja_deps' file
+// and the build process cannot write to it while the DepsFileService is reading it
+//
+// Workaround is to make a copy of the '.ninja_deps' file and read from that copy
+//
+// This seems to require copying '.ninja_deps' along with all '*.ninja' files
+// including the toolchain.ninja, and these, which are located in the subfolders of
+// the 'obj' folder.
+//
+const enable = false;
+
 export class DepsFileService implements IDepsFileService, vscode.Disposable
 {
     private static readonly DEBOUNCE_DELAY_MS = 3000;
@@ -189,6 +211,9 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
 
     private async resetFile(): Promise<void>
     {
+        if (!enable)
+            return;
+
         const fileName = this.fileWatcher.filePath;
 
         if (this.disposed) {
