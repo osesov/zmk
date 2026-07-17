@@ -1,6 +1,8 @@
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
+import { minimatch } from 'minimatch';
+
 import { AppServiceContainer, AppServices } from "../AppServices";
 import { BuildCommand, BuildCommandOptions, BuildMode, BuildResult, BuildTargetOptions, IBuilderService, NeedBuildResult, NeedBuildStatus } from "../IBuilderService";
 import { expectNever, expectNotNull, isBuildDirValid, isDevContainerHost, withoutException } from '../../components/utils';
@@ -359,21 +361,25 @@ export class BuilderService implements IBuilderService
         }
 
         const {crossOS, crossCPU, crossABI} = await this.toolchainSelectorInternal();
+        const target = [crossCPU, crossOS, crossABI].filter(part => !!part).join('-');
 
         for (const toolchain of toolchains) {
             const pattern = toolchain.pattern;
             if (!pattern)
                 continue;
 
-            const parts = pattern.split('-');
-            const [cpu, os, abi] = parts;
-            const matchOS = os === crossOS || os === '*' || os === undefined;
-            const matchCPU = cpu === crossCPU || cpu === '*' || cpu === undefined;
-            const matchABI = abi === crossABI || abi === '*' || abi === undefined;
+            const patterns = [
+                pattern,
+                `*-${pattern}`,
+                `${pattern}-*`,
+                `*-${pattern}-*`
+            ];
 
-            if (matchOS && matchCPU && matchABI) {
-                return toolchain;
+            if (!patterns.some(p => minimatch(target, p, { nocase: true }))) {
+                continue;
             }
+
+            return toolchain;
         }
 
         return null;
