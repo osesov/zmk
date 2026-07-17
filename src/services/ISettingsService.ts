@@ -169,6 +169,7 @@ export const Setting = {
     toolchain: configuration('toolchain', 'zmk.toolchain', undefined as Toolchain[] | undefined),
 
     nexusServer: configuration('nexusServer', 'zmk.nexusServer', undefined as string | undefined),
+    artifactoryServer: configuration('artifactoryServer', 'zmk.artifactoryServer', undefined as string | undefined),
 
     // environment
     path: environment('path', 'PATH', undefined as string | undefined),

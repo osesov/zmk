@@ -191,6 +191,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             intelliSenseMode: Setting.intelliSenseMode.defaultValue,
             toolchain: Setting.toolchain.defaultValue,
             nexusServer: Setting.nexusServer.defaultValue,
+            artifactoryServer: Setting.artifactoryServer.defaultValue,
 
             path: Setting.path.defaultValue,
             pythonPath: Setting.pythonPath.defaultValue,
@@ -246,6 +247,7 @@ export class SettingsService implements ISettingsService, IAsyncServiceInit {
             intelliSenseMode: this.readConfiguration(Setting.intelliSenseMode),
             toolchain: this.readConfiguration(Setting.toolchain),
             nexusServer: this.readConfiguration(Setting.nexusServer),
+            artifactoryServer: this.readConfiguration(Setting.artifactoryServer),
 
             path: this.readEnvironment(Setting.path),
             pythonPath: this.readEnvironment(Setting.pythonPath),

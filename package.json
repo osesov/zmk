@@ -399,8 +399,13 @@
 				},
 				"zmk.nexusServer": {
 					"type": "string",
-					"description": "Nexus server URL for docker registry",
+					"description": "Nexus server URL to check availability",
 					"default": "https://nexus.dev.zodiac.tv:5000"
+				},
+				"zmk.artifactoryServer": {
+					"type": "string",
+					"description": "Artifactory server URL to check availability",
+					"default": "https://artifactory.zodiac.tv"
 				}
 			}
 		},
@@ -809,6 +814,7 @@
 	"license": "0BSD",
 	"dependencies": {
 		"jsonc-parser": "^3.3.1",
+		"minimatch": "^10.2.5",
 		"shell-quote": "^1.9.0",
 		"vscode-uri": "^3.1.0"
 	},

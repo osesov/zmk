@@ -84,55 +84,103 @@ export class BuilderService implements IBuilderService
         return this.settings.get(Setting.outputDir) ?? null;
     }
 
-    private async checkServers(outputChannel: vscode.OutputChannel)
+    private async checkNexusServer(outputChannel: vscode.OutputChannel): Promise<boolean | null>
     {
         const nexusServer = this.settings.get(Setting.nexusServer);
         if (!nexusServer) {
             outputChannel.appendLine('Nexus server is not configured.');
-            return;
+            return null;
         }
 
         outputChannel.appendLine(`Checking Nexus server: ${nexusServer}`);
 
-        while (true) {
-            // 1st. nexus.dev.zodiac.tv:5000 - docker registry
-            const result = await fetch(`${nexusServer}/v2/`, { method: 'GET' })
-                .then<boolean>(response => {
-                    // expect a 401 Unauthorized with header
-                    // "Docker-Distribution-Api-Version: registry/2.0"s
-                    if (response.ok) {
-                        // it become public?
-                        outputChannel.appendLine('Nexus server check passed.');
-                        return true;
-                    }
-                    else if (response.status === 401 && response.headers.get('Docker-Distribution-Api-Version') === 'registry/2.0') {
-                        outputChannel.appendLine('Nexus server check passed.');
-                        return true;
-                    } else {
-                        outputChannel.appendLine(`Nexus server check failed: ${response.status} ${response.statusText}`);
-                        return false;
-                    }
-                })
-                .catch<boolean>(error => {
-                    outputChannel.appendLine(`Nexus server check failed: ${error}`);
+        // 1st. nexus.dev.zodiac.tv:5000 - docker registry
+        const result = await fetch(`${nexusServer}/v2/`, { method: 'GET' })
+            .then<boolean>(response => {
+                // expect a 401 Unauthorized with header
+                // "Docker-Distribution-Api-Version: registry/2.0"s
+                if (response.ok) {
+                    // it become public?
+                    outputChannel.appendLine('Nexus server check passed.');
+                    return true;
+                }
+                else if (response.status === 401 && response.headers.get('Docker-Distribution-Api-Version') === 'registry/2.0') {
+                    outputChannel.appendLine('Nexus server check passed.');
+                    return true;
+                } else {
+                    outputChannel.appendLine(`Nexus server check failed: ${response.status} ${response.statusText}`);
                     return false;
-                });
+                }
+            })
+            .catch<boolean>(error => {
+                outputChannel.appendLine(`Nexus server check failed: ${error}`);
+                return false;
+            });
 
-            if (result) {
+        return result;
+    }
+
+    private async checkArtifactoryServer(outputChannel: vscode.OutputChannel): Promise<boolean | null>
+    {
+        const artifactoryServer = this.settings.get(Setting.artifactoryServer);
+        if (!artifactoryServer) {
+            outputChannel.appendLine('Artifactory server is not configured.');
+            return null;
+        }
+
+        outputChannel.appendLine(`Checking Artifactory server: ${artifactoryServer}`);
+
+        const result = await fetch(`${artifactoryServer}/artifactory/api/system/ping`, { method: 'GET' })
+            .then<boolean>(response => {
+                if (response.ok) {
+                    outputChannel.appendLine('Artifactory server check passed.');
+                    return true;
+                } else {
+                    outputChannel.appendLine(`Artifactory server check failed: ${response.status} ${response.statusText}`);
+                    return false;
+                }
+            })
+            .catch<boolean>(error => {
+                outputChannel.appendLine(`Artifactory server check failed: ${error}`);
+                return false;
+            });
+
+        return result;
+    }
+
+    private async checkServers(outputChannel: vscode.OutputChannel)
+    {
+        const checks = [
+            {
+                name: 'Nexus',
+                check: () => this.checkNexusServer(outputChannel)
+            },
+            {
+                name: 'Artifactory',
+                check: () => this.checkArtifactoryServer(outputChannel)
+            }
+        ]
+
+        while (true) {
+            const results = await Promise.all(checks.map(c => c.check()));
+            const failedChecks = results.map((result, index) => ({ result, name: checks[index].name }))
+                .filter(check => check.result === false)
+                .map(check => check.name);
+
+            if (failedChecks.length === 0) {
                 break;
             }
 
             const retryButton = 'Retry';
             const ignoreButton = 'Ignore';
             const selection = await vscode.window.showErrorMessage(
-                `Nexus server check failed: ${nexusServer}`,
-                // { modal: true },
+                `Failed to connect to ${failedChecks.join(' and ')} server(s).`,
                 retryButton,
                 ignoreButton
             );
 
             if (selection === retryButton) {
-                outputChannel.appendLine('Retrying Nexus server check...');
+                outputChannel.appendLine('Retrying server checks...');
                 continue;
             }
 
