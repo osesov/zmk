@@ -1,3 +1,5 @@
+import path from "path";
+
 export interface ParsedTarget
 {
     original: string;
@@ -51,4 +53,60 @@ export function getGNPath(path: string, withValidation: boolean): string | null
     }
 
     return path.slice(2);
+}
+
+// convert a path to target, e.g. /valhalla/file/path -> //file/path
+// if path is outside of the project root, return null
+export function fsPathToGNPath(p: string, projectRoot: string, suffix?: string): string | null
+{
+    const r = path.relative(projectRoot, p);
+    if (r.startsWith("..")) {
+        return null;
+    }
+
+    const normalizedPath = r.replace(/\\/g, "/");
+    return `//${normalizedPath}${suffix ?? ""}`;
+}
+
+
+export function splitPathIntoComponents(path: string): string[]
+{
+    const p = extractPathFromTargetOrPath(path);
+    return p.split("/").filter(part => part.length > 0);
+}
+
+export function matchPathPrefix(path: string[] | string, prefix: string[] | string): boolean
+{
+    if (typeof path === "string") {
+        path = splitPathIntoComponents(path);
+    }
+
+    if (typeof prefix === "string") {
+        prefix = splitPathIntoComponents(prefix);
+    }
+
+    if (prefix.length > path.length) {
+        return false;
+    }
+
+    for (let i = 0; i < prefix.length; i++) {
+        if (path[i] !== prefix[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+export function extractPathFromTargetOrPath(targetOrPath: string): string
+{
+    const sep = targetOrPath.indexOf(":");
+    const p = sep < 0 ? targetOrPath : targetOrPath.slice(0, sep);
+    return p;
+}
+
+export function extractPathComponentsFromTargetOrPath(targetOrPath: string): string[]
+{
+    const p = extractPathFromTargetOrPath(targetOrPath);
+    return splitPathIntoComponents(p);
 }

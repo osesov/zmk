@@ -6,14 +6,16 @@ import { ServiceContainer } from "../ServiceContainer";
 import { AppServices } from "../AppServices";
 import { Setting, SettingChangeEvent } from "../ISettingsService";
 import { SourceFileConfiguration } from "vscode-cpptools";
-import { getGNPath, parseTarget } from "../../components/parseTarget";
+import { getGNPath, matchPathPrefix, splitPathIntoComponents, parseTarget, fsPathToGNPath, extractPathComponentsFromTargetOrPath } from "../../components/parseTarget";
 import { MutableSourceFileConfiguration, MutableWorkspaceBrowseConfiguration } from "../../components/SourceFileConfiguration";
 import { build } from "../../components/constants";
 import { IWatchedFile } from "../IFileService";
+import { SingleUseQueue } from "../../components/SingleUseQueue";
 
+type CacheEntryTarget = ProjectJsonTarget & { name: string };
 interface CacheEntry
 {
-    targets: ProjectJsonTarget[]
+    targets: CacheEntryTarget[]
     cache: SourceFileConfiguration | undefined;
 }
 
@@ -48,7 +50,7 @@ function buildLinks(
         if (!links.has(path)) {
             links.set(path, { targets: [], cache: undefined });
         }
-        links.get(path)!.targets.push(target);
+        links.get(path)!.targets.push({ ...target, name: key });
 
         // deps
         for (const dep of target.deps ?? []) {
@@ -227,7 +229,11 @@ export class ProjectInfoService implements IProjectInfoService
         return this.projectJson;
     }
 
-    private getContainingFolder(uri: vscode.Uri): { valhallaDir: string, target: CacheEntry } | null
+    private getContainingFolder(uri: vscode.Uri): {
+        valhallaDir: string,
+        gnPath: string,
+        target: CacheEntry,
+    } | null
     {
         // extract relative path from uri
         const valhallaDir = this.settings.get(Setting.valhallaDir);
@@ -236,7 +242,7 @@ export class ProjectInfoService implements IProjectInfoService
         }
 
         const relativePath = path.relative(valhallaDir, uri.fsPath);
-        const parts = relativePath.split(path.sep);
+        const parts = splitPathIntoComponents(relativePath);
         const postUpdate: string[] = [];
 
         while (parts.length > 0) {
@@ -252,6 +258,7 @@ export class ProjectInfoService implements IProjectInfoService
                 return {
                     target: candidateTarget,
                     valhallaDir,
+                    gnPath: candidatePath,
                 };
             }
             postUpdate.push(candidatePath);
@@ -261,15 +268,16 @@ export class ProjectInfoService implements IProjectInfoService
         return null;
     }
 
+
     public getSourceFileConfiguration(uri: vscode.Uri, cpp: string | null): MutableSourceFileConfiguration | null
     {
-        const candidate = this.getContainingFolder(uri);
-        if (!candidate) {
+        const containingFolder = this.getContainingFolder(uri);
+        if (!containingFolder) {
             return null;
         }
 
-        const entry = candidate.target;
-        const valhallaDir = candidate.valhallaDir;
+        const entry = containingFolder.target;
+        const valhallaDir = containingFolder.valhallaDir;
         if (entry.cache) {
             return entry.cache;
         }
@@ -284,22 +292,55 @@ export class ProjectInfoService implements IProjectInfoService
 
         const defines = new Set<string>();
         const includeSeen = new Set<string>();
+        const containingFolderPath = extractPathComponentsFromTargetOrPath(containingFolder.gnPath);
 
-        for (const target of entry.targets) {
-            for (const define of target.defines ?? []) {
-                if (!defines.has(define)) {
-                    defines.add(define);
-                    config.defines.push(define);
+        type QueueItem = CacheEntryTarget;
+        const queue: SingleUseQueue<QueueItem> = new SingleUseQueue<QueueItem>(item => item.name);
+        for (const t of entry.targets) {
+            queue.enqueue(t);
+        }
+
+        while (queue.isNotEmpty) {
+            const target = queue.dequeue()!;
+
+            const definitiveTarget = (
+                target.type === 'shared_library'
+                || target.type === 'static_library'
+                || target.type === 'executable'
+                || target.type === 'source_set'
+            );
+
+            if (definitiveTarget) {
+                // relay on this configuration
+                for (const define of target.defines ?? []) {
+                    if (!defines.has(define)) {
+                        defines.add(define);
+                        config.defines.push(define);
+                    }
+                }
+
+                for (const includeDir of target.include_dirs ?? []) {
+                    if (!includeSeen.has(includeDir)) {
+                        includeSeen.add(includeDir);
+                        const p = getGNPath(includeDir, false);
+                        if (p) {
+                            const fullPath = path.join(valhallaDir, p);
+                            config.includePath.push(fullPath);
+                        }
+                    }
                 }
             }
 
-            for (const includeDir of target.include_dirs ?? []) {
-                if (!includeSeen.has(includeDir)) {
-                    includeSeen.add(includeDir);
-                    const p = getGNPath(includeDir, false);
-                    if (p) {
-                        const fullPath = path.join(valhallaDir, p);
-                        config.includePath.push(fullPath);
+            // recursively add dependencies from sub-folders
+            if (target.type === 'source_set' || target.type === 'group') {
+                for (const dep of target.deps ?? []) {
+
+                    if (!matchPathPrefix(dep, containingFolderPath))
+                        continue;
+
+                    const depTarget = this.projectJson?.targets?.[dep];
+                    if (depTarget) {
+                        queue.enqueue({...depTarget, name: dep});
                     }
                 }
             }
@@ -307,6 +348,7 @@ export class ProjectInfoService implements IProjectInfoService
 
         entry.cache = config;
         return config;
+
     }
 
     public getBrowseConfiguration(): MutableWorkspaceBrowseConfiguration | null
