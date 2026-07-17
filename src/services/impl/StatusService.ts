@@ -7,7 +7,7 @@ import { zmkCommand } from '../../components/constants';
 import { IBuilderService } from '../IBuilderService';
 import { ICompileCommandsService } from '../ICompileCommandsService';
 import { IDepsFileService } from '../IDepsFileService';
-import { assertNever } from '../../components/utils';
+import { assertNever, isValidLanguage } from '../../components/utils';
 import { IArgsFileService } from '../IArgsFileService';
 import { IProjectInfoService } from '../IProjectInfoService';
 
@@ -213,7 +213,7 @@ export class StatusService implements IStatusService
             return null;
         }
 
-        if (doc.languageId !== 'c' && doc.languageId !== 'cpp') {
+        if (!isValidLanguage(doc.languageId)) {
             return null;
         }
 

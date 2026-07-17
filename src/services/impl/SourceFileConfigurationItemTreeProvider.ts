@@ -7,7 +7,7 @@ import { ISourceFileConfigurationItemTreeProvider } from "../ISourceFileConfigur
 import { AppServiceContainer, AppServices } from "../AppServices";
 import { ISettingsService, JsonValue, Setting } from "../ISettingsService";
 import { Context, zmkCommand } from "../../components/constants";
-import { setContext, writeTextToClipboard } from "../../components/utils";
+import { isValidLanguage, setContext, writeTextToClipboard } from "../../components/utils";
 import { ICompileCommandsService, SourceFileConfigurationEx } from "../ICompileCommandsService";
 import { ISourceFileConfigurationService } from "../ISourceFileConfigurationService";
 
@@ -167,7 +167,12 @@ export class SourceFileConfigurationItemTreeProvider
 
         if (this.sourceFileInfo) {
             const loadCurrentConfig = async () => {
-                const uri = vscode.window.activeTextEditor?.document.uri;
+                const doc = vscode.window.activeTextEditor?.document;
+                const uri = doc?.uri;
+
+                if (!doc || !isValidLanguage(doc.languageId)) {
+                    return;
+                }
                 const config = uri ? await this.sourceFileInfo.getSourceFileConfiguration(uri) : null;
                 const compileCommand = uri ? await this.compileCommands.getSourceFileConfiguration(uri) : null;
                 this.setConfiguration(config, compileCommand);

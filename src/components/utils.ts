@@ -252,3 +252,8 @@ export function withoutException<T>(functionOrPromise: (() => T) | Promise<T>, r
         }
     }
 }
+
+export function isValidLanguage(languageId: string): boolean
+{
+    return languageId === 'c' || languageId === 'cpp';
+}
