@@ -221,6 +221,7 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
         // let nextIsDirAfterIncludePath = false;
         // let nextIsSysroot = false;
         const dirAfterIncludePaths: string[] = [];
+        const forcedIncludes: string[] = [];
         // sysroot affects paths, which started with '=' sign
         let sysroot: string | undefined = undefined;
 
@@ -233,7 +234,13 @@ export class CompileCommandsService implements ICompileCommandsService, vscode.D
             || optParser.getOpt('-idirafter', value => {dirAfterIncludePaths.push(value);})
             || optParser.getOpt('-D', value => {result.defines.push(value);})
             || optParser.getOpt('-std=', value => {result.standard = value as cpptools.CppStandard;})
+            || optParser.getOpt('-include', value => {forcedIncludes.push(value);})
             || optParser.skip(); // unrecognized option, skip
+        }
+
+
+        if (forcedIncludes.length > 0) {
+            result.forcedInclude = forcedIncludes;
         }
 
         result.includePath.push(...dirAfterIncludePaths);
