@@ -97,27 +97,8 @@ async function getFileMTime(filePath: string): Promise<number | null> {
     }
 }
 
-// it might interfere with build process, disable fo now
-//
-// Fo some reasons '.ninja_log' file stops to appear in the output folder,
-// and if ninja is run with '-t explain' options, it shows following lines:
-//
-// ```
-// ninja explain: command line not found in log for obj/components/common_runtime/src/crt/core.ArgumentList.o
-// ninja explain: obj/components/common_runtime/src/crt/core.ArgumentList.o is dirty
-// ...
-// ```
-//
-// The suspect is that the 'ninja -t deps' locks the '.ninja_deps' file
-// and the build process cannot write to it while the DepsFileService is reading it
-//
-// Workaround is to make a copy of the '.ninja_deps' file and read from that copy
-//
-// This seems to require copying '.ninja_deps' along with all '*.ninja' files
-// including the toolchain.ninja, and these, which are located in the subfolders of
-// the 'obj' folder.
-//
-const enable = false;
+
+const enable = true;
 
 export class DepsFileService implements IDepsFileService, vscode.Disposable
 {
@@ -209,11 +190,149 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
         }
     }
 
+    // it would be better to load file using 'ninja -t deps' command, but it
+    // seems to lock the '.ninja_deps' and/or '.ninja_log' files and prevents
+    // build process to write to them, so for now we just read the file directly
+    //
+    // More details in the comments of the 'loadFile' method below
+    private async loadFileDirectly(fileName: string, outputDir: string | undefined): Promise<PairedDependencies | null>
+    {
+        if (!outputDir)
+            return Promise.resolve(null);
+
+        const trimNullBytes = (str: string): string => {
+            const nullIndex = str.indexOf('\0');
+            return nullIndex >= 0 ? str.substring(0, nullIndex) : str;
+        }
+        type Entry = { name: string, mtime: bigint, deps: number[] };
+
+        const paths = new Map<number, Entry>();
+        const deps: Dependencies = {};
+        const rdeps: Dependencies = {};
+
+        // deal with file being written. Buffer should throw and error if access
+        // out of range. Parser would stop and return what it has read so far.
+        // We will try to read the file again on next change event.
+        try {
+            const currentVersion = 4;
+            const buffer: Buffer = await fs.readFile(fileName);
+            let offset = 0;
+
+            const header = buffer.toString('utf8', offset, offset + 12);
+            offset += 12;
+
+            const version = buffer.readUInt32LE(offset);
+            offset += 4;
+
+            if (buffer.length < offset) {
+                throw new Error(`Unexpected .ninja_deps file format: buffer too short`);
+            }
+
+            if (header !== '# ninjadeps\n' || version !== currentVersion) {
+                throw new Error(`Unexpected .ninja_deps file format: header=${header}, version=${version}`);
+            }
+
+            while (offset < buffer.length) {
+                const recordLength = buffer.readUInt32LE(offset);
+                offset += 4;
+
+                const isDeps = (recordLength & 0x80000000) !== 0;
+                const size = recordLength & 0x7FFFFFFF;
+
+                if (isDeps) {
+                    if (size % 4 !== 0) {
+                        throw new Error(`Unexpected .ninja_deps file format: deps record size is not a multiple of 4`);
+                    }
+
+                    // The ID of the path for which we're listing the dependencies.
+                    const pathId = buffer.readUInt32LE(offset);
+                    offset += 4;
+
+                    // Followed by the mtime in nanoseconds as u64 (8 bytes) in version 4, or in seconds as u32 (4 bytes) in version 3.
+                    // - On Windows, the year 2000 is used as the epoch instead of the Unix epoch.
+                    // - The value 0 means 'does not exist'. 1 is used for mtimes that were actually 0.
+
+                    const mtime = version === 4 ? buffer.readBigUInt64LE(offset) : BigInt(buffer.readUInt32LE(offset));
+                    offset += version === 4 ? 8 : 4;
+
+                    // Followed by the IDs of all the dependencies (paths).
+                    let numDeps = (size - (version === 4 ? 12 : 8)) / 4;
+
+                    const pathEntry = paths.get(pathId);
+                    if (!pathEntry) {
+                        throw new Error(`Unexpected .ninja_deps file format: path ID ${pathId} not found`);
+                    }
+
+                    pathEntry.mtime = mtime;
+                    pathEntry.deps = [];
+                    for (let i = 0; i < numDeps; i++) {
+                        const depId = buffer.readUInt32LE(offset);
+                        offset += 4;
+
+                        // console.log(`Dependency record: ${pathId} -> ${depId}, mtime=${mtime}`);
+                        pathEntry.deps.push(depId);
+                    }
+                }
+                else { // path record
+                    if (size <= 4) {
+                        throw new Error(`Unexpected .ninja_deps file format: path record size is zero`);
+                    }
+
+                    const pathLength = size - 4;
+                    const pathStr = trimNullBytes(buffer.toString('utf8', offset, offset + pathLength));
+                    offset += pathLength;
+
+                    // the last 4 bytes are ID (2-complemented)
+                    const id = ~buffer.readUInt32LE(offset);
+                    offset += 4;
+
+                    // console.log(`Path record: ${pathStr} -> ${id}`);
+                    paths.set(id, {
+                        name: pathStr,
+                        mtime: BigInt(0),
+                        deps: [],
+                    });
+                }
+            }
+        }
+
+        catch (err) {
+            // This might happen if the build process is running and the .ninja_deps file is being written
+            // to while we are reading it.
+            //
+            console.error(`Failed to read .ninja_deps file: ${err}. Ignore and wait for next change event.`);
+        }
+
+        // resolve all paths to absolute paths
+        for (const entry of paths.values()) {
+            entry.name = path.resolve(outputDir, entry.name);
+        }
+
+        // finally transform dependencies
+        for (const [id, entry] of paths.entries()) {
+            const target = entry.name;
+
+            entry.deps.map(depId => {
+                const depEntry = paths.get(depId);
+                return depEntry ? depEntry.name : null;
+            }).filter(depName => depName !== null).forEach(depName => {
+                const dep = depName!;
+                if (!deps[target]) {
+                    deps[target] = [];
+                }
+                deps[target].push(dep);
+
+                if (!rdeps[dep]) {
+                    rdeps[dep] = [];
+                }
+                rdeps[dep].push(target);
+            });
+        }
+        return { deps, rdeps };
+    }
+
     private async resetFile(): Promise<void>
     {
-        if (!enable)
-            return;
-
         const fileName = this.fileWatcher.filePath;
 
         if (this.disposed) {
@@ -237,9 +356,13 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
             return;
         }
 
+        if (!enable)
+            return;
+
         if (this.fileTime === null || mtime > this.fileTime) {
             this.fileTime = mtime;
-            const data = await this.loadFile(this.context, this.settings.get(Setting.outputDir));
+            const data = await this.loadFileDirectly(fileName, this.settings.get(Setting.outputDir));
+            // const data = await this.loadFile(this.context, this.settings.get(Setting.outputDir));
             if (mtime === this.fileTime) {
                 this.deps = data;
                 this._onChange.fire();
@@ -265,6 +388,30 @@ export class DepsFileService implements IDepsFileService, vscode.Disposable
         });
     }
 
+    // it might interfere with build process, disable for now
+    //
+    // IF I run that concurrently with build process, for some reasons
+    // '.ninja_log' file stops to appear in the output folder, and if ninja is
+    // run with '-t explain' options, it shows following lines:
+    //
+    // ```
+    // ninja explain: command line not found in log for obj/components/common_runtime/src/crt/core.ArgumentList.o
+    // ninja explain: obj/components/common_runtime/src/crt/core.ArgumentList.o is dirty
+    // ...
+    // ```
+    //
+    // The suspect is that the 'ninja -t deps' locks the '.ninja_deps' file and
+    // the build process cannot write to it while the DepsFileService is reading
+    // it
+    //
+    // Workaround is to make a copy of the '.ninja_deps' file and read from that
+    // copy. However that seems to require copying '.ninja_deps' along with all
+    // '*.ninja' files including the toolchain.ninja, and these, which are
+    // located in the subfolders of the 'obj' folder.
+    //
+    // So here i am reading the '.ninja_deps' file directly. Hope it would not change
+    // format in the future.
+    //
     private async loadFile(context: vscode.ExtensionContext, outputDir: string | undefined): Promise<PairedDependencies | null>
     {
         if (!outputDir) {
