@@ -10,6 +10,7 @@ import { IDepsFileService } from '../IDepsFileService';
 import { assertNever, isValidLanguage } from '../../components/utils';
 import { IArgsFileService } from '../IArgsFileService';
 import { IProjectInfoService } from '../IProjectInfoService';
+import { ISourceFileConfigurationService } from '../ISourceFileConfigurationService';
 
 const selector: vscode.DocumentSelector = [
     { language: 'c++' },
@@ -25,7 +26,7 @@ enum KnownAs
     MaybeDependencyFile,
 }
 
-type StatusServiceDeps = Pick<AppServices, 'initialBuild' | 'buildComplete' | 'argsFile' | 'projectInfo' | 'settings' | 'builder' | 'compileCommands' | 'depsFile'>;
+type StatusServiceDeps = Pick<AppServices, 'initialBuild' | 'buildComplete' | 'argsFile' | 'projectInfo' | 'settings' | 'builder' | 'compileCommands' | 'depsFile' | 'sourceFileInfo'>;
 
 export function createStatusService(services: AppServiceContainer): StatusService
 {
@@ -38,6 +39,7 @@ export function createStatusService(services: AppServiceContainer): StatusServic
         compileCommands: services.get('compileCommands'),
         projectInfo: services.get('projectInfo'),
         depsFile: services.get('depsFile'),
+        sourceFileInfo: services.get('sourceFileInfo'),
     });
 }
 
@@ -52,9 +54,11 @@ export class StatusService implements IStatusService
     private buildStatus: vscode.LanguageStatusItem | null = null;
     private currentConfig: vscode.LanguageStatusItem | null = null;
     private currentTarget: vscode.LanguageStatusItem | null = null;
+    private currentToolchainSelector: vscode.LanguageStatusItem | null = null;
     private currentToolchain: vscode.LanguageStatusItem | null = null;
     private statusButton: vscode.StatusBarItem | null = null;
     private buildCount = 0;
+    private sourceFileInfo: ISourceFileConfigurationService;
 
     constructor(deps: StatusServiceDeps)
     {
@@ -66,6 +70,7 @@ export class StatusService implements IStatusService
         this.depsFileService = deps.depsFile;
         this.argsFile = deps.argsFile;
         this.projectInfo = deps.projectInfo;
+        this.sourceFileInfo = deps.sourceFileInfo;
 
         this.builder.onBuildStarted(() => (this.buildStarted(), this.updateStatusButton()));
         this.builder.onBuildFinished((success) => (this.buildCompleted(success.success), this.updateStatusButton()));
@@ -77,9 +82,12 @@ export class StatusService implements IStatusService
         this.settings.onChange(e => (e.affects(Setting.config)) && this.updateCurrentConfig());
         this.settings.onChange(e => (e.affects(Setting.target)) && this.updateCurrentTarget());
 
-        initialBuild.finally(() => this.updateToolchain());
-        buildComplete(() => this.updateToolchain());
-        this.argsFile.onChange(() => this.updateToolchain());
+        this.settings.onChange(e => (e.affects(Setting.toolchain)) && this.updateToolchainInfo());
+        initialBuild.finally(() => this.updateToolchainInfo());
+        buildComplete(() => this.updateToolchainInfo());
+        this.argsFile.onChange(() => this.updateToolchainInfo());
+        this.compileCommands.onChange(() => this.updateToolchainInfo());
+        this.projectInfo.onChange(() => this.updateToolchainInfo());
 
         this.argsFile.onChange(() => this.updateStatusButton());
         this.projectInfo.onChange(() => this.updateStatusButton());
@@ -89,12 +97,26 @@ export class StatusService implements IStatusService
         this.updateSettings();
     }
 
-    private async updateToolchain()
+    private async updateToolchainInfo()
+    {
+        await this.updateToolchainSelector();
+        await this.updateCurrentToolchain();
+    }
+
+    private async updateToolchainSelector()
+    {
+        if (!this.currentToolchainSelector)
+            return;
+        const toolchain = await this.builder.toolchainSelector();
+        this.currentToolchainSelector.detail = toolchain ?? 'not set';
+    }
+
+    private async updateCurrentToolchain()
     {
         if (!this.currentToolchain)
             return;
-        const toolchain = await this.builder.toolchainSelector();
-        this.currentToolchain.detail = toolchain ?? 'not set';
+        const browseConfiguration = await this.sourceFileInfo.getBrowseConfiguration();
+        this.currentToolchain.detail = browseConfiguration?.compilerPath ?? 'not set';
     }
 
     private updateCurrentConfig()
@@ -134,6 +156,8 @@ export class StatusService implements IStatusService
             this.currentConfig = null;
             this.currentTarget?.dispose();
             this.currentTarget = null;
+            this.currentToolchainSelector?.dispose();
+            this.currentToolchainSelector = null;
             this.currentToolchain?.dispose();
             this.currentToolchain = null;
 
@@ -159,10 +183,16 @@ export class StatusService implements IStatusService
                 this.currentTarget.text = 'Valhalla Target';
                 this.updateCurrentTarget();
             }
+            if (!this.currentToolchainSelector) {
+                this.currentToolchainSelector = vscode.languages.createLanguageStatusItem('zmk-current-toolchain', selector);
+                this.currentToolchainSelector.text = 'Valhalla Toolchain Selector';
+                this.updateToolchainSelector();
+            }
+
             if (!this.currentToolchain) {
-                this.currentToolchain = vscode.languages.createLanguageStatusItem('zmk-current-toolchain', selector);
+                this.currentToolchain = vscode.languages.createLanguageStatusItem('zmk-current-toolchain-path', selector);
                 this.currentToolchain.text = 'Valhalla Toolchain';
-                this.updateToolchain();
+                this.updateCurrentToolchain();
             }
 
             if (!this.statusButton) {
@@ -238,8 +268,9 @@ export class StatusService implements IStatusService
         }
 
         // show build status and if the current file is a part of the build
+        const currentDoc = vscode.window.activeTextEditor?.document;
 
-        const knownFile = await this.isKnownFile(vscode.window.activeTextEditor?.document);
+        const knownFile = await this.isKnownFile(currentDoc);
         const config = this.settings.get(Setting.config);
         const target = this.settings.get(Setting.target);
 
@@ -253,10 +284,14 @@ export class StatusService implements IStatusService
         tooltip.supportHtml = true;
         tooltip.supportThemeIcons = true;
 
+        const sourceFileConfig = currentDoc ? await this.sourceFileInfo.getSourceFileConfiguration(currentDoc.uri) : await this.sourceFileInfo.getBrowseConfiguration();
+
         tooltip.appendMarkdown('<table>');
         tooltip.appendMarkdown('<tr><td><b>Config:</b></td><td>' + (config ?? 'not set') + '</td></tr>');
         tooltip.appendMarkdown('<tr><td><b>Target:</b></td><td>' + (target ?? 'not set') + '</td></tr>');
-        tooltip.appendMarkdown('<tr><td><b>Toolchain:</b></td><td>' + (await this.builder.toolchainSelector() ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Toolchain selector:</b></td><td>' + (await this.builder.toolchainSelector() ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Compiler path:</b></td><td>' + (sourceFileConfig?.compilerPath ?? 'not set') + '</td></tr>');
+        tooltip.appendMarkdown('<tr><td><b>Standard:</b></td><td>' + (sourceFileConfig?.standard ?? 'not set') + '</td></tr>');
         tooltip.appendMarkdown('<tr><td><b>Build status:</b></td><td>' + (this.buildCount > 0 ? 'in progress...' : (this.buildStatus?.detail ?? 'unknown')) + '</td></tr>');
 
         for (const [name, service] of Object.entries({
