@@ -3,6 +3,12 @@
 	"displayName": "zmk",
 	"description": "Zodiac Make",
 	"version": "2.7.0",
+	"icon": "./images/valhalla.png",
+	"galleryBanner": {
+		"color": "#C80000",
+		"theme": "dark"
+	},
+	"pricing": "Free",
 	"engines": {
 		"vscode": "^1.125.0"
 	},
